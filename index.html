@@ -3,157 +3,250 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Privacidad: la página solo puede conectarse a su propio origen; ningún dato puede enviarse a otro servidor. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' data: blob:; worker-src 'self' blob:; object-src blob:; frame-src blob:; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex, nofollow">
   <title>Presupuestos</title>
-  <meta name="description" content="Crea presupuestos y recupera el precio al que presupuestaste cada material a cada cliente.">
   <meta name="theme-color" content="#1d4ed8">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main class="app">
+  <div class="app">
     <header class="top no-print">
-      <h1>Presupuestos</h1>
-      <nav class="tabs" role="tablist">
-        <button class="tab active" data-tab="buscar">Buscar precios</button>
-        <button class="tab" data-tab="editor">Presupuesto</button>
-        <button class="tab" data-tab="lista">Historial</button>
-        <button class="tab" data-tab="importar">Importar PDF</button>
-        <button class="tab" data-tab="ajustes">Ajustes</button>
+      <div class="brand"><img id="brandLogo" src="icon.svg" alt="" height="28"><span id="brandName">Presupuestos</span></div>
+      <nav class="tabs">
+        <a href="#nuevo" data-tab="nuevo">Nuevo presupuesto</a>
+        <a href="#buscar" data-tab="buscar">Buscador histórico</a>
+        <a href="#articulos" data-tab="articulos">Artículos</a>
+        <a href="#presupuestos" data-tab="presupuestos">Presupuestos</a>
+        <a href="#clientes" data-tab="clientes">Clientes</a>
+        <a href="#importar" data-tab="importar">Importar</a>
+        <a href="#ajustes" data-tab="ajustes">Ajustes</a>
       </nav>
     </header>
+    <div id="aviso" class="banner hidden no-print"></div>
 
-    <!-- Buscar precios anteriores -->
-    <section class="panel no-print" id="tab-buscar">
-      <div class="card">
-        <h2>¿A qué precio se lo presupuesté?</h2>
-        <div class="grid2">
-          <label>Cliente
-            <input id="qCliente" list="clientes" placeholder="Todos los clientes" autocomplete="off">
-          </label>
-          <label>Material / concepto
-            <input id="qMaterial" list="conceptos" placeholder="p. ej. camisetas" autocomplete="off">
-          </label>
-        </div>
-        <div id="qResumen" class="summary"></div>
+    <!-- 1. Nuevo presupuesto -->
+    <main class="screen" id="s-nuevo">
+      <div class="split">
+        <section class="pane left" id="edPane">
+          <div class="pane-head">
+            <h2 id="edTitulo">Nuevo presupuesto</h2>
+            <div class="btns">
+              <button class="btn ghost" id="edNuevo" title="Vaciar y empezar otro">Nuevo</button>
+              <button class="btn ghost" id="edDuplicar" title="Copia con nueva fecha y número">Duplicar</button>
+            </div>
+          </div>
+          <div class="grid g4">
+            <label class="s2">Cliente
+              <input id="edCliente" list="dlClientes" autocomplete="off" placeholder="Nombre del cliente">
+              <small id="edClienteInfo" class="muted"></small>
+            </label>
+            <label>Nº <input id="edNumero"></label>
+            <label>Fecha <input id="edFecha" type="date"></label>
+          </div>
+          <div id="edLineas" class="lines"></div>
+          <div class="drop-hint" id="edDrop">Arrastra aquí partidas del histórico o pulsa «Usar como referencia»</div>
+          <button class="btn ghost" id="edAdd">+ Añadir partida</button>
+          <div class="grid g2 foot">
+            <label>Notas y condiciones
+              <textarea id="edNotas" rows="3" placeholder="Plazo de entrega, forma de pago…"></textarea>
+            </label>
+            <div class="totals">
+              <div><span>Base imponible</span><strong id="edBase">0,00 €</strong></div>
+              <div><span>IVA <input id="edIva" class="mini" inputmode="decimal"> %</span><strong id="edCuota">0,00 €</strong></div>
+              <div class="grand"><span>Total</span><strong id="edTotal">0,00 €</strong></div>
+            </div>
+          </div>
+          <div class="btns actions">
+            <button class="btn" id="edGuardar">Guardar</button>
+            <button class="btn ghost" id="edImprimir">Imprimir / PDF</button>
+            <span id="edMsg" class="muted"></span>
+          </div>
+        </section>
+
+        <aside class="pane right" id="refPane">
+          <div class="pane-head"><h2>Referencias del histórico</h2></div>
+          <input id="refQ" class="search" placeholder="Busca: alupanel 3x2, lona, letras corpóreas…" autocomplete="off">
+          <div class="filters" id="refFiltros"></div>
+          <p class="muted small" id="refAyuda">Se busca solo con lo que escribes en la partida activa.</p>
+          <div id="refStats"></div>
+          <div id="refList" class="results"></div>
+        </aside>
       </div>
-      <div class="card">
+    </main>
+
+    <!-- 2. Buscador histórico -->
+    <main class="screen hidden" id="s-buscar">
+      <section class="pane">
+        <input id="bQ" class="search big" placeholder="¿Qué trabajo buscas? p. ej. Alupanel 3x2" autocomplete="off">
+        <div class="filters" id="bFiltros"></div>
+        <div id="bStats"></div>
+        <p id="bInfo" class="muted small"></p>
+        <div id="bList" class="results wide"></div>
+      </section>
+    </main>
+
+    <!-- 3. Artículos / trabajos históricos -->
+    <main class="screen hidden" id="s-articulos">
+      <section class="pane">
+        <div class="pane-head">
+          <h2>Artículos y trabajos</h2>
+          <span id="aInfo" class="muted"></span>
+        </div>
+        <div class="filters">
+          <input id="aQ" placeholder="Filtrar (búsqueda inteligente)" autocomplete="off">
+          <select id="aCat"></select>
+          <select id="aAnio"></select>
+          <label class="check"><input type="checkbox" id="aRevisar"> Solo por revisar</label>
+        </div>
         <div class="table-wrap">
           <table class="data">
-            <thead><tr><th>Fecha</th><th>Cliente</th><th>Nº</th><th>Concepto</th><th class="num">Cant.</th><th class="num">Precio</th><th></th></tr></thead>
-            <tbody id="qResultados"></tbody>
+            <thead><tr><th>Fecha</th><th>Artículo</th><th>Categoría</th><th>Material</th><th>Medidas</th><th class="num">Cant.</th><th class="num">Precio ud.</th><th class="num">€/m²</th><th class="num">Total</th><th>Nº / cliente</th><th></th></tr></thead>
+            <tbody id="aTabla"></tbody>
           </table>
         </div>
-        <p id="qVacio" class="muted">Aún no hay presupuestos guardados. Impórtalos en «Importar PDF» o crea uno nuevo.</p>
-      </div>
-    </section>
+      </section>
+    </main>
 
-    <!-- Editor de presupuesto -->
-    <section class="panel hidden" id="tab-editor">
-      <div class="card no-print">
-        <div class="row-between">
-          <h2 id="edTitulo">Nuevo presupuesto</h2>
-          <button class="btn ghost" id="edNuevo">Empezar uno nuevo</button>
+    <!-- 4. Presupuestos anteriores -->
+    <main class="screen hidden" id="s-presupuestos">
+      <section class="pane">
+        <div class="pane-head">
+          <h2>Presupuestos</h2>
+          <input id="pQ" placeholder="Filtrar por nº, cliente o concepto" autocomplete="off" class="narrow">
         </div>
-        <p id="edOrigen" class="muted hidden"></p>
-        <div class="grid4">
-          <label class="span2">Cliente
-            <input id="edCliente" list="clientes" autocomplete="off" placeholder="Nombre del cliente">
-          </label>
-          <label>Nº presupuesto <input id="edNumero"></label>
-          <label>Fecha <input id="edFecha" type="date"></label>
-        </div>
+        <div class="chips" id="pAnios"></div>
         <div class="table-wrap">
-          <table class="data lines">
-            <thead><tr><th>Concepto</th><th class="num">Cant.</th><th class="num">Precio</th><th class="num">Dto. %</th><th class="num">Importe</th><th></th></tr></thead>
-            <tbody id="edLineas"></tbody>
+          <table class="data">
+            <thead><tr><th>Fecha</th><th>Nº</th><th>Cliente</th><th class="num">Partidas</th><th class="num">Base</th><th class="num">Total</th><th>Origen</th><th></th></tr></thead>
+            <tbody id="pTabla"></tbody>
           </table>
         </div>
-        <button class="btn ghost" id="edAddLinea">+ Añadir línea</button>
-        <div class="grid2 bottom">
-          <label>Notas / condiciones
-            <textarea id="edNotas" rows="3" placeholder="Plazo de entrega, forma de pago, validez…"></textarea>
-          </label>
-          <div class="totals">
-            <div><span>Base imponible</span><strong id="edBase">0,00 €</strong></div>
-            <div><span>IVA <input id="edIva" type="number" min="0" step="0.5" class="mini">%</span><strong id="edCuotaIva">0,00 €</strong></div>
-            <div class="grand"><span>Total</span><strong id="edTotal">0,00 €</strong></div>
+      </section>
+    </main>
+
+    <!-- 5. Clientes -->
+    <main class="screen hidden" id="s-clientes">
+      <section class="pane">
+        <div class="pane-head">
+          <h2>Clientes</h2>
+          <div class="btns">
+            <input id="cQ" placeholder="Buscar cliente" autocomplete="off" class="narrow">
+            <button class="btn" id="cNuevo">+ Cliente</button>
           </div>
         </div>
-        <div class="actions">
-          <button class="btn" id="edGuardar">Guardar</button>
-          <button class="btn ghost" id="edImprimir">Imprimir / PDF</button>
-          <span id="edMsg" class="muted"></span>
-        </div>
-        <details id="edTexto" class="hidden">
-          <summary>Texto leído del PDF</summary>
-          <pre id="edTextoPdf"></pre>
-        </details>
-      </div>
-    </section>
-
-    <!-- Historial -->
-    <section class="panel hidden no-print" id="tab-lista">
-      <div class="card">
-        <div class="row-between">
-          <h2>Presupuestos guardados</h2>
-          <input id="lFiltro" placeholder="Filtrar por cliente, nº o concepto" class="filter">
-        </div>
         <div class="table-wrap">
           <table class="data">
-            <thead><tr><th>Fecha</th><th>Nº</th><th>Cliente</th><th class="num">Líneas</th><th class="num">Total</th><th></th></tr></thead>
-            <tbody id="lTabla"></tbody>
+            <thead><tr><th>Nombre</th><th>CIF</th><th>Contacto</th><th class="num">Presupuestos</th><th>Último</th><th></th></tr></thead>
+            <tbody id="cTabla"></tbody>
           </table>
         </div>
-      </div>
-    </section>
+      </section>
+    </main>
 
     <!-- Importar -->
-    <section class="panel hidden no-print" id="tab-importar">
-      <div class="card">
-        <h2>Importar presupuestos en PDF</h2>
-        <p>Elige uno o varios PDF. La app lee cliente, fecha, número y líneas, y te los enseña para que los revises antes de guardar.</p>
-        <input type="file" id="pdfFiles" accept="application/pdf" multiple>
-        <p id="pdfMsg" class="muted"></p>
-        <p class="muted">Los PDF escaneados (fotos) no tienen texto que leer: en ese caso rellena el presupuesto a mano o pásamelos y los añado a <code>datos.json</code>.</p>
-      </div>
-      <div class="card">
+    <main class="screen hidden" id="s-importar">
+      <section class="pane" id="iInicio">
+        <h2>Importar presupuestos antiguos</h2>
+        <label class="dropzone" id="iDrop">
+          <input type="file" id="iFiles" multiple accept=".pdf,.xlsx,.xls,.xlsm,.ods,.csv,.txt,application/pdf">
+          <strong>Arrastra aquí los archivos o pulsa para elegirlos</strong>
+          <span class="muted">PDF, Excel (.xlsx, .xls), LibreOffice (.ods), CSV o texto. Se leen en este ordenador: no se suben a ningún sitio.</span>
+        </label>
+        <details>
+          <summary>Pegar texto de otro documento (Word, correo…)</summary>
+          <textarea id="iTexto" rows="8" placeholder="Copia aquí el presupuesto completo"></textarea>
+          <button class="btn ghost" id="iTextoBtn">Procesar texto</button>
+        </details>
+        <p id="iMsg" class="muted"></p>
+      </section>
+
+      <section class="pane hidden" id="iRevision">
+        <div class="pane-head">
+          <h2 id="iTitulo">Revisar importación</h2>
+          <div class="btns">
+            <button class="btn ghost" id="iDescartar">Descartar este</button>
+            <button class="btn" id="iGuardar">Guardar y seguir</button>
+            <button class="btn ghost" id="iGuardarTodos">Guardar todos</button>
+          </div>
+        </div>
+        <p class="muted small" id="iOrigen"></p>
+        <div class="grid g4">
+          <label class="s2">Cliente <input id="iCliente" list="dlClientes"></label>
+          <label>Nº <input id="iNumero"></label>
+          <label>Fecha <input id="iFecha" type="date"></label>
+        </div>
+        <p id="iDup" class="warn hidden"></p>
+        <div class="table-wrap">
+          <table class="data edit">
+            <thead><tr><th>Revisar</th><th>Artículo / descripción</th><th>Categoría</th><th>Material</th><th class="num">Ancho m</th><th class="num">Alto m</th><th class="num">Cant.</th><th class="num">Precio ud.</th><th class="num">Total</th><th></th></tr></thead>
+            <tbody id="iTabla"></tbody>
+          </table>
+        </div>
+        <button class="btn ghost" id="iAdd">+ Añadir partida</button>
+        <details id="iTextoOrig"><summary>Texto leído del archivo</summary><pre id="iTextoPre"></pre></details>
+      </section>
+
+      <section class="pane" id="iCopia">
         <h2>Copia de seguridad</h2>
-        <p>Los datos se guardan en este navegador. Descarga una copia de vez en cuando o para pasarlos a otro ordenador.</p>
-        <div class="actions">
-          <button class="btn" id="bkExport">Descargar copia (.json)</button>
-          <label class="btn ghost file-btn">Cargar copia<input type="file" id="bkImport" accept="application/json,.json"></label>
+        <p>Los datos están guardados <strong>solo en este navegador</strong>. Haz una copia de vez en cuando y guárdala en un sitio seguro de la empresa.
+          También sirve para pasar los datos a otro ordenador.</p>
+        <div class="btns">
+          <button class="btn" id="bkExport">Descargar copia</button>
+          <label class="check"><input type="checkbox" id="bkOrig"> incluir los PDF/Excel originales</label>
+          <label class="btn ghost file-btn">Cargar copia<input type="file" id="bkImport" accept=".json,application/json"></label>
         </div>
         <p id="bkMsg" class="muted"></p>
-      </div>
-    </section>
+      </section>
+    </main>
 
     <!-- Ajustes -->
-    <section class="panel hidden no-print" id="tab-ajustes">
-      <div class="card">
-        <h2>Datos de tu empresa (salen en el presupuesto impreso)</h2>
-        <div class="grid2">
-          <label>Nombre <input data-ajuste="nombre"></label>
-          <label>CIF / NIF <input data-ajuste="cif"></label>
-          <label>Dirección <input data-ajuste="direccion"></label>
-          <label>Teléfono / email <input data-ajuste="contacto"></label>
-          <label>IVA por defecto (%) <input data-ajuste="iva" type="number" min="0" step="0.5"></label>
-          <label>Validez del presupuesto <input data-ajuste="validez" placeholder="30 días"></label>
+    <main class="screen hidden" id="s-ajustes">
+      <section class="pane">
+        <h2>Datos de la empresa</h2>
+        <p class="muted small">Salen en el presupuesto impreso. Se guardan solos.</p>
+        <div class="grid g2">
+          <label>Nombre <input data-aj="nombre"></label>
+          <label>CIF / NIF <input data-aj="cif"></label>
+          <label>Dirección <input data-aj="direccion"></label>
+          <label>Teléfono / email / web <input data-aj="contacto"></label>
+          <label>IVA por defecto (%) <input data-aj="iva" inputmode="decimal"></label>
+          <label>Validez del presupuesto <input data-aj="validez"></label>
         </div>
-        <label>Condiciones por defecto
-          <textarea data-ajuste="condiciones" rows="3"></textarea>
-        </label>
-        <p class="muted">Se guardan solos.</p>
-      </div>
-    </section>
+        <label>Condiciones por defecto <textarea data-aj="condiciones" rows="3"></textarea></label>
+        <h2>Logotipo</h2>
+        <div class="logo-row">
+          <img id="ajLogoImg" alt="Logotipo" class="hidden">
+          <div class="btns">
+            <label class="btn ghost file-btn">Elegir imagen<input type="file" id="ajLogo" accept="image/*"></label>
+            <button class="btn ghost hidden" id="ajLogoQuitar">Quitar</button>
+          </div>
+        </div>
+        <p class="muted small">Sale en la cabecera de la aplicación y en los presupuestos impresos. Se guarda solo en este navegador.</p>
+      </section>
+      <section class="pane">
+        <div class="pane-head">
+          <h2>Sinónimos del buscador</h2>
+          <button class="btn ghost" id="ajSinReset">Restaurar los de fábrica</button>
+        </div>
+        <p class="muted small">Una línea por concepto: <code>Nombre [Categoría] = sinónimo, sinónimo, …</code>. Todas las palabras de una línea se consideran lo mismo al buscar.</p>
+        <textarea id="ajSin" rows="16" spellcheck="false" class="mono"></textarea>
+        <div class="btns"><button class="btn" id="ajSinGuardar">Guardar sinónimos</button><span id="ajMsg" class="muted"></span></div>
+      </section>
+    </main>
 
-    <datalist id="clientes"></datalist>
-    <datalist id="conceptos"></datalist>
-  </main>
+    <datalist id="dlClientes"></datalist>
+    <datalist id="dlCategorias"></datalist>
+    <datalist id="dlMateriales"></datalist>
+  </div>
 
-  <!-- Presupuesto para imprimir -->
+  <dialog id="modal"><div id="modalBody"></div></dialog>
+  <div id="toast" class="toast hidden" role="status"></div>
   <div id="print" class="print-only"></div>
 
-  <script src="parser.js"></script>
-  <script src="app.js"></script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>
