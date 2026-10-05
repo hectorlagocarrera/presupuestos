@@ -18,7 +18,7 @@ export function imprimir(pres, partidas) {
   ].filter(Boolean).map(esc).join('<br>');
   $('#print').innerHTML = `
     <header class="p-head">
-      <div>${a.logo ? `<img class="p-logo" src="${esc(a.logo)}" alt="">` : ''}<h1>${esc(a.nombre || '')}</h1><p>${[a.cif, a.direccion, a.contacto].filter(Boolean).map(esc).join('<br>')}</p></div>
+      <div><img class="p-logo" src="${esc(a.logo || 'logo.png')}" alt=""><h1>${esc(a.nombre || '')}</h1><p>${[a.cif && 'NIF ' + a.cif, a.direccion, a.contacto].filter(Boolean).map(esc).join('<br>')}</p></div>
       <div class="p-meta"><h2>PRESUPUESTO</h2><p>Nº <strong>${esc(pres.numero || '')}</strong><br>Fecha: ${fmtDate(pres.fecha)}</p></div>
     </header>
     <div class="p-client"><span>Cliente</span><strong>${esc(pres.clienteNombre || '')}</strong>

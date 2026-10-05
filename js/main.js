@@ -25,13 +25,12 @@ function initAjustes() {
   });
 }
 
-// Logotipo: se reduce a 600 px y se guarda como imagen dentro de los ajustes.
+// Logotipo: el de la empresa (logo.png) o uno propio, reducido a 600 px y guardado en los ajustes.
 function pintarLogo() {
   const logo = data.ajustes.logo;
-  $('#brandLogo').src = logo || 'icon.svg';
-  $('#brandName').textContent = $('[data-aj=nombre]').value || data.ajustes.nombre || 'Presupuestos';
-  $('#ajLogoImg').classList.toggle('hidden', !logo);
-  if (logo) $('#ajLogoImg').src = logo;
+  $('#brandLogo').src = logo || 'logo.png';
+  $('#ajLogoImg').src = logo || 'logo.png';
+  $('#ajLogoImg').classList.remove('hidden');
   $('#ajLogoQuitar').classList.toggle('hidden', !logo);
 }
 
@@ -52,7 +51,6 @@ function initLogo() {
     pintarLogo();
   });
   $('#ajLogoQuitar').addEventListener('click', async () => { await saveAjustes({ logo: '' }); pintarLogo(); });
-  $('[data-aj=nombre]').addEventListener('input', () => { $('#brandName').textContent = $('[data-aj=nombre]').value || 'Presupuestos'; });
   pintarLogo();
 }
 

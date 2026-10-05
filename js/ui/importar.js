@@ -1,8 +1,9 @@
 // Importación del histórico (PDF, Excel, ODS, CSV, texto) con revisión manual, y copias de seguridad.
 import { $, esc, fmtEur, fmtNum, numOrNull, today, calcPartida, round } from '../util.js';
 import { textToBudget, rowsToBudgets } from '../parse.js';
+import { itemsToRows, rowsToLines, looksLikeColumns, columnsToBudgets } from '../columnas.js';
 import { classify } from '../search.js';
-import { data, savePresupuesto, exportar, importar, notify } from '../store.js';
+import { data, savePresupuesto, exportar, importar, notify, saveAjustes } from '../store.js';
 import { toast } from './common.js';
 import { onShow } from './nav.js';
 
@@ -21,37 +22,36 @@ function loadScript(src) {
   return loaded[src];
 }
 
-async function pdfToLines(buf) {
+// PDF → páginas con filas y celdas (posición de cada texto).
+async function pdfToPages(buf, progreso) {
   await loadScript('vendor/pdf.min.js');
   const lib = window.pdfjsLib;
   lib.GlobalWorkerOptions.workerSrc = 'vendor/pdf.worker.min.js';
   const doc = await lib.getDocument({ data: buf, isEvalSupported: false }).promise;
-  const out = [];
+  const pages = [];
   for (let n = 1; n <= doc.numPages; n++) {
     const page = await doc.getPage(n);
-    const { items } = await page.getTextContent();
-    const rows = [];
-    for (const it of items) {
-      if (!it.str || !it.str.trim()) continue;
-      const y = it.transform[5];
-      let row = rows.find((r) => Math.abs(r.y - y) < 3);
-      if (!row) { row = { y, parts: [] }; rows.push(row); }
-      row.parts.push({ x: it.transform[4], s: it.str.trim() });
-    }
-    rows.sort((a, b) => b.y - a.y);
-    for (const r of rows) out.push(r.parts.sort((a, b) => a.x - b.x).map((p) => p.s).join(' '));
+    pages.push({ rows: itemsToRows((await page.getTextContent()).items) });
+    page.cleanup();
+    if (n % 20 === 0 || n === doc.numPages) progreso?.(`página ${n} de ${doc.numPages}`);
   }
-  return out;
+  await doc.destroy();
+  return pages;
 }
 
 // Archivo → [{ b (presupuesto detectado), texto, archivo }]
-async function leerArchivo(file) {
+async function leerArchivo(file, progreso) {
   const ext = file.name.split('.').pop().toLowerCase();
   const archivo = { nombre: file.name, tipo: file.type || ext, blob: file };
   if (ext === 'pdf') {
-    const lines = await pdfToLines(await file.arrayBuffer());
-    const b = textToBudget(lines);
-    return [{ b, texto: lines.join('\n'), archivo, aviso: lines.length ? '' : 'El PDF no tiene texto (probablemente es un escaneo). Añade las partidas a mano.' }];
+    const pages = await pdfToPages(await file.arrayBuffer(), (t) => progreso?.(`${file.name}: ${t}`));
+    const vacio = !pages.some((p) => p.rows.length);
+    if (looksLikeColumns(pages)) {
+      // Formato con columnas Cantidad/Artículo/Precio/Subtotal (puede traer muchos presupuestos).
+      return columnsToBudgets(pages, file.name).map((b) => ({ b, texto: '', archivo }));
+    }
+    const lines = pages.flatMap((p) => rowsToLines(p.rows));
+    return [{ b: textToBudget(lines), texto: lines.join('\n'), archivo, aviso: vacio ? 'El PDF no tiene texto (probablemente es un escaneo). Añade las partidas a mano.' : '' }];
   }
   if (['xlsx', 'xls', 'xlsm', 'ods', 'csv'].includes(ext)) {
     await loadScript('vendor/xlsx.full.min.js');
@@ -95,10 +95,12 @@ function mostrarCola() {
   renderTabla();
 }
 
+const esDuplicado = (n, f) => n && data.presupuestos.find((p) => p.numero === n && (!f || p.fecha === f));
+
 function dupCheck() {
   const n = $('#iNumero').value.trim();
   const f = $('#iFecha').value;
-  const dup = n && data.presupuestos.find((p) => p.numero === n && (!f || p.fecha === f));
+  const dup = esDuplicado(n, f);
   $('#iDup').classList.toggle('hidden', !dup);
   if (dup) $('#iDup').textContent = `Ya hay un presupuesto nº ${n}${dup.fecha ? ' con fecha ' + dup.fecha.split('-').reverse().join('/') : ''}. ¿Quizá ya lo importaste?`;
 }
@@ -134,15 +136,33 @@ async function guardarActual(leer = true) {
   const b = it.b;
   const reuse = it.archivo ? archivosGuardados.get(it.archivo.blob) : null;
   const p = await savePresupuesto(
-    { numero: b.numero, fecha: b.fecha || today(), clienteNombre: b.cliente, origen: 'importado', archivoId: reuse || null, archivoNombre: it.archivo?.nombre || '', notas: '' },
+    { numero: b.numero, fecha: b.fecha || today(), clienteNombre: b.cliente, clienteDatos: b.clienteDatos, origen: 'importado', archivoId: reuse || null, archivoNombre: it.archivo?.nombre || '', notas: '' },
     b.partidas,
-    { archivo: it.archivo && !reuse ? it.archivo : null, silencioso: cola.length > 1 },
+    { archivo: it.archivo && !reuse ? it.archivo : null, silencioso: cola.length > 1, totalesPdf: b.base != null ? { base: b.base, total: b.total } : null },
   );
   if (it.archivo && p.archivoId) archivosGuardados.set(it.archivo.blob, p.archivoId);
   cola.shift();
 }
 
+// Datos de la empresa sacados de la cabecera del PDF (solo si aún no se han puesto en Ajustes).
+async function datosEmpresa(lineas) {
+  const nif = lineas.find((l) => /n\.?i\.?f|c\.?i\.?f/i.test(l));
+  const contacto = lineas.filter((l) => /tel|email|@|www/i.test(l));
+  const resto = lineas.slice(1).filter((l) => l !== nif && !contacto.includes(l));
+  await saveAjustes({
+    nombre: lineas[0],
+    cif: nif ? nif.replace(/^n\.?i\.?f\.?\s*|^c\.?i\.?f\.?\s*/i, '') : '',
+    direccion: resto.join(', '),
+    contacto: contacto.map((l) => l.replace(/^email:\s*/i, '')).join(' · '),
+  });
+  document.querySelectorAll('[data-aj]').forEach((el) => { el.value = data.ajustes[el.dataset.aj] ?? ''; });
+  toast('Datos de la empresa rellenados desde el PDF (revísalos en Ajustes).');
+}
+
 async function encolar(items) {
+  // Datos de la empresa: los del presupuesto más reciente (por si cambió la razón social).
+  const reciente = items.filter((x) => x.b.empresa?.length).sort((a, b) => (b.b.fecha || '').localeCompare(a.b.fecha || ''))[0];
+  if (reciente && !data.ajustes.nombre) await datosEmpresa(reciente.b.empresa);
   cola.push(...items);
   mostrarCola();
 }
@@ -155,7 +175,7 @@ export function initImportar() {
     const nuevos = [];
     for (const f of files) {
       msg.textContent = `Leyendo ${f.name}…`;
-      try { nuevos.push(...await leerArchivo(f)); } catch (err) { toast(`${f.name}: ${err.message}`); }
+      try { nuevos.push(...await leerArchivo(f, (t) => { msg.textContent = `Leyendo ${t}…`; })); } catch (err) { toast(`${f.name}: ${err.message}`); }
     }
     msg.textContent = nuevos.length ? '' : 'No se pudo leer ningún archivo.';
     if (nuevos.length) encolar(nuevos);
@@ -215,11 +235,19 @@ export function initImportar() {
   });
   $('#iGuardarTodos').addEventListener('click', async () => {
     const n = cola.length;
-    if (!confirm(`¿Guardar los ${n} presupuestos tal como están? Las partidas dudosas quedarán marcadas «revisar».`)) return;
+    if (!confirm(`¿Guardar los ${n} presupuestos tal como están? Las partidas dudosas quedarán marcadas «revisar» y los ya importados se saltarán.`)) return;
     try {
-      await guardarActual(true);
-      while (cola.length) await guardarActual(false);
-      toast(`${n} presupuestos guardados`);
+      leerCabecera();
+      let saltados = 0;
+      let hechos = 0;
+      while (cola.length) {
+        const b = cola[0].b;
+        if (esDuplicado(b.numero, b.fecha)) { cola.shift(); saltados++; continue; }
+        await guardarActual(false);
+        if (++hechos % 50 === 0) $('#iTitulo').textContent = `Guardando… ${hechos} de ${n}`;
+      }
+      if (saltados) toast(`${saltados} ya estaban importados y se han saltado.`);
+      toast(`${hechos} presupuestos guardados${saltados ? ` · ${saltados} repetidos saltados` : ''}`);
     } catch (err) { toast('Error: ' + err.message); }
     mostrarCola();
     notify();

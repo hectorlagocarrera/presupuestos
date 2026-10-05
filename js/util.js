@@ -52,10 +52,21 @@ export function debounce(fn, ms = 150) {
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
+// Piezas indicadas al principio del texto cuando la cantidad es 1: «17 ALUCABONES DE 1800x400» → 17.
+export function piezasTexto(texto) {
+  const m = String(texto || '').match(/^\s*(\d{1,3}(?:\.\d{3})*|\d+)\s+(?:uds?\.?\s+|unidades\s+)?(?:de\s+)?[a-záéíóúñ]/i);
+  const n = m ? parseNum(m[1]) : 1;
+  return n > 1 && n < 100000 ? n : 1;
+}
+
 // Superficie y precio por m² de una partida (por unidad).
+// El €/m² solo tiene sentido en piezas de cierto tamaño (no en tarjetas o pegatinas de pocos cm).
+export const MIN_M2 = 0.05;
 export function calcPartida(p) {
   const m2 = p.ancho > 0 && p.alto > 0 ? round(p.ancho * p.alto, 4) : (p.m2 > 0 ? p.m2 : null);
   const precioTotal = p.precioUnitario != null && p.cantidad != null ? round(p.precioUnitario * p.cantidad) : (p.precioTotal ?? null);
-  const precioM2 = m2 && p.precioUnitario != null ? round(p.precioUnitario / m2) : null;
+  const piezas = p.cantidad === 1 || p.cantidad == null ? piezasTexto(p.articulo) : 1;
+  const area = m2 ? m2 * piezas : null;
+  const precioM2 = area && area >= MIN_M2 && p.precioUnitario > 0 ? round(p.precioUnitario / area) : null;
   return { ...p, m2, precioTotal, precioM2 };
 }

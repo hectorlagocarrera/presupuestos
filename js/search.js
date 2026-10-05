@@ -1,5 +1,5 @@
 // Motor de búsqueda: normalización, sinónimos (conceptos), medidas, puntuación y estadísticas de precio.
-import { parseNum, round, year } from './util.js';
+import { parseNum, round, year, piezasTexto, MIN_M2 } from './util.js';
 
 // ---------- Texto ----------
 
@@ -46,38 +46,45 @@ export function lev(a, b, max = 2) {
 
 const fuzzyOk = (a, b) => {
   const n = Math.min(a.length, b.length);
-  if (n < 5) return false;
+  if (n < 6) return false;
   return lev(a, b, n >= 8 ? 2 : 1) <= (n >= 8 ? 2 : 1);
 };
 
 // ---------- Conceptos y sinónimos ----------
 
 // Formato editable en Ajustes:  Nombre [Categoría] = sinónimo, sinónimo, ...
-export const DEFAULT_SINONIMOS = `Alupanel [Alupanel] = alupanel, dibond, panel composite, composite, aluminio compuesto, panel de aluminio, panel aluminio, placa de aluminio, chapa composite, cartel de aluminio, cartel aluminio, carteleria aluminio, sandwich de aluminio, alucobond, reynobond, aluminio composite
-PVC [PVC] = pvc, forex, pvc espumado, pvc expandido, komatex, palight, sintra, foam pvc
-Metacrilato [Cartelería] = metacrilato, plexiglas, plexi, acrilico, perspex, metacrilato transparente
+export const DEFAULT_SINONIMOS = `Alupanel [Alupanel] = alupanel, dibond, panel composite, composite, aluminio compuesto, panel de aluminio, panel aluminio, placa de aluminio, chapa composite, cartel de aluminio, cartel aluminio, carteleria aluminio, sandwich de aluminio, alucobond, alucabond, reynobond, aluminio composite
+PVC [PVC] = pvc, forex, pvc espumado, pvc expandido, komatex, palight, sintra, foam pvc, lamina de pvc
+Polipropileno [Cartelería] = polipropileno, polipropileno alveolar, akylux, polipropileno monomerico, cartel de obra
+Metacrilato [Cartelería] = metacrilato, plexiglas, plexi, acrilico, perspex, metacrilato incoloro, metacrilato transparente
 Cartón pluma [Impresión] = carton pluma, foam, foamboard, kapa
-Vinilo [Vinilo] = vinilo, vinil, adhesivo, pegatina, vinilo impreso, vinilo de corte, vinilo laminado, microperforado, vinilo microperforado, vinilo esmerilado, vinilo al acido, rotulacion adhesiva, vinilo ventana, escaparate
+Vinilo [Vinilo] = vinilo, vinil, adhesivo, pegatina, vinilo impreso, vinilo de corte, vinilo laminado, vinilo monomerico, vinilo polimerico, microperforado, vinilo microperforado, vinilo esmerilado, vinilo acido, vinilo al acido, rotulacion adhesiva, vinilo ventana, escaparate, vinilo fondeado
 Lona [Lona] = lona, pancarta, banner, lona frontlit, lona microperforada, mesh, lona pvc, lona impresa, lona con ojales
 Roll up [Impresión] = roll up, rollup, enrollable, expositor enrollable, display
-Impresión [Impresión] = impresion, impresion digital, gran formato, poster, cartel papel, papel fotografico, flyer, folleto, tarjeta
-Cartelería [Cartelería] = carteleria, cartel, rotulo, letrero, placa, valla, banderola, monoposte, totem
-Luminoso [Cartelería] = luminoso, rotulo luminoso, caja de luz, retroiluminado, led, neon
+Impresión [Impresión] = impresion digital, gran formato, poster, lienzo, bastidor, papel fotografico, impresion uv, laminado mate
+Merchandising [Merchandising] = merchandising, regalo publicitario, libreta, ambientador, iman, caja, panoleta, flexometro, mascarilla, boligrafo, bolsa, bolsas, taza, vaso, pulsera, llavero, mechero, abanico, chapa, pin, usb, mochila, paraguas, tampografia, botella, lanyard, alfombrilla
+Imprenta [Imprenta] = imprenta, sobres americanos, vale, tarjeta, tarjetas de visita, flyer, flyers, folleto, diptico, triptico, carpeta, calendario, talonario, libro, revista, catalogo, papel, estucado, offset, cuaderno, bloc, etiqueta, hoja, diploma, invitacion, menu, cartel a3, papel kraft
+Textil [Textil] = textil, camiseta, sudadera, polo, chaqueta, chaqueton, chaleco, gorra, pantalon, forro polar, softshell, delantal, uniforme, ropa laboral, serigrafia textil, bordado, bordada, transfer, transfer textil, vinilo textil, marcaje, estampacion, tetilla, espalda, manga, roly, payper, dogo
+Sellos [Sellos] = sello, sello de caucho, printy, trodat, tampon
+Carpas y banderas [Carpas y banderas] = carpa, carpa plegable, bandera, mastil, photocall
+Cartelería [Cartelería] = carteleria, cartel, rotulo, letrero, placa, valla, banderola, monoposte, totem, señal colocada
+Luminoso [Cartelería] = luminoso, rotulo luminoso, caja de luz, retroiluminado, retroiluminada, led, neon
 Señalética [Señalética] = senaletica, senalizacion, senal, placa puerta, directorio, evacuacion, emergencia, braille, pictograma
-Rotulación de vehículos [Rotulación de vehículos] = rotulacion vehiculo, vehiculo, furgoneta, coche, camion, flota, vinilado vehiculo, wrapping, rotulacion furgoneta, remolque, turismo
-Letras corpóreas [Letras corpóreas] = letras corporeas, corporea, corporeo, letra corporea, letras 3d, letra 3d, letras recortadas, letras pvc, letras metacrilato, letras acero, letras aluminio
-Diseño [Diseño] = diseno, diseno grafico, maquetacion, boceto, logotipo, logo, arte final, creatividad
-Montaje [Montaje] = montaje, montado, colocacion, colocado, aplicacion, mano de obra
+Rotulación de vehículos [Rotulación de vehículos] = rotulacion vehiculo, vehiculo, furgoneta, coche, camion, flota, vinilado vehiculo, wrapping, rotulacion furgoneta, remolque, turismo, trailer, matricula
+Letras corpóreas [Letras corpóreas] = letras corporeas, corporea, corporeo, letra corporea, letras 3d, letra 3d, letras recortadas, letras pvc, letras metacrilato, letras acero, letras aluminio, letras poliespan, poliespan
+Diseño [Diseño] = diseno, diseno grafico, maquetacion, boceto, logotipo, logo, arte final, creatividad, programacion
+Montaje [Montaje] = montaje, montado, colocacion, colocado, aplicacion, mano de obra, desmontar, desmontaje
 Instalación [Instalación] = instalacion, instalar, instalado, desplazamiento, grua, plataforma elevadora, anclaje, anclajes`;
 
 export const CATEGORIAS = ['Alupanel', 'PVC', 'Vinilo', 'Lona', 'Impresión', 'Cartelería', 'Señalética',
-  'Rotulación de vehículos', 'Letras corpóreas', 'Diseño', 'Montaje', 'Instalación', 'Otros'];
+  'Rotulación de vehículos', 'Letras corpóreas', 'Textil', 'Imprenta', 'Merchandising', 'Sellos', 'Carpas y banderas',
+  'Diseño', 'Montaje', 'Instalación', 'Otros'];
 
 // Conceptos que son material (rellenan el campo «material»).
-const MATERIALES = new Set(['alupanel', 'pvc', 'metacrilato', 'carton pluma', 'vinilo', 'lona']);
+const MATERIALES = new Set(['alupanel', 'pvc', 'polipropileno', 'metacrilato', 'carton pluma', 'vinilo', 'lona']);
 
 // Conceptos que mandan sobre el material al elegir categoría («letras corpóreas de PVC» → Letras corpóreas).
-const TRABAJOS = new Set(['letras corporeas', 'rotulacion de vehiculos', 'senaletica', 'luminoso', 'roll up']);
+const TRABAJOS = new Set(['letras corporeas', 'rotulacion de vehiculos', 'senaletica', 'luminoso', 'roll up', 'textil', 'sellos', 'carpas y banderas', 'merchandising', 'imprenta']);
 
 let CONCEPTOS = [];
 
@@ -87,35 +94,38 @@ export function setSinonimos(text) {
     if (!m) return null;
     const nombre = m[1].trim();
     const terms = [nombre, ...m[3].split(',')].map((t) => tokenize(t)).filter((t) => t.length);
-    return { id: normalize(nombre), nombre, categoria: (m[2] || nombre).trim(), terms };
+    return { id: normalize(nombre), nombre, categoria: (m[2] || nombre).trim(), terms, nameTokens: tokenize(nombre) };
   }).filter(Boolean);
 }
 setSinonimos(DEFAULT_SINONIMOS);
 
-function hasSeq(tokens, seq) {
+// Posición donde empieza la secuencia seq dentro de tokens (o -1).
+function seqAt(tokens, seq) {
   outer: for (let i = 0; i + seq.length <= tokens.length; i++) {
     for (let j = 0; j < seq.length; j++) if (tokens[i + j] !== seq[j]) continue outer;
-    return true;
+    return i;
   }
-  return false;
+  return -1;
 }
 
-// Conceptos presentes en una lista de palabras y qué palabras los activaron.
-export function detectConcepts(tokens) {
+// Conceptos presentes en una lista de palabras. cover[i] = conceptos que explican la palabra i.
+export function detectConcepts(tokens, cover) {
   const found = new Map();
   for (const c of CONCEPTOS) {
     for (const t of c.terms) {
-      let hit = hasSeq(tokens, t);
-      if (!hit && t.length === 1) hit = tokens.some((w) => fuzzyOk(w, t[0]));
-      if (hit) { found.set(c.id, c); break; }
+      let at = seqAt(tokens, t);
+      if (at < 0 && t.length === 1 && t[0].length >= 7) at = tokens.findIndex((w) => fuzzyOk(w, t[0]));
+      if (at >= 0) {
+        found.set(c.id, c);
+        // Un término que contiene el nombre del concepto («vinilo ácido») es un tipo, no un sinónimo:
+        // solo cuenta la palabra del nombre. Un sinónimo («panel composite») cuenta entero.
+        const subtipo = t.length > 1 && t.some((w) => c.nameTokens.includes(w));
+        if (cover) for (let k = at; k < at + t.length; k++) if (!subtipo || c.nameTokens.includes(tokens[k])) cover[k].push(c.id);
+        if (!cover) break;
+      }
     }
   }
   return found;
-}
-
-// Conceptos a los que pertenece una palabra suelta (para contar sinónimos como coincidencia).
-function conceptsOfWord(w) {
-  return CONCEPTOS.filter((c) => c.terms.some((t) => t.includes(w) || (t.length === 1 && fuzzyOk(w, t[0])))).map((c) => c.id);
 }
 
 // Categoría y material sugeridos para un texto.
@@ -203,8 +213,8 @@ export function parseQuery(q) {
   const years = [];
   text = text.replace(/\b(20[1-3]\d)\b/g, (y) => { years.push(Number(y)); return ' '; });
   const tokens = tokenize(text);
-  const concepts = new Set(detectConcepts(tokens).keys());
-  const tokenConcepts = tokens.map((w) => conceptsOfWord(w));
+  const tokenConcepts = tokens.map(() => []);
+  const concepts = new Set(detectConcepts(tokens, tokenConcepts).keys());
   return { tokens, concepts, tokenConcepts, dims, years };
 }
 
@@ -244,9 +254,9 @@ export function search(query, docs, filtros = {}) {
         const text = q.tokens.reduce((s, w, i) => s + wordScore(w, q.tokenConcepts[i], d), 0) / q.tokens.length;
         if (q.concepts.size) {
           const shared = [...q.concepts].filter((c) => d.concepts.has(c)).length / q.concepts.size;
-          base = 0.45 * shared + 0.55 * text;
+          base = 0.3 * shared + 0.7 * text;
         } else base = text;
-        if (base < 0.3) continue;
+        if (base < 0.45) continue;
       }
       const dim = hasDims ? dimSimilarity(q.dims, d.dims) : 0;
       if (!hasWords && dim < 0.4) continue;
@@ -255,7 +265,13 @@ export function search(query, docs, filtros = {}) {
     if (d.year && newest) score += Math.max(0, 3 - (newest - d.year));
     out.push({ doc: d, score: Math.min(100, score), dim: hasDims ? dimSimilarity(q.dims, d.dims) : null });
   }
-  return out.sort((a, b) => b.score - a.score || (b.doc.p.fecha || '').localeCompare(a.doc.p.fecha || ''));
+  out.sort((a, b) => b.score - a.score || (b.doc.p.fecha || '').localeCompare(a.doc.p.fecha || ''));
+  // Solo los razonablemente parecidos al mejor resultado.
+  if ((hasWords || hasDims) && out.length) {
+    const corte = Math.max(30, out[0].score * 0.55);
+    return out.filter((r) => r.score >= corte);
+  }
+  return out;
 }
 
 // ---------- Estadísticas ----------
@@ -283,8 +299,8 @@ export function priceStats(results, queryDims) {
   // €/m² también para partidas que solo llevan las medidas en el texto.
   const rows = results.filter((r) => r.doc.p.precioUnitario > 0).map((r) => {
     const p = r.doc.p;
-    const m2 = p.m2 > 0 ? p.m2 : r.doc.dims?.m2;
-    return { ...p, precioM2: p.precioM2 > 0 ? p.precioM2 : (m2 > 0 ? round(p.precioUnitario / m2) : null) };
+    const m2 = (p.m2 > 0 ? p.m2 : r.doc.dims?.m2) * (p.cantidad === 1 ? piezasTexto(p.articulo) : 1);
+    return { ...p, precioM2: p.precioM2 > 0 ? p.precioM2 : (m2 >= MIN_M2 ? round(p.precioUnitario / m2) : null) };
   });
   if (!rows.length) return null;
   const prices = rows.map((p) => p.precioUnitario);
@@ -301,13 +317,15 @@ export function priceStats(results, queryDims) {
     if (p.precioM2 > 0) byYear.get(y).m2.push(p.precioM2);
   }
   const evolucion = [...byYear.values()].sort((a, b) => a.anio - b.anio).map((y) => ({
-    anio: y.anio, n: y.precios.length, medio: round(avg(y.precios)), m2: round(avg(y.m2)),
+    anio: y.anio, n: y.precios.length, medio: round(avg(y.precios)), m2: y.m2.length >= 2 ? round(median(y.m2)) : null,
   }));
   // Variación: en €/m² si hay datos en el primer y último año (compara mejor medidas distintas).
   let variacion = null;
-  if (evolucion.length > 1) {
-    const a = evolucion[0];
-    const b = evolucion[evolucion.length - 1];
+  // Variación entre el primer y el último año con al menos 2 trabajos (un caso suelto engaña).
+  const fiables = evolucion.filter((e) => e.n >= 2);
+  if (fiables.length > 1) {
+    const a = fiables[0];
+    const b = fiables[fiables.length - 1];
     const [va, vb, en] = a.m2 && b.m2 ? [a.m2, b.m2, '€/m²'] : [a.medio, b.medio, 'precio'];
     if (va > 0) variacion = { pct: round(((vb - va) / va) * 100, 1), desde: a.anio, hasta: b.anio, en };
   }
@@ -319,7 +337,7 @@ export function priceStats(results, queryDims) {
     medio: round(avg(prices)),
     min: Math.min(...prices),
     max: Math.max(...prices),
-    m2: m2prices.length ? { medio: round(avg(m2prices)), mediana: round(m2med), min: Math.min(...m2prices), max: Math.max(...m2prices), n: m2prices.length } : null,
+    m2: m2prices.length ? { mediana: round(m2med), min: Math.min(...m2prices), max: Math.max(...m2prices), n: m2prices.length } : null,
     evolucion,
     variacion,
     orientativo: area && m2med ? { area: round(area, 3), precio: round(m2med * area) } : null,

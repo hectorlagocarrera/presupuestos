@@ -56,7 +56,11 @@ h2 { font-size: 1.05rem; margin: 0 0 10px; }
   background: var(--card); border-bottom: 1px solid var(--border);
   padding: 8px 16px;
 }
-.brand img { max-width: 140px; object-fit: contain; }
+.brand img { max-width: 150px; object-fit: contain; }
+.brand span { color: var(--muted); font-weight: 600; border-left: 1px solid var(--border); padding-left: 10px; }
+@media (prefers-color-scheme: dark) {
+  .brand img, .logo-row img { background: #fff; border-radius: 6px; padding: 2px 6px; }
+}
 .logo-row { display: flex; gap: 16px; align-items: center; margin-bottom: 6px; }
 .logo-row img { max-height: 70px; max-width: 220px; border: 1px solid var(--border); border-radius: 8px; padding: 6px; background: #fff; }
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.05rem; }
@@ -252,7 +256,7 @@ dialog::backdrop { background: rgba(10, 15, 25, 0.45); }
   .app, dialog, .toast { display: none !important; }
   .print-only { display: block; }
   .p-head { display: flex; justify-content: space-between; border-bottom: 2px solid #1d4ed8; padding-bottom: 8px; margin-bottom: 14px; }
-  .p-head h1 { font-size: 15pt; margin: 0 0 4px; }
+  .p-head h1 { font-size: 12pt; margin: 0 0 4px; }
   .p-logo { max-height: 22mm; max-width: 70mm; display: block; margin-bottom: 6px; }
   .p-head p { margin: 0; color: #444; }
   .p-meta { text-align: right; }

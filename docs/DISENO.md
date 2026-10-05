@@ -116,7 +116,11 @@ Cada partida se convierte en una ficha de búsqueda que tiene:
 2. **Conceptos.** Un diccionario de sinónimos agrupa términos distintos bajo el mismo concepto:
    - Alupanel = panel composite = Dibond = panel (de) aluminio = cartel (de) aluminio = aluminio compuesto…
    - PVC = Forex = PVC espumado… · Vinilo = adhesivo = pegatina… · Lona = pancarta = banner…
-   - y así para metacrilato, letras corpóreas, rotulación de vehículos, señalética, montaje, instalación, diseño…
+   - y así para metacrilato, polipropileno, letras corpóreas, rotulación de vehículos, señalética, textil
+     (camisetas, sudaderas, serigrafía en tetilla o espalda…), imprenta (tarjetas, flyers, calendarios…),
+     merchandising, sellos, carpas y banderas, montaje, instalación y diseño, con el vocabulario de los históricos.
+   - Un término que incluye el nombre del concepto («vinilo ácido») es un **tipo** y no un sinónimo: buscar
+     «vinilo ácido» no da por buena cualquier partida de vinilo.
 
    El diccionario se edita en Ajustes con el vocabulario de la empresa.
 3. **Medidas** leídas del texto o de los campos ancho y alto: «3x2», «3 x 2 m», «300x200 cm», «3000 x 2000 mm» o
@@ -131,8 +135,10 @@ Para una búsqueda como «Alupanel 3x2», cada partida recibe una puntuación de
 | Medidas | 30 | Parecido de ancho, alto y superficie. Da igual el orden: 3x2 = 2x3. Un 3x1,5 puntúa menos que un 3x2 |
 | Antigüedad | +3 | Desempate a favor de los más recientes |
 
-Los resultados se ordenan por puntuación. Con los más parecidos se calculan:
-**último precio, precio medio, mínimo, máximo, €/m² (medio, mínimo, máximo) y evolución por año**
+Los resultados se ordenan por puntuación y se descartan los que quedan muy lejos del mejor. Con los más
+parecidos (y, si se buscó una medida, los de tamaño parecido) se calculan:
+**último precio, precio medio, mínimo, máximo, €/m² habitual (la mediana, que no se deja engañar por casos raros),
+mínimo y máximo, y evolución por año**
 (por ejemplo 2024: 480 € → 2025: 520 € → 2026: 545 €, +13,5 %). Si la búsqueda lleva medidas, también se muestra
 el **precio orientativo** que saldría con el €/m² habitual. Es solo una referencia: el precio final lo decide la
 persona.
@@ -141,7 +147,25 @@ Filtros: categoría, año (escribir «2025» en la búsqueda también filtra) y 
 
 ## 6. Importación de PDF y Excel
 
-**PDF con texto** (los que salen de Word, Excel o un programa de facturación):
+**PDF del programa de gestión de la empresa** (columnas *Cantidad · Código · Artículo · Precio · Dto. · IVA ·
+Subtotal*; un mismo PDF puede contener cientos de presupuestos). Hay un lector a medida (`js/columnas.js`) que usa la
+posición de cada texto en la página:
+1. Separa los presupuestos por «Página 1 / N» y une las páginas de continuación con su presupuesto.
+2. Lee el nº y la fecha bajo «Número / Fecha», el cliente del recuadro de la derecha (nombre, dirección y CIF) y
+   los totales del pie (base imponible y total).
+3. Cada fila con cantidad o precio es una partida. Las líneas de debajo forman su descripción, y lo que va tras una
+   línea en blanco se guarda como observaciones. Si la descripción va encima de una fila «SUBTOTAL», se le asigna a
+   esa fila. Con descuento (Dto.), se guarda el precio neto y se anota el de tarifa.
+4. Las piezas indicadas en el texto («17 ALUCABONES de 1800x400») se tienen en cuenta para el €/m². En piezas muy
+   pequeñas (tarjetas, pegatinas) no se calcula el €/m².
+5. Al importar se saltan los presupuestos que ya estaban (mismo nº y fecha). Los datos de la empresa se toman del
+   presupuesto más reciente.
+
+Probado con los históricos 2024–2026: 1.616 presupuestos y 3.013 partidas en unos 7 segundos. Todos salieron con
+nº y fecha, y la suma de partidas coincide con la base imponible en el 99 % (el resto son presupuestos con
+opciones alternativas).
+
+**Otros PDF con texto** (Word, Excel, otros programas):
 1. pdf.js extrae el texto con su posición y lo reconstruye en líneas.
 2. Se buscan el **nº de presupuesto**, la **fecha** y el **cliente** con patrones habituales («Presupuesto nº»,
    «Fecha:», «Cliente:»).

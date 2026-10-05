@@ -71,14 +71,19 @@ export function anios() {
   return [...new Set(data.presupuestos.map((p) => Number(String(p.fecha).slice(0, 4))).filter(Boolean))].sort((a, b) => b - a);
 }
 
+// Siguiente nº del año: continúa la numeración existente (335, 336… o 2026-001, 2026-002…).
 export function nextNumber(fecha) {
   const y = (fecha || today()).slice(0, 4);
-  let max = 0;
+  let maxPlano = 0;
+  let maxAnio = 0;
   for (const p of data.presupuestos) {
-    const m = String(p.numero || '').match(new RegExp(`^${y}[-/](\\d+)$`));
-    if (m) max = Math.max(max, +m[1]);
+    const n = String(p.numero || '').trim();
+    const m = n.match(new RegExp(`^${y}[-/](\\d+)$`));
+    if (m) maxAnio = Math.max(maxAnio, +m[1]);
+    else if (/^\d+$/.test(n) && String(p.fecha || '').startsWith(y)) maxPlano = Math.max(maxPlano, +n);
   }
-  return `${y}-${String(max + 1).padStart(3, '0')}`;
+  if (maxPlano > maxAnio) return String(maxPlano + 1);
+  return `${y}-${String(maxAnio + 1).padStart(3, '0')}`;
 }
 
 // ---------- Escritura ----------
@@ -122,7 +127,7 @@ export async function savePresupuesto(pres, partidas, opts = {}) {
   // El cliente se identifica por su nombre: si no existe, se crea.
   const nombre = (pres.clienteNombre || '').trim();
   let cliente = nombre ? clientePorNombre(nombre) : null;
-  if (!cliente && nombre) cliente = await saveCliente({ nombre });
+  if (!cliente && nombre) cliente = await saveCliente({ nombre, ...(pres.clienteDatos || {}) });
 
   const now = new Date().toISOString();
   const p = {
@@ -158,7 +163,8 @@ export async function savePresupuesto(pres, partidas, opts = {}) {
       revisar: !!x.revisar,
       fecha: p.fecha, cliente: p.clienteNombre, numero: p.numero,
     }));
-  Object.assign(p, totales(lista, p.iva));
+  // Al importar se respetan los totales del PDF (puede haber partidas opcionales o descuentos globales).
+  Object.assign(p, opts.totalesPdf ? { base: opts.totalesPdf.base, total: opts.totalesPdf.total ?? totales(lista, p.iva).total } : totales(lista, p.iva));
   t.objectStore('presupuestos').put(p);
   const os = t.objectStore('partidas');
   for (const old of partidasDe(p.id)) os.delete(old.id);

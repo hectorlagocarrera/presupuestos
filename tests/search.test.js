@@ -53,7 +53,7 @@ test('estadísticas de precio', () => {
   assert.equal(s.min, 480);
   assert.equal(s.max, 545);
   assert.deepEqual(s.evolucion.map((e) => e.anio), [2024, 2025, 2026]);
-  assert.equal(s.m2.medio, 85.83);
+  assert.equal(s.m2.mediana, 86.67);
   assert.ok(s.orientativo.precio > 480 && s.orientativo.precio < 545);
 });
 

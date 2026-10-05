@@ -10,8 +10,10 @@ El diseño completo (arquitectura, base de datos, pantallas, búsqueda e importa
 
 Abre `https://hectorlagocarrera.github.io/presupuestos/` en Chrome o Edge en el ordenador de la oficina.
 
-1. **Ajustes**: pon los datos de la empresa y el logotipo.
-2. **Importar**: arrastra los presupuestos antiguos (PDF, Excel, CSV…), revisa lo detectado y guarda.
+1. **Importar**: arrastra los PDF de presupuestos que saca el programa de gestión (uno por año, con todos los
+   presupuestos dentro), revisa lo detectado y pulsa **Guardar todos**. También admite Excel, CSV y texto pegado.
+   Los datos de la empresa se rellenan solos desde el PDF; el logotipo (`logo.png`) ya viene puesto.
+2. **Ajustes**: revisa los datos de la empresa y, si quieres, añade sinónimos propios.
 3. **Nuevo presupuesto**: escribe el trabajo en la partida (p. ej. «Alupanel» y medidas 3 × 2). A la derecha salen
    los trabajos parecidos con último precio, medio, mínimo, máximo, €/m² y evolución por año. Pulsa
    **Usar como referencia** o arrastra el resultado a la izquierda, ajusta y guarda. Lo guardado pasa al histórico.

@@ -1,6 +1,6 @@
 // Pantalla «Nuevo presupuesto»: presupuesto a la izquierda, referencias del histórico a la derecha.
-import { $, esc, fmtEur, fmtNum, fmtDate, numOrNull, today, debounce, calcPartida, round } from '../util.js';
-import { search, similares, priceStats, parseQuery, classify } from '../search.js';
+import { $, esc, fmtEur, fmtNum, fmtDate, numOrNull, today, debounce, calcPartida, round, piezasTexto } from '../util.js';
+import { search, similares, priceStats, parseQuery, classify, normalize } from '../search.js';
 import { data, searchDocs, savePresupuesto, getPresupuesto, partidasDe, nextNumber, clientePorNombre, onChange } from '../store.js';
 import { resultCard, statsHtml, mountFiltros, toast } from './common.js';
 import { verPresupuesto } from './presview.js';
@@ -66,6 +66,7 @@ export const editor = {
     const p = data.partidas.find((x) => x.id === pid);
     if (!p) return;
     const l = copiaPartida(p);
+    l.observaciones = ''; // las notas del presupuesto antiguo eran para aquel cliente
     l.ref = { numero: p.numero, fecha: p.fecha, precio: p.precioUnitario, cliente: p.cliente };
     if (lines[active] && !(lines[active].precioUnitario > 0)) lines[active] = l;
     else { lines.push(l); active = lines.length - 1; }
@@ -171,7 +172,8 @@ function numeroAuto() {
 function lineQuery(l) {
   if (!l) return '';
   const med = l.ancho > 0 && l.alto > 0 ? ` ${l.ancho}x${l.alto}` : '';
-  return [l.articulo, l.material].filter(Boolean).join(' ').trim() + med;
+  const mat = l.material && !normalize(l.articulo).includes(normalize(l.material)) ? l.material : '';
+  return [l.articulo, mat].filter(Boolean).join(' ').trim() + med;
 }
 
 function autoRefs() {
@@ -224,7 +226,8 @@ export function initEditor() {
     if (f === 'precioM2') {
       const c = calcPartida(l);
       const v = numOrNull(e.target.value);
-      if (c.m2 && v != null) l.precioUnitario = round(v * c.m2, 2);
+      const piezas = l.cantidad === 1 || l.cantidad == null ? piezasTexto(l.articulo) : 1;
+      if (c.m2 && v != null) l.precioUnitario = round(v * c.m2 * piezas, 2);
     } else if (CAMPOS_NUM.includes(f)) l[f] = numOrNull(e.target.value);
     else l[f] = e.target.value;
     // Categoría y material automáticos según el artículo (si no se han escrito a mano).

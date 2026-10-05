@@ -26,7 +26,7 @@ export function resultCard({ doc, score }, opts = {}) {
   const p = doc.p;
   const med = medidasTxt(p) || (doc.dims?.ancho ? `${fmtNum(doc.dims.ancho)} × ${fmtNum(doc.dims.alto)} m` : '');
   const m2 = p.m2 || doc.dims?.m2;
-  const pm2 = p.precioM2 || (m2 && p.precioUnitario ? p.precioUnitario / m2 : null);
+  const pm2 = p.precioM2;
   return `
     <article class="res" draggable="true" data-pid="${esc(p.id)}">
       <div class="res-main">
@@ -70,7 +70,7 @@ export function statsHtml(s, n) {
         <div><span>Medio</span><strong>${fmtEur(s.medio)}</strong></div>
         <div><span>Mínimo</span><strong>${fmtEur(s.min)}</strong></div>
         <div><span>Máximo</span><strong>${fmtEur(s.max)}</strong></div>
-        ${s.m2 ? `<div><span>€/m² medio</span><strong>${fmtEur(s.m2.medio)}</strong><small>${fmtEur(s.m2.min)} – ${fmtEur(s.m2.max)}</small></div>` : ''}
+        ${s.m2 ? `<div title="La mitad de los trabajos está por encima y la otra mitad por debajo"><span>€/m² habitual</span><strong>${fmtEur(s.m2.mediana)}</strong><small>${fmtEur(s.m2.min)} – ${fmtEur(s.m2.max)}</small></div>` : ''}
         ${s.orientativo ? `<div class="ref"><span>Orientativo ${fmtM2(s.orientativo.area)}</span><strong>${fmtEur(s.orientativo.precio)}</strong><small>con el €/m² habitual</small></div>` : ''}
       </div>
       ${evo}
