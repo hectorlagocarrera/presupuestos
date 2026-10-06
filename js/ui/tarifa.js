@@ -11,6 +11,10 @@ import { editor } from './editor.js';
 let tarifa = null;      // se recalcula cuando cambian los datos
 const abiertos = new Set(); // artículos con los ejemplos desplegados
 
+// Categorías desplegadas (acordeón). Se recuerdan en este navegador; al principio, todas cerradas.
+const catAbiertas = new Set((() => { try { return JSON.parse(localStorage.getItem('tarifaCategoriasAbiertas') || '[]'); } catch { return []; } })());
+const recordarCategorias = () => { try { localStorage.setItem('tarifaCategoriasAbiertas', JSON.stringify([...catAbiertas])); } catch { /* sin almacenamiento */ } };
+
 const manuales = () => data.ajustes.tarifa || {};
 const ajuste = () => Number(data.ajustes.tarifaAjuste) || 0;
 const ocultos = () => data.ajustes.tarifaOcultos || [];
@@ -67,8 +71,19 @@ function render() {
     : '';
   let html = '';
   let cat = null;
+  // Al buscar, se ven abiertas todas las categorías con resultados.
+  const buscando = !!$('#tQ').value.trim();
+  const cuantos = {};
+  for (const a of lista) cuantos[a.categoria] = (cuantos[a.categoria] || 0) + 1;
   for (const a of lista.slice(0, 1500)) {
-    if (a.categoria !== cat) { cat = a.categoria; html += `<tr class="cat"><td colspan="8">${esc(cat)}</td></tr>`; }
+    if (a.categoria !== cat) {
+      cat = a.categoria;
+      const abierta = buscando || catAbiertas.has(cat);
+      html += `<tr class="cat ${abierta ? 'abierta' : ''}" data-cat="${esc(cat)}"><td colspan="8">
+        <button class="cat-btn" aria-expanded="${abierta}"><span class="flecha" aria-hidden="true">▸</span> ${esc(cat)}
+        <span class="cat-n">${cuantos[cat]} ${cuantos[cat] === 1 ? 'artículo' : 'artículos'}</span></button></td></tr>`;
+    }
+    if (!buscando && !catAbiertas.has(cat)) continue;
     const m = manuales()[a.clave];
     const fijado = m != null && m !== '';
     html += `
@@ -145,6 +160,8 @@ export function initTarifa() {
   $('#tQ').addEventListener('input', debounce(render, 150));
   $('#tCat').addEventListener('change', render);
   $('#tRepetidos').addEventListener('change', render);
+  $('#tAbrirTodas').addEventListener('click', () => { for (const a of calcular()) catAbiertas.add(a.categoria); recordarCategorias(); render(); });
+  $('#tCerrarTodas').addEventListener('click', () => { catAbiertas.clear(); recordarCategorias(); render(); });
   $('#tOcultos').addEventListener('change', render);
   $('#tAjuste').addEventListener('input', debounce(async () => {
     await saveAjustes({ tarifaAjuste: numOrNull($('#tAjuste').value) ?? 0 });
@@ -171,6 +188,14 @@ export function initTarifa() {
     if (art) td.innerHTML = celdaPrecio(art);
   });
   $('#tTabla').addEventListener('click', (e) => {
+    const cb = e.target.closest('.cat-btn');
+    if (cb) {
+      const c = cb.closest('tr').dataset.cat;
+      if (catAbiertas.has(c)) catAbiertas.delete(c); else catAbiertas.add(c);
+      recordarCategorias();
+      render();
+      return;
+    }
     const ver = e.target.closest('[data-ver]');
     if (ver) { e.preventDefault(); verPresupuesto(ver.dataset.ver); return; }
     const an = e.target.closest('[data-anadir]');

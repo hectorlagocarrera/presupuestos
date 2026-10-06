@@ -179,7 +179,13 @@
           <label class="check" data-ayuda="Muestra los artículos que has quitado de la tarifa con ✕, para volver a incluirlos con ↺."><input type="checkbox" id="tOcultos"> Ver los quitados</label>
         </div>
         <p id="tAjusteInfo" class="aviso-ajuste hidden"></p>
-        <p id="tInfo" class="muted small"></p>
+        <div class="row-between">
+          <p id="tInfo" class="muted small"></p>
+          <div class="btns">
+            <button class="btn small ghost" id="tAbrirTodas">Abrir todas</button>
+            <button class="btn small ghost" id="tCerrarTodas">Cerrar todas</button>
+          </div>
+        </div>
         <div class="table-wrap">
           <table class="data tarifa cards">
             <thead><tr><th>Artículo</th><th data-ayuda="«€/m²»: el precio es por metro cuadrado (lonas, vinilos, Alupanel…); al añadirlo a un presupuesto, el precio sale de multiplicar por las medidas. «unidad»: precio por pieza.">Unidad</th><th class="num" data-ayuda="Precio que propone la aplicación: el del medio (la mediana) de las 10 últimas veces que se presupuestó este trabajo.">Sugerido</th><th class="num" data-ayuda="Precio más bajo y más alto de esas 10 últimas veces. Si es muy amplio, el artículo agrupa trabajos distintos: mira los ejemplos pulsando su nombre.">Rango reciente</th><th class="num" data-ayuda="Cuántas veces aparece este trabajo en todos los presupuestos.">Veces</th><th data-ayuda="Fecha y precio de la última vez que se presupuestó.">Último uso</th><th class="num" data-ayuda="El precio final de la tarifa: el sugerido con el ajuste general aplicado. Si escribes otro, queda «fijado a mano» y el ajuste ya no le afecta; con ↺ vuelve a ser automático.">Precio tarifa</th><th></th></tr></thead>

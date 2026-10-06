@@ -167,7 +167,9 @@ export function loadScript(src) {
 // En el móvil las tablas se ven como tarjetas: cada celda lleva el nombre de su columna (data-l).
 export function etiquetarTablas() {
   const etiquetar = (tbody) => {
-    const nombres = [...tbody.closest('table').querySelectorAll('thead th')].map((th) => th.textContent.trim());
+    // Solo el texto de la cabecera (sin el «?» de la ayuda).
+    const nombres = [...tbody.closest('table').querySelectorAll('thead th')]
+      .map((th) => [...th.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').trim());
     for (const tr of tbody.rows) {
       if (tr.cells.length < 2) continue; // filas de título (categoría) o de aviso
       [...tr.cells].forEach((td, i) => { if (nombres[i] && !td.dataset.l) td.dataset.l = nombres[i]; });

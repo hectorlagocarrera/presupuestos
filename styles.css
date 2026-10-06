@@ -273,7 +273,16 @@ dialog::backdrop { background: rgba(10, 15, 25, 0.45); }
 }
 
 /* ---- Tarifa ---- */
-table.tarifa tr.cat td { background: var(--accent-soft); font-weight: 700; padding-top: 10px; }
+table.tarifa tr.cat td { background: var(--accent-soft); font-weight: 700; padding: 0; }
+.cat-btn {
+  width: 100%; display: flex; align-items: center; gap: 8px; text-align: left; cursor: pointer;
+  background: transparent; border: none; color: var(--text); font: inherit; font-weight: 700; padding: 10px 8px;
+}
+.cat-btn:hover { color: var(--accent); }
+.cat-btn .flecha { display: inline-block; transition: transform 0.15s; color: var(--accent); }
+tr.cat.abierta .flecha { transform: rotate(90deg); }
+.cat-n { margin-left: auto; font-weight: 400; font-size: 0.85rem; color: var(--muted); }
+table.tarifa tr.cat + tr.cat td { border-top: 1px solid var(--card); }
 table.tarifa tr.ej td { background: var(--bg); font-size: 0.82rem; }
 table.tarifa input { width: 100px; text-align: right; }
 table.tarifa input.fijado { border-color: var(--accent); font-weight: 700; }
@@ -431,7 +440,8 @@ body:not(.modo-servidor) .solo-servidor, body.modo-servidor .solo-navegador { di
   table.cards td:empty { display: none; }
   table.cards td.acciones { white-space: normal; display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; grid-column: 1 / -1; }
   table.cards td.acciones::before { display: none; }
-  table.cards tr.cat { display: block; background: var(--accent-soft); padding: 8px 12px; }
+  table.cards tr.cat { display: block; background: var(--accent-soft); padding: 0 4px; }
+  table.cards tr.cat td { display: block; }
   table.cards tr.cat td::before { display: none; }
   table.cards tr.ej { display: block; font-size: 0.8rem; background: var(--bg); }
   table.cards tr.ej td { display: inline; }
