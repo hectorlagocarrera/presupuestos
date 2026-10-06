@@ -18,7 +18,12 @@ exec 3</dev/tty   # las preguntas se leen del teclado aunque el script llegue po
 pregunta() { local r; read -r -u 3 -p "$1${2:+ [$2]}: " r; echo "${r:-${2:-}}"; }
 
 echo "=== Instalación de Presupuestos ==="
-HOST="$(pregunta 'Nombre del servidor (el vps-....vps.ovh.net del panel de OVH)' "$(hostname -f 2>/dev/null || hostname)")"
+echo "Primero unas preguntas (pulsa Intro para aceptar lo que sale entre corchetes)."
+# hostname -f puede tardar si el DNS va lento: como mucho 5 segundos.
+NOMBRE="$(timeout 5 hostname -f 2>/dev/null || hostname)"
+case "$NOMBRE" in *.*) ;; *) NOMBRE="";; esac
+HOST="$(pregunta 'Nombre del servidor (el vps-....vps.ovh.net del panel de OVH)' "$NOMBRE")"
+while [ -z "$HOST" ]; do HOST="$(pregunta 'Escribe el nombre del servidor, p. ej. vps-1a2b3c4d.vps.ovh.net' '')"; done
 EMAIL="$(pregunta 'Email para avisos del certificado HTTPS (opcional)' '')"
 CREAR_USUARIO=1
 if [ -f "$DATOS/datos.db" ]; then
@@ -35,13 +40,21 @@ if [ "$CREAR_USUARIO" = 1 ]; then
   done
 fi
 
-echo "--- 1/7 Instalando programas…"
+echo "--- 1/7 Instalando programas (nginx, Node.js, certificados…)."
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -q
-apt-get install -y -q ca-certificates curl git nginx certbot python3-certbot-nginx ufw sqlite3 unattended-upgrades
+# En un VPS recién encendido Ubuntu suele estar instalando actualizaciones y bloquea apt unos minutos.
+if fuser /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock >/dev/null 2>&1; then
+  echo "    Ubuntu está instalando sus actualizaciones automáticas. Esperando a que termine (puede tardar 5-10 min)…"
+  while fuser /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock >/dev/null 2>&1; do printf '.'; sleep 10; done
+  echo " ya está."
+fi
+APT=(-o DPkg::Lock::Timeout=900 -y -q)
+apt-get "${APT[@]}" update
+apt-get "${APT[@]}" install ca-certificates curl git nginx certbot python3-certbot-nginx ufw sqlite3 unattended-upgrades
 if ! command -v node >/dev/null || [ "$(node -p 'process.versions.node.split(".")[0]')" -lt 22 ]; then
+  echo "    Instalando Node.js 22…"
   curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null
-  apt-get install -y -q nodejs
+  apt-get "${APT[@]}" install nodejs
 fi
 echo "    Node.js $(node --version)"
 
