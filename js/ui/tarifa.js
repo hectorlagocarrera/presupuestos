@@ -35,6 +35,22 @@ function filtrada() {
   return calcular().filter((a) => (verOcultos ? ocu.has(a.clave) : !ocu.has(a.clave)) && (!rep || a.veces >= 2) && (!cat || a.categoria === cat) && (!q || coincide(a.nombre + ' ' + a.categoria, q)));
 }
 
+const dos = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// Precio final (con el ajuste o fijado a mano) y de dónde sale.
+function notaPrecio(a) {
+  const aj = ajuste();
+  const fijado = manuales()[a.clave] != null;
+  if (fijado) return '<span class="nota-precio fijo">fijado a mano <button class="icon mini-icon" data-auto title="Volver al precio automático">↺</button></span>';
+  if (aj) return `<span class="nota-precio">sugerido ${aj > 0 ? '+' : ''}${fmtNum(aj)} %</span>`;
+  return '<span class="nota-precio">= sugerido</span>';
+}
+function celdaPrecio(a) {
+  const fijado = manuales()[a.clave] != null;
+  return `<input data-precio inputmode="decimal" class="${fijado ? 'fijado' : ''}" value="${dos.format(precioTarifa(a, manuales(), ajuste()))}"
+    aria-label="Precio de tarifa">${notaPrecio(a)}`;
+}
+
 function render() {
   const todos = calcular();
   fillSelect($('#tCat'), [...new Set(todos.map((a) => a.categoria))], 'Todas las categorías');
@@ -44,6 +60,11 @@ function render() {
   $('#tInfo').textContent = $('#tOcultos').checked
     ? `${lista.length} artículos quitados de la tarifa. Pulsa ↺ para volver a incluirlos.`
     : `${lista.length} artículos (de ${todos.length} distintos en el histórico)${fijados ? ` · ${fijados} con precio fijado a mano` : ''}${nOcultos ? ` · ${nOcultos} quitados` : ''}`;
+  const aj = ajuste();
+  $('#tAjusteInfo').classList.toggle('hidden', !aj);
+  $('#tAjusteInfo').textContent = aj
+    ? `Ajuste general aplicado: los precios de tarifa son los sugeridos ${aj > 0 ? '+' : ''}${fmtNum(aj)} %${fijados ? ` (menos ${fijados === 1 ? 'el fijado' : `los ${fijados} fijados`} a mano)` : ''}.`
+    : '';
   let html = '';
   let cat = null;
   for (const a of lista.slice(0, 1500)) {
@@ -58,7 +79,7 @@ function render() {
         <td class="num muted">${a.min === a.max ? '' : `${fmtEur(a.min)} – ${fmtEur(a.max)}`}</td>
         <td class="num">${a.veces}</td>
         <td class="small">${fmtDate(a.ultimaFecha)} · ${fmtEur(a.ultimoPrecio)}</td>
-        <td class="num"><input data-precio inputmode="decimal" class="${fijado ? 'fijado' : ''}" value="${fijado ? fmtNum(m) : ''}" placeholder="${fmtNum(precioTarifa(a, {}, ajuste()))}"></td>
+        <td class="num precio-tarifa">${celdaPrecio(a)}</td>
         <td class="nowrap acciones"><button class="btn small" data-anadir title="Añadir al presupuesto que estás haciendo">Añadir</button>
           <button class="icon" data-ocultar title="${$('#tOcultos').checked ? 'Volver a incluir en la tarifa' : 'Quitar de la tarifa'}">${$('#tOcultos').checked ? '↺' : '✕'}</button></td>
       </tr>`;
@@ -142,6 +163,13 @@ export function initTarifa() {
     e.target.classList.toggle('fijado', v != null);
     guardar();
   });
+  // Al salir del recuadro: si se dejó vacío vuelve al automático, y se actualiza la nota.
+  $('#tTabla').addEventListener('change', (e) => {
+    if (!e.target.hasAttribute('data-precio')) return;
+    const td = e.target.closest('td');
+    const art = calcular().find((a) => a.clave === td.closest('tr').dataset.k);
+    if (art) td.innerHTML = celdaPrecio(art);
+  });
   $('#tTabla').addEventListener('click', (e) => {
     const ver = e.target.closest('[data-ver]');
     if (ver) { e.preventDefault(); verPresupuesto(ver.dataset.ver); return; }
@@ -151,6 +179,17 @@ export function initTarifa() {
       editor.desdeTarifa(art, precioTarifa(art, manuales(), ajuste()));
       toast(art.unidad === 'm²' ? 'Añadido. Escribe ancho y alto: el precio se calcula con la tarifa.' : 'Añadido al presupuesto');
       go('nuevo');
+      return;
+    }
+        const auto = e.target.closest('[data-auto]');
+    if (auto) {
+      const tr = auto.closest('tr');
+      const m = { ...manuales() };
+      delete m[tr.dataset.k];
+      data.ajustes.tarifa = m;
+      saveAjustes({ tarifa: m }).then(() => toast('Vuelve al precio automático'));
+      const art = calcular().find((a) => a.clave === tr.dataset.k);
+      tr.querySelector('.precio-tarifa').innerHTML = celdaPrecio(art);
       return;
     }
         const oc = e.target.closest('[data-ocultar]');

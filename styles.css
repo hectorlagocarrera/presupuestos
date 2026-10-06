@@ -277,6 +277,11 @@ table.tarifa tr.cat td { background: var(--accent-soft); font-weight: 700; paddi
 table.tarifa tr.ej td { background: var(--bg); font-size: 0.82rem; }
 table.tarifa input { width: 100px; text-align: right; }
 table.tarifa input.fijado { border-color: var(--accent); font-weight: 700; }
+table.tarifa .precio-tarifa input { font-weight: 600; color: var(--text); }
+.nota-precio { display: block; font-size: 0.72rem; color: var(--muted); margin-top: 2px; white-space: nowrap; }
+.nota-precio.fijo { color: var(--accent); font-weight: 600; }
+.mini-icon { min-width: 0 !important; min-height: 0 !important; padding: 0 4px; font-size: 0.9rem; color: inherit; }
+.aviso-ajuste { background: var(--accent-soft); border-left: 3px solid var(--accent); padding: 8px 12px; border-radius: 6px; font-weight: 600; margin: 6px 0; }
 table.tarifa .nombre { cursor: pointer; }
 table.tarifa .nombre:hover { color: var(--accent); }
 
