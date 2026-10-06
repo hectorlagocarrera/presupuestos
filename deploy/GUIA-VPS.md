@@ -30,12 +30,13 @@ y entra en tu VPS. Necesitas:
 
 Sabrás que estás dentro cuando veas algo como `ubuntu@vps-1a2b3c4d:~$`.
 
-## 3. Instala la aplicación (un solo comando)
+## 3. Instala la aplicación
 
-Copia y pega esto en la ventana de PowerShell (con clic derecho se pega) y pulsa Intro:
+Copia y pega estas dos líneas en la ventana de PowerShell (con clic derecho se pega) y pulsa Intro:
 
 ```
-curl -fsSL https://raw.githubusercontent.com/hectorlagocarrera/presupuestos/main/deploy/instalar.sh | sudo bash
+curl -fsSLO https://raw.githubusercontent.com/hectorlagocarrera/presupuestos/main/deploy/instalar.sh
+sudo bash instalar.sh
 ```
 
 Te hará unas preguntas:

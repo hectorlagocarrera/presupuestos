@@ -8,10 +8,11 @@ El diseño completo (arquitectura, base de datos, pantallas, búsqueda e importa
 
 ## Instalación en el servidor (recomendado)
 
-Guía paso a paso para el VPS de OVH: [`deploy/GUIA-VPS.md`](deploy/GUIA-VPS.md). Basta con un comando:
+Guía paso a paso para el VPS de OVH: [`deploy/GUIA-VPS.md`](deploy/GUIA-VPS.md). Basta con dos comandos:
 
 ```
-curl -fsSL https://raw.githubusercontent.com/hectorlagocarrera/presupuestos/main/deploy/instalar.sh | sudo bash
+curl -fsSLO https://raw.githubusercontent.com/hectorlagocarrera/presupuestos/main/deploy/instalar.sh
+sudo bash instalar.sh
 ```
 
 Con servidor, los datos se guardan en una **base de datos SQLite** en el VPS. Todos los ordenadores ven lo

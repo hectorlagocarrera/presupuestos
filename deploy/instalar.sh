@@ -3,7 +3,8 @@
 #   Node.js + base de datos SQLite + servicio que arranca solo + nginx con HTTPS (Let's Encrypt)
 #   + cortafuegos + copia de seguridad diaria + primer usuario.
 # Uso (en el VPS):
-#   curl -fsSL https://raw.githubusercontent.com/hectorlagocarrera/presupuestos/main/deploy/instalar.sh | sudo bash
+#   curl -fsSLO https://raw.githubusercontent.com/hectorlagocarrera/presupuestos/main/deploy/instalar.sh
+#   sudo bash instalar.sh
 # Se puede volver a ejecutar sin perder datos (por ejemplo, para reparar la instalación).
 set -euo pipefail
 
@@ -14,7 +15,8 @@ COPIAS="/var/backups/presupuestos"
 PUERTO=3000
 
 if [ "$(id -u)" -ne 0 ]; then echo "Ejecútalo con sudo."; exit 1; fi
-exec 3</dev/tty   # las preguntas se leen del teclado aunque el script llegue por «curl | sudo bash»
+# Las preguntas se leen del teclado. (Si el script llega por una tubería, del terminal directamente.)
+if [ -t 0 ]; then exec 3<&0; else exec 3</dev/tty; fi
 pregunta() { local r; read -r -u 3 -p "$1${2:+ [$2]}: " r; echo "${r:-${2:-}}"; }
 
 echo "=== Instalación de Presupuestos ==="
