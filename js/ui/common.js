@@ -149,3 +149,17 @@ export function refreshDatalists() {
   const mats = [...new Set(data.partidas.map((p) => p.material).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
   $('#dlMateriales').innerHTML = mats.map((m) => `<option value="${esc(m)}">`).join('');
 }
+
+// Carga (una sola vez) una librería de vendor/.
+const cargadas = {};
+export function loadScript(src) {
+  if (!cargadas[src]) {
+    cargadas[src] = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src; s.onload = resolve;
+      s.onerror = () => { delete cargadas[src]; reject(new Error('No se pudo cargar ' + src)); };
+      document.head.appendChild(s);
+    });
+  }
+  return cargadas[src];
+}

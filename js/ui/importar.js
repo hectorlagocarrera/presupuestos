@@ -4,23 +4,10 @@ import { textToBudget, rowsToBudgets } from '../parse.js';
 import { itemsToRows, rowsToLines, looksLikeColumns, columnsToBudgets } from '../columnas.js';
 import { classify } from '../search.js';
 import { data, savePresupuesto, exportar, importar, notify, saveAjustes, enBloque, recargar } from '../store.js';
-import { toast } from './common.js';
+import { toast, loadScript } from './common.js';
 import { onShow } from './nav.js';
 
 // ---------- Lectura de archivos (todo en este ordenador) ----------
-
-const loaded = {};
-function loadScript(src) {
-  if (!loaded[src]) {
-    loaded[src] = new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = src; s.onload = resolve;
-      s.onerror = () => { delete loaded[src]; reject(new Error('No se pudo cargar ' + src)); };
-      document.head.appendChild(s);
-    });
-  }
-  return loaded[src];
-}
 
 // PDF → páginas con filas y celdas (posición de cada texto).
 async function pdfToPages(buf, progreso) {

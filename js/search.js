@@ -130,11 +130,18 @@ export function detectConcepts(tokens, cover) {
 
 // Categoría y material sugeridos para un texto.
 export function classify(text) {
-  const found = [...detectConcepts(tokenize(text)).values()];
-  const mat = found.find((c) => MATERIALES.has(c.id));
+  const tokens = tokenize(text);
+  const cover = tokens.map(() => []);
+  const found = detectConcepts(tokens, cover);
+  // Orden de aparición en el texto: «LONA microperforada» es lona aunque «microperforado» sea también vinilo.
+  const enOrden = [];
+  for (const ids of cover) for (const id of ids) if (!enOrden.includes(id)) enOrden.push(id);
+  for (const id of found.keys()) if (!enOrden.includes(id)) enOrden.push(id);
+  const lista = enOrden.map((id) => found.get(id));
+  const mat = lista.find((c) => MATERIALES.has(c.id));
   // Prioridad: trabajos muy concretos, después el material, después el resto (montaje, diseño… al final).
-  const cat = found.find((c) => TRABAJOS.has(c.id)) || mat
-    || found.find((c) => !['montaje', 'instalacion', 'diseno'].includes(c.id)) || found[0];
+  const cat = lista.find((c) => TRABAJOS.has(c.id)) || mat
+    || lista.find((c) => !['montaje', 'instalacion', 'diseno'].includes(c.id)) || lista[0];
   return { categoria: cat ? cat.categoria : '', material: mat ? mat.nombre : '' };
 }
 

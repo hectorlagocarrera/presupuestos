@@ -62,3 +62,26 @@ test('clasificación automática', () => {
   assert.equal(classify('Rotulación furgoneta').categoria, 'Rotulación de vehículos');
   assert.deepEqual(tokenize('Carteles de PVC'), ['cartel', 'pvc']);
 });
+
+test('tarifa: agrupa trabajos parecidos y da precio por m² o por unidad', async () => {
+  const { generarTarifa, precioTarifa } = await import('../js/tarifa.js');
+  const L = (articulo, fecha, precioUnitario, ancho, alto, categoria, cantidad = 1) => calcPartida({ articulo, fecha, precioUnitario, ancho, alto, categoria, cantidad });
+  const t = generarTarifa([
+    L('Lona microperforada reforzada con ojales 300x100', '2026-01-01', 90, 3, 1, 'Lona'),
+    L('LONA MICROPERFORADA REFORZADA 2x1', '2025-01-01', 56, 2, 1, 'Lona'),
+    L('Lona microperforada reforzada color blanco 4x1', '2024-01-01', 100, 4, 1, 'Lona'),
+    L('Camiseta Dogo premium negra', '2026-02-01', 6, null, null, 'Textil', 100),
+    L('Camiseta Dogo premium blanca', '2025-02-01', 5, null, null, 'Textil', 50),
+    L('Pegatina vinilo 5x5 cm', '2025-02-01', 30, 0.05, 0.05, 'Vinilo', 1),
+  ]);
+  const lona = t.find((a) => a.categoria === 'Lona');
+  assert.equal(lona.veces, 3);
+  assert.equal(lona.unidad, 'm²');
+  assert.equal(lona.sugerido, 28);
+  const cam = t.find((a) => a.categoria === 'Textil');
+  assert.equal(cam.unidad, 'ud');
+  assert.equal(cam.sugerido, 5.5);
+  assert.equal(t.find((a) => a.categoria === 'Vinilo').unidad, 'ud', 'piezas pequeñas por unidad');
+  assert.equal(precioTarifa(lona, {}, 10), 30.8);
+  assert.equal(precioTarifa(lona, { [lona.clave]: 32 }, 10), 32);
+});

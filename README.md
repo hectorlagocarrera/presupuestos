@@ -30,6 +30,9 @@ los datos en el navegador.
    salen los trabajos parecidos con último precio, medio, mínimo, máximo, €/m² habitual y evolución por año.
    Pulsa **Usar como referencia** o arrastra el resultado a la izquierda, ajusta y guarda. Lo guardado pasa al
    histórico.
+3. **Tarifa**: tarifa de precios sacada de todos los presupuestos (precio sugerido por artículo, en €/m² o por
+   unidad). Fija tus precios, aplica un % general, quita lo que no quieras y descárgala en Excel o imprímela.
+4. **Tema**: botón arriba a la derecha para elegir entre automático, claro y oscuro (letras naranjas).
 
 ## Privacidad
 
@@ -50,6 +53,7 @@ js/parse.js      detección de partidas en PDF/texto y Excel
 js/store.js      datos en memoria, guardado (en bloque para importaciones) y copias de seguridad
 js/backend.js    dónde se guarda: API del servidor o IndexedDB del navegador
 js/columnas.js   lector a medida de los PDF del programa de gestión
+js/tarifa.js     tarifa de precios: agrupación de artículos y precio sugerido
 server/          servidor Node.js (sin dependencias): API, usuarios, base de datos SQLite (node:sqlite)
 deploy/          instalación en el VPS (instalar.sh) y guía
 js/ui/*.js       pantallas

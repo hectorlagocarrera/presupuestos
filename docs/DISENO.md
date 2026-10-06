@@ -82,7 +82,12 @@ creado, modificado               m2             ancho × alto           id, nomb
 5. **Clientes.** Datos para el encabezado del presupuesto. Se crean solos al guardar.
 6. **Importar.** PDF, Excel, CSV, ODS o texto pegado, con pantalla de revisión antes de guardar. Aquí está también
    la copia de seguridad.
-7. **Ajustes.** Datos de la empresa, IVA y diccionario de sinónimos (editable).
+7. **Tarifa de precios.** Agrupa las partidas de todos los presupuestos en artículos (categoría + las 3 primeras
+   palabras que los describen, sin colores, tallas ni medidas). El precio sugerido es la mediana de los 10 usos
+   más recientes: en €/m² si la mayoría lleva medidas y las piezas son grandes (de media ≥ 0,25 m²), y por
+   unidad en el resto (textil, imprenta, pegatinas…). Cada precio se puede fijar a mano, se puede aplicar un
+   ajuste general en % y quitar artículos. Sale en Excel o impresa con el logo.
+8. **Ajustes.** Datos de la empresa, IVA y diccionario de sinónimos (editable).
 
 ## 4. Flujo de trabajo
 

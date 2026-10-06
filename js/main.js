@@ -7,6 +7,7 @@ import { refreshDatalists, toast } from './ui/common.js';
 import { initEditor } from './ui/editor.js';
 import { initBuscador, initArticulos, initPresupuestos, initClientes } from './ui/screens.js';
 import { initImportar } from './ui/importar.js';
+import { initTarifa } from './ui/tarifa.js';
 import { show, current } from './ui/nav.js';
 
 function initAjustes() {
@@ -120,6 +121,7 @@ async function start() {
   initPresupuestos();
   initClientes();
   initImportar();
+  initTarifa();
   initAjustes();
   initLogo();
   refreshDatalists();

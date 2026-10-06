@@ -22,6 +22,7 @@
         <a href="#buscar" data-tab="buscar">Buscador histórico</a>
         <a href="#articulos" data-tab="articulos">Artículos</a>
         <a href="#presupuestos" data-tab="presupuestos">Presupuestos</a>
+        <a href="#tarifa" data-tab="tarifa">Tarifa</a>
         <a href="#clientes" data-tab="clientes">Clientes</a>
         <a href="#importar" data-tab="importar">Importar</a>
         <a href="#ajustes" data-tab="ajustes">Ajustes</a>
@@ -106,6 +107,7 @@
           <select id="aCat"></select>
           <select id="aAnio"></select>
           <label class="check"><input type="checkbox" id="aRevisar"> Solo por revisar</label>
+          <button class="btn small ghost" id="aRecalcular" title="Vuelve a calcular categoría y material de todas las partidas con los sinónimos actuales">Recalcular categorías</button>
         </div>
         <div class="table-wrap">
           <table class="data">
@@ -128,6 +130,36 @@
           <table class="data">
             <thead><tr><th>Fecha</th><th>Nº</th><th>Cliente</th><th class="num">Partidas</th><th class="num">Base</th><th class="num">Total</th><th>Origen</th><th></th></tr></thead>
             <tbody id="pTabla"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <!-- Tarifa de precios -->
+    <main class="screen hidden" id="s-tarifa">
+      <section class="pane">
+        <div class="pane-head">
+          <h2>Tarifa de precios</h2>
+          <div class="btns">
+            <button class="btn ghost" id="tExcel">Descargar Excel</button>
+            <button class="btn" id="tImprimir">Imprimir / PDF</button>
+          </div>
+        </div>
+        <p class="muted small">Sale de todos los presupuestos: cada artículo agrupa los trabajos parecidos y el <strong>precio sugerido</strong>
+          es la mediana de sus 10 usos más recientes (en €/m² para los trabajos que se cobran por superficie). Escribe tu precio en
+          «Precio tarifa» para fijarlo; si lo dejas vacío se usa el sugerido con el ajuste general. Precios sin IVA.</p>
+        <div class="filters">
+          <input id="tQ" placeholder="Buscar artículo" autocomplete="off">
+          <select id="tCat"></select>
+          <label class="check"><input type="checkbox" id="tRepetidos" checked> Solo los que se repiten (2 o más veces)</label>
+          <label class="check">Ajuste general <input id="tAjuste" class="mini" inputmode="decimal"> %</label>
+          <label class="check"><input type="checkbox" id="tOcultos"> Ver los quitados</label>
+        </div>
+        <p id="tInfo" class="muted small"></p>
+        <div class="table-wrap">
+          <table class="data tarifa">
+            <thead><tr><th>Artículo</th><th>Unidad</th><th class="num">Sugerido</th><th class="num">Rango reciente</th><th class="num">Veces</th><th>Último uso</th><th class="num">Precio tarifa</th><th></th></tr></thead>
+            <tbody id="tTabla"></tbody>
           </table>
         </div>
       </section>

@@ -269,6 +269,14 @@ dialog::backdrop { background: rgba(10, 15, 25, 0.45); }
   .res-side { align-items: flex-start; text-align: left; }
 }
 
+/* ---- Tarifa ---- */
+table.tarifa tr.cat td { background: var(--accent-soft); font-weight: 700; padding-top: 10px; }
+table.tarifa tr.ej td { background: var(--bg); font-size: 0.82rem; }
+table.tarifa input { width: 100px; text-align: right; }
+table.tarifa input.fijado { border-color: var(--accent); font-weight: 700; }
+table.tarifa .nombre { cursor: pointer; }
+table.tarifa .nombre:hover { color: var(--accent); }
+
 /* ---- Impresión ---- */
 .print-only { display: none; }
 @media print {
@@ -296,6 +304,12 @@ dialog::backdrop { background: rgba(10, 15, 25, 0.45); }
   .p-totals td.num { text-align: right; }
   .p-totals .grand td { font-weight: 700; font-size: 12.5pt; border-top: 2px solid #000; }
   .p-notes { margin-top: 14px; color: #333; }
+  .t-cat { margin: 14px 0 4px; font-size: 11.5pt; color: #1d4ed8; border-bottom: 1px solid #1d4ed8; break-after: avoid; }
+  .t-table { width: 100%; border-collapse: collapse; }
+  .t-table td { border-bottom: 1px solid #e3e3e3; padding: 3px 6px; }
+  .t-table td.num { text-align: right; white-space: nowrap; width: 90px; }
+  .t-table td.ud { color: #555; width: 50px; }
+  .t-table tr { break-inside: avoid; }
 }
 
 /* ---- Entrada y sesión ---- */

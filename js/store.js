@@ -200,6 +200,23 @@ export async function savePartida(partida) {
   changed();
 }
 
+// Vuelve a calcular categoría y material de todas las partidas (por ejemplo, tras cambiar los sinónimos).
+// clasificar(texto) → { categoria, material }. Devuelve cuántas cambiaron.
+export async function recalcularCategorias(clasificar) {
+  const cambiadas = [];
+  for (const p of data.partidas) {
+    const c = clasificar([p.articulo, p.descripcion].filter(Boolean).join(' '));
+    if (c.categoria !== (p.categoria || '') || (c.material && c.material !== p.material)) {
+      p.categoria = c.categoria;
+      if (c.material) p.material = c.material;
+      cambiadas.push(p);
+    }
+  }
+  for (let i = 0; i < cambiadas.length; i += 3000) await backend.escribir({ put: { partidas: cambiadas.slice(i, i + 3000) } });
+  changed();
+  return cambiadas.length;
+}
+
 export async function deletePresupuesto(id) {
   const p = getPresupuesto(id);
   // El original puede ser compartido (un Excel con varios presupuestos).

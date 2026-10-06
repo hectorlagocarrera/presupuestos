@@ -1,7 +1,7 @@
 // Pantallas de consulta: buscador histórico, artículos, presupuestos anteriores y clientes.
 import { $, esc, fmtEur, fmtNum, fmtDate, debounce, year } from '../util.js';
-import { search, similares, priceStats, parseQuery } from '../search.js';
-import { data, searchDocs, anios, partidasDe, savePartida, deletePresupuesto, saveCliente, deleteCliente, onChange } from '../store.js';
+import { search, similares, priceStats, parseQuery, classify } from '../search.js';
+import { data, searchDocs, anios, partidasDe, savePartida, deletePresupuesto, saveCliente, deleteCliente, onChange, recalcularCategorias } from '../store.js';
 import { resultCard, statsHtml, mountFiltros, fillSelect, modalForm, medidasTxt, categorias, toast } from './common.js';
 import { verPresupuesto, abrirOriginal } from './presview.js';
 import { editor } from './editor.js';
@@ -97,6 +97,11 @@ export function initArticulos() {
     if (ed) editarPartida(data.partidas.find((p) => p.id === ed.dataset.edit));
     const use = e.target.closest('[data-use]');
     if (use) { editor.usar(use.dataset.use); go('nuevo'); }
+  });
+  $('#aRecalcular').addEventListener('click', async () => {
+    if (!confirm('Se volverán a calcular la categoría y el material de todas las partidas con los sinónimos actuales. Los que hayas cambiado a mano también se recalculan. ¿Continuar?')) return;
+    const n = await recalcularCategorias(classify);
+    toast(n ? `${n} partidas actualizadas` : 'Todas las categorías estaban al día');
   });
   onShow('articulos', run);
   onChange(() => { if (visible('s-articulos')) run(); });
