@@ -201,6 +201,7 @@ echo
 echo " Comandos útiles:"
 echo "   sudo presupuestos-usuario nuevo maria   → crear usuario o cambiar contraseña"
 echo "   sudo presupuestos-usuario lista         → ver usuarios"
+echo "   sudo presupuestos-usuario mfa-quitar maria → quitar la verificación en dos pasos (móvil perdido)"
 echo "   sudo presupuestos-copia                 → copia de seguridad ahora (en $COPIAS)"
 echo "   sudo presupuestos-actualizar            → traer la última versión"
 echo "=============================================================="

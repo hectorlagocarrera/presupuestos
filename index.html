@@ -267,6 +267,20 @@
         </div>
         <p class="muted small">Sale en la cabecera de la aplicación y en los presupuestos impresos.</p>
       </section>
+      <section class="pane solo-servidor" id="seguridad">
+        <h2>Seguridad · verificación en dos pasos</h2>
+        <p class="muted small">Además de la contraseña, al entrar se pide un código de 6 cifras de una app del móvil
+          (Google Authenticator, Microsoft Authenticator, Authy…). Así nadie puede entrar aunque conozca la contraseña.</p>
+        <p id="mfaEstado"></p>
+        <div class="btns">
+          <button class="btn" id="mfaActivar">Activar</button>
+          <button class="btn ghost" id="mfaCodigos">Nuevos códigos de recuperación</button>
+          <button class="btn ghost" id="mfaDesactivar">Desactivar o cambiar de móvil</button>
+        </div>
+        <label class="check mfa-politica"><input type="checkbox" id="mfaObligatoria"> Exigirla a todos los usuarios
+          (quien no la tenga deberá configurarla al entrar)</label>
+      </section>
+
       <section class="pane">
         <div class="pane-head">
           <h2>Sinónimos del buscador</h2>
@@ -288,9 +302,17 @@
     <form id="loginForm" class="login-box" autocomplete="on">
       <img src="logo.png" alt="" height="48">
       <h1>Presupuestos</h1>
-      <label>Usuario <input id="loginUsuario" name="username" autocomplete="username" required autofocus></label>
-      <label>Contraseña <input id="loginClave" name="password" type="password" autocomplete="current-password" required></label>
-      <button class="btn" type="submit">Entrar</button>
+      <div id="loginPaso1">
+        <label>Usuario <input id="loginUsuario" name="username" autocomplete="username" required autofocus></label>
+        <label>Contraseña <input id="loginClave" name="password" type="password" autocomplete="current-password" required></label>
+      </div>
+      <div id="loginPaso2" class="hidden">
+        <p class="small">Escribe el código de 6 cifras de tu app de autenticación (Google Authenticator, Microsoft Authenticator…).</p>
+        <label>Código <input id="loginCodigo" inputmode="numeric" autocomplete="one-time-code" maxlength="14" placeholder="123 456"></label>
+        <p class="muted small">¿Sin el móvil? Escribe uno de tus códigos de recuperación.</p>
+      </div>
+      <button class="btn" type="submit" id="loginBtn">Entrar</button>
+      <button class="btn ghost hidden" type="button" id="loginVolver">Volver</button>
       <p id="loginMsg" class="warn hidden"></p>
     </form>
   </div>

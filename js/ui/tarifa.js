@@ -5,7 +5,8 @@ import { generarTarifa, precioTarifa } from '../tarifa.js';
 import { data, saveAjustes, onChange } from '../store.js';
 import { fillSelect, toast, loadScript } from './common.js';
 import { verPresupuesto } from './presview.js';
-import { onShow } from './nav.js';
+import { onShow, go } from './nav.js';
+import { editor } from './editor.js';
 
 let tarifa = null;      // se recalcula cuando cambian los datos
 const abiertos = new Set(); // artículos con los ejemplos desplegados
@@ -58,7 +59,8 @@ function render() {
         <td class="num">${a.veces}</td>
         <td class="small">${fmtDate(a.ultimaFecha)} · ${fmtEur(a.ultimoPrecio)}</td>
         <td class="num"><input data-precio inputmode="decimal" class="${fijado ? 'fijado' : ''}" value="${fijado ? fmtNum(m) : ''}" placeholder="${fmtNum(precioTarifa(a, {}, ajuste()))}"></td>
-        <td><button class="icon" data-ocultar title="${$('#tOcultos').checked ? 'Volver a incluir en la tarifa' : 'Quitar de la tarifa'}">${$('#tOcultos').checked ? '↺' : '✕'}</button></td>
+        <td class="nowrap"><button class="btn small" data-anadir title="Añadir al presupuesto que estás haciendo">Añadir</button>
+          <button class="icon" data-ocultar title="${$('#tOcultos').checked ? 'Volver a incluir en la tarifa' : 'Quitar de la tarifa'}">${$('#tOcultos').checked ? '↺' : '✕'}</button></td>
       </tr>`;
     if (abiertos.has(a.clave)) {
       html += a.ejemplos.map((p) => `
@@ -143,7 +145,15 @@ export function initTarifa() {
   $('#tTabla').addEventListener('click', (e) => {
     const ver = e.target.closest('[data-ver]');
     if (ver) { e.preventDefault(); verPresupuesto(ver.dataset.ver); return; }
-    const oc = e.target.closest('[data-ocultar]');
+    const an = e.target.closest('[data-anadir]');
+    if (an) {
+      const art = calcular().find((a) => a.clave === an.closest('tr').dataset.k);
+      editor.desdeTarifa(art, precioTarifa(art, manuales(), ajuste()));
+      toast(art.unidad === 'm²' ? 'Añadido. Escribe ancho y alto: el precio se calcula con la tarifa.' : 'Añadido al presupuesto');
+      go('nuevo');
+      return;
+    }
+        const oc = e.target.closest('[data-ocultar]');
     if (oc) {
       const k = oc.closest('tr').dataset.k;
       const lista = new Set(ocultos());

@@ -2,7 +2,8 @@
 import { $, $$, debounce, numOrNull, today } from './util.js';
 import { DEFAULT_SINONIMOS } from './search.js';
 import { open, data, saveAjustes, onChange, modo, recargar } from './store.js';
-import { servidor, navegador, detectarServidor, entrar, NoAutorizado } from './backend.js';
+import { servidor, navegador, detectarServidor, entrar, entrarMfa, NoAutorizado } from './backend.js';
+import { initSeguridad, configurarMfa } from './ui/seguridad.js';
 import { refreshDatalists, toast } from './ui/common.js';
 import { initEditor } from './ui/editor.js';
 import { initBuscador, initArticulos, initPresupuestos, initClientes } from './ui/screens.js';
@@ -75,15 +76,34 @@ function mostrarLogin(msg) {
 }
 
 function initLogin() {
+  let reto = null;
+  const paso = (n) => {
+    $('#loginPaso1').classList.toggle('hidden', n !== 1);
+    $('#loginPaso2').classList.toggle('hidden', n !== 2);
+    $('#loginVolver').classList.toggle('hidden', n !== 2);
+    $('#loginBtn').textContent = n === 2 ? 'Verificar' : 'Entrar';
+    $('#loginUsuario').required = n === 1;
+    $('#loginClave').required = n === 1;
+    (n === 2 ? $('#loginCodigo') : $('#loginClave')).focus();
+  };
+  const error = (msg) => { $('#loginMsg').textContent = msg; $('#loginMsg').classList.toggle('hidden', !msg); };
+  $('#loginVolver').addEventListener('click', () => { reto = null; error(''); paso(1); });
   $('#loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
-      await entrar($('#loginUsuario').value.trim(), $('#loginClave').value);
+      if (reto) {
+        const r = await entrarMfa(reto, $('#loginCodigo').value.trim());
+        if (r.recuperacionRestantes != null) alert(`Has usado un código de recuperación. Te quedan ${r.recuperacionRestantes}. Cuando puedas, genera códigos nuevos en Ajustes → Seguridad.`);
+        location.reload();
+        return;
+      }
+      const r = await entrar($('#loginUsuario').value.trim(), $('#loginClave').value);
+      if (r.mfa) { reto = r.reto; error(''); $('#loginCodigo').value = ''; paso(2); return; }
       location.reload();
     } catch (err) {
-      $('#loginMsg').textContent = err.message;
-      $('#loginMsg').classList.remove('hidden');
-      $('#loginClave').select();
+      error(err.message);
+      if (err.datos?.reiniciar) { reto = null; paso(1); $('#loginClave').value = ''; }
+      (reto ? $('#loginCodigo') : $('#loginClave')).select();
     }
   });
   // Si la sesión caduca mientras se trabaja, se vuelve a pedir la contraseña.
@@ -96,6 +116,12 @@ async function start() {
   initLogin();
   const srv = await detectarServidor();
   if (srv === 'login') { mostrarLogin(); return; }
+  let yo = null;
+  if (srv === 'si') {
+    yo = await servidor.usuario();
+    // Verificación en dos pasos obligatoria y aún sin configurar: primero hay que configurarla.
+    if (yo.mfaObligatorio && !yo.mfa) { configurarMfa({ obligatoria: true, alTerminar: () => location.reload() }); return; }
+  }
   try {
     await open(srv === 'si' ? servidor : navegador);
   } catch (err) {
@@ -104,8 +130,8 @@ async function start() {
     return;
   }
   if (srv === 'si') {
-    const { usuario } = await servidor.usuario();
-    $('#sesionUsuario').textContent = usuario;
+    $('#sesionUsuario').textContent = yo.usuario;
+    initSeguridad(yo);
     $('#sesion').classList.remove('hidden');
     $('#btnSalir').addEventListener('click', async () => { await servidor.salir(); location.reload(); });
     // Al volver a la pestaña, traer lo que hayan guardado otros ordenadores.

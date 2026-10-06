@@ -37,3 +37,34 @@ test('usuarios y sesiones', () => {
   assert.equal(DB.usuarioDeSesion(db, token), null, 'cambiar la contraseña cierra las sesiones');
   assert.ok(!DB.listaUsuarios(db)[0].hash, 'la lista no muestra los hashes');
 });
+
+test('verificación en dos pasos: códigos TOTP (RFC 6238) y de recuperación', async () => {
+  const MFA = await import('../server/mfa.js');
+  const s = MFA.base32(Buffer.from('12345678901234567890'));
+  assert.equal(MFA.codigo(s, Math.floor(59 / 30)), '287082');
+  assert.equal(MFA.codigo(s, Math.floor(1111111109 / 30)), '081804');
+  const ahora = 1234567890 * 1000;
+  const paso = MFA.comprobar(s, '005924', -1, ahora);
+  assert.equal(paso, Math.floor(1234567890 / 30));
+  assert.equal(MFA.comprobar(s, '005924', paso, ahora), null, 'el mismo código no vale dos veces');
+  assert.equal(MFA.comprobar(s, '000000', -1, ahora), null);
+  assert.equal(MFA.comprobar(s, MFA.codigo(s, paso - 1), -1, ahora), paso - 1, 'admite el código anterior (reloj desajustado)');
+  assert.equal(MFA.comprobar(s, MFA.codigo(s, paso - 3), -1, ahora), null);
+  const { codigos, hashes } = MFA.nuevosCodigosRecuperacion();
+  assert.equal(codigos.length, 10);
+  const resto = MFA.usarRecuperacion(hashes, codigos[3].toUpperCase());
+  assert.equal(resto.length, 9);
+  assert.equal(MFA.usarRecuperacion(resto, codigos[3]), null, 'cada código de recuperación sirve una vez');
+  assert.match(MFA.uri(s, 'ana'), /^otpauth:\/\/totp\/Presupuestos:ana\?secret=/);
+});
+
+test('base de datos: columnas de MFA se añaden a bases antiguas', () => {
+  const db = DB.abrir(':memory:');
+  DB.crearUsuario(db, 'ana', 'una-clave-larga');
+  DB.guardarMfa(db, 'ana', { mfa_secreto: 'ABC' });
+  assert.equal(DB.datosMfa(db, 'ana').mfa_secreto, 'ABC');
+  assert.equal(DB.listaUsuarios(db)[0].mfa, 1);
+  assert.ok(DB.quitarMfa(db, 'ana'));
+  DB.guardarConfig(db, 'mfa_obligatorio', '1');
+  assert.equal(DB.leerConfig(db, 'mfa_obligatorio'), '1');
+});

@@ -76,6 +76,23 @@ export const editor = {
     const card = $(`#edLineas .line[data-i="${active}"]`);
     card?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   },
+  // Añade un artículo de la tarifa. Si va por m², el precio se calcula al poner las medidas.
+  desdeTarifa(art, precio) {
+    const l = emptyLine();
+    // Sin las medidas del trabajo antiguo («MEDIDA: 300x100CM»): se ponen las nuevas en ancho y alto.
+    l.articulo = art.nombre
+      .replace(/\s*(?:medidas?|tama[nñ]o|formato)?\s*:?\s*\d+(?:[.,]\d+)?\s*(?:mm|cm|mts?|m)?\s*[x×*]\s*\d+(?:[.,]\d+)?\s*(?:mm|cm|mts?|m)?\b/gi, ' ')
+      .replace(/\s+([.,;:])/g, '$1').replace(/[\s:,-]+…?$/, '').replace(/\s+/g, ' ').trim() || art.nombre;
+    l.categoria = art.categoria;
+    if (art.unidad === 'm²') l.tarifaM2 = precio;
+    else l.precioUnitario = precio;
+    l.ref = { tarifa: true, precio, unidad: art.unidad };
+    if (lines[active] && isEmpty(lines[active])) lines[active] = l;
+    else { lines.push(l); active = lines.length - 1; }
+    dirty = true;
+    renderLines();
+    $(`#edLineas .line[data-i="${active}"] [data-f=${art.unidad === 'm²' ? 'ancho' : 'cantidad'}]`)?.focus();
+  },
 };
 
 // ---------- Render ----------
@@ -133,7 +150,8 @@ function lineHtml(l, i) {
         <label>Observaciones <input data-f="observaciones" value="${esc(l.observaciones)}"></label>
       </div>
     </details>
-    ${l.ref ? `<div class="refnote">Referencia: ${fmtEur(l.ref.precio)} · ${fmtDate(l.ref.fecha)}${l.ref.numero ? ' · nº ' + esc(l.ref.numero) : ''}${l.ref.cliente ? ' · ' + esc(l.ref.cliente) : ''}</div>` : ''}
+    ${l.ref?.tarifa ? `<div class="refnote">De la tarifa: ${fmtEur(l.ref.precio)}${l.ref.unidad === 'm²' ? '/m² · escribe ancho y alto y el precio se calcula solo' : ' por unidad'}</div>` : ''}
+    ${l.ref && !l.ref.tarifa ? `<div class="refnote">Referencia: ${fmtEur(l.ref.precio)} · ${fmtDate(l.ref.fecha)}${l.ref.numero ? ' · nº ' + esc(l.ref.numero) : ''}${l.ref.cliente ? ' · ' + esc(l.ref.cliente) : ''}</div>` : ''}
   </div>`;
 }
 
@@ -230,6 +248,13 @@ export function initEditor() {
       if (c.m2 && v != null) l.precioUnitario = round(v * c.m2 * piezas, 2);
     } else if (CAMPOS_NUM.includes(f)) l[f] = numOrNull(e.target.value);
     else l[f] = e.target.value;
+    // Artículo de tarifa por m²: al cambiar las medidas se recalcula el precio (hasta que se escriba otro a mano).
+    if (f === 'precioUnitario' || f === 'precioM2') delete l.tarifaM2;
+    if (l.tarifaM2 && (f === 'ancho' || f === 'alto' || f === 'cantidad')) {
+      const c = calcPartida(l);
+      const piezas = l.cantidad === 1 || l.cantidad == null ? piezasTexto(l.articulo) : 1;
+      l.precioUnitario = c.m2 ? round(l.tarifaM2 * c.m2 * piezas, 2) : null;
+    }
     // Categoría y material automáticos según el artículo (si no se han escrito a mano).
     if (f === 'categoria' || f === 'material') l['auto_' + f] = false;
     if (f === 'articulo' || f === 'descripcion') {

@@ -25,6 +25,10 @@ es un dato secundario.
   enteros en memoria (unos 2 MB para 1.600 presupuestos), así que buscar es instantáneo. Cada cambio se guarda en
   el servidor en una transacción; las importaciones grandes van en un solo envío. Al volver a la pestaña se
   recargan los cambios de otros ordenadores.
+- **Verificación en dos pasos (TOTP, RFC 6238)**: opcional u obligatoria para todos. Admite ±30 s de desfase y no
+  acepta dos veces el mismo código. Incluye 10 códigos de recuperación de un solo uso (se guarda solo su huella
+  SHA-256). Al activarla se cierran las demás sesiones del usuario. Si es obligatoria y el usuario no la tiene, el
+  servidor solo le deja configurarla.
 - **Acceso con usuario y contraseña**: contraseñas con scrypt, sesión en una cookie HttpOnly, SameSite=Strict y
   Secure de 30 días, bloqueo tras 8 intentos fallidos, y cabecera anti-CSRF en las escrituras.
 - **Lectura de PDF y Excel en el navegador** (pdf.js y SheetJS incluidos en `vendor/`). Al servidor solo llegan

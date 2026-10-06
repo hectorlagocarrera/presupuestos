@@ -55,18 +55,31 @@ export async function detectarServidor() {
   return 'no';
 }
 
-export async function entrar(usuario, clave) {
-  const res = await fetch('api/entrar', {
+async function post(ruta, cuerpo) {
+  const res = await fetch('api/' + ruta, {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', 'X-Presupuestos': '1' },
-    body: JSON.stringify({ usuario, clave }),
+    body: JSON.stringify(cuerpo || {}),
   });
-  if (!res.ok) {
-    let msg = 'Usuario o contraseña incorrectos';
-    try { msg = (await res.json()).error || msg; } catch { /* sin detalle */ }
-    throw new Error(msg);
-  }
+  let datos = {};
+  try { datos = await res.json(); } catch { /* sin cuerpo */ }
+  if (!res.ok) throw Object.assign(new Error(datos.error || `Error ${res.status}`), { datos });
+  return datos;
 }
+
+// Paso 1: devuelve { usuario } (ya dentro) o { mfa: true, reto } (falta el código).
+export const entrar = (usuario, clave) => post('entrar', { usuario, clave });
+// Paso 2: código de 6 cifras o código de recuperación.
+export const entrarMfa = (reto, codigo) => post('entrar-mfa', { reto, codigo });
+
+// Verificación en dos pasos del usuario conectado.
+export const mfa = {
+  iniciar: () => post('mfa/iniciar'),
+  activar: (codigo) => post('mfa/activar', { codigo }),
+  desactivar: (clave, codigo) => post('mfa/desactivar', { clave, codigo }),
+  recuperacion: (codigo) => post('mfa/recuperacion', { codigo }),
+  politica: (obligatorio) => post('mfa/politica', { obligatorio }),
+};
 
 // ---------- Navegador (IndexedDB) ----------
 

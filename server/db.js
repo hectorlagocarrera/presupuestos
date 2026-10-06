@@ -34,15 +34,39 @@ CREATE TABLE IF NOT EXISTS ajustes (id TEXT PRIMARY KEY, valor TEXT);
 CREATE TABLE IF NOT EXISTS archivos (id TEXT PRIMARY KEY, nombre TEXT, tipo TEXT, datos BLOB, creado TEXT);
 CREATE TABLE IF NOT EXISTS usuarios (usuario TEXT PRIMARY KEY, hash TEXT NOT NULL, creado TEXT);
 CREATE TABLE IF NOT EXISTS sesiones (token TEXT PRIMARY KEY, usuario TEXT NOT NULL, expira INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS config (clave TEXT PRIMARY KEY, valor TEXT);
 `;
+
+// Columnas añadidas después (bases de datos ya creadas se actualizan solas).
+const MIGRACIONES = {
+  usuarios: { mfa_secreto: 'TEXT', mfa_pendiente: 'TEXT', mfa_ultimo_paso: 'INTEGER', mfa_recuperacion: 'TEXT' },
+};
 
 export function abrir(ruta) {
   if (ruta !== ':memory:') mkdirSync(dirname(ruta), { recursive: true });
   const db = new DatabaseSync(ruta);
   db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
   db.exec(ESQUEMA);
+  for (const [tabla, cols] of Object.entries(MIGRACIONES)) {
+    const hay = new Set(db.prepare(`PRAGMA table_info(${tabla})`).all().map((c) => c.name));
+    for (const [c, tipo] of Object.entries(cols)) if (!hay.has(c)) db.exec(`ALTER TABLE ${tabla} ADD COLUMN ${c} ${tipo}`);
+  }
   return db;
 }
+
+// ---------- Configuración del servidor (no la pueden cambiar los datos de la app) ----------
+
+export const leerConfig = (db, clave) => db.prepare('SELECT valor FROM config WHERE clave = ?').get(clave)?.valor ?? null;
+export const guardarConfig = (db, clave, valor) => db.prepare('INSERT OR REPLACE INTO config (clave, valor) VALUES (?, ?)').run(clave, String(valor));
+
+// ---------- Verificación en dos pasos ----------
+
+export const datosMfa = (db, usuario) => db.prepare('SELECT mfa_secreto, mfa_pendiente, mfa_ultimo_paso, mfa_recuperacion FROM usuarios WHERE usuario = ?').get(String(usuario));
+export function guardarMfa(db, usuario, cambios) {
+  const cols = Object.keys(cambios);
+  db.prepare(`UPDATE usuarios SET ${cols.map((c) => `${c} = ?`).join(', ')} WHERE usuario = ?`).run(...cols.map((c) => cambios[c]), String(usuario));
+}
+export const quitarMfa = (db, usuario) => db.prepare('UPDATE usuarios SET mfa_secreto = NULL, mfa_pendiente = NULL, mfa_ultimo_paso = NULL, mfa_recuperacion = NULL WHERE usuario = ?').run(String(usuario)).changes > 0;
 
 function valor(col, v) {
   if (v === undefined || v === null || v === '') return NUMERICAS.has(col) ? null : (v === '' ? '' : null);
@@ -116,7 +140,7 @@ export const borrarUsuario = (db, usuario) => {
   db.prepare('DELETE FROM sesiones WHERE usuario = ?').run(usuario);
   return db.prepare('DELETE FROM usuarios WHERE usuario = ?').run(usuario).changes > 0;
 };
-export const listaUsuarios = (db) => db.prepare('SELECT usuario, creado FROM usuarios ORDER BY usuario').all();
+export const listaUsuarios = (db) => db.prepare('SELECT usuario, creado, mfa_secreto IS NOT NULL AS mfa FROM usuarios ORDER BY usuario').all();
 
 export function comprobarClave(db, usuario, clave) {
   const u = db.prepare('SELECT hash FROM usuarios WHERE usuario = ?').get(String(usuario));
@@ -138,4 +162,5 @@ export function usuarioDeSesion(db, token) {
   const s = db.prepare('SELECT usuario, expira FROM sesiones WHERE token = ?').get(token);
   return s && s.expira > Date.now() ? s.usuario : null;
 }
+export const cerrarOtrasSesiones = (db, usuario, token) => db.prepare('DELETE FROM sesiones WHERE usuario = ? AND token <> ?').run(String(usuario), String(token || ''));
 export const cerrarSesion = (db, token) => db.prepare('DELETE FROM sesiones WHERE token = ?').run(String(token || ''));

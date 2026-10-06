@@ -2,6 +2,8 @@
 //   node server/usuarios.js nuevo <usuario>      crea o cambia la contraseña (la pide por teclado)
 //   node server/usuarios.js borrar <usuario>
 //   node server/usuarios.js lista
+//   node server/usuarios.js mfa-quitar <usuario>  quita la verificación en dos pasos (móvil perdido)
+//   node server/usuarios.js mfa-obligatoria si|no  exigirla o no a todos los usuarios
 // Usa la misma base de datos que el servidor (variable PRESUPUESTOS_DB).
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -52,9 +54,15 @@ try {
     console.log(DB.borrarUsuario(db, usuario) ? `Usuario «${usuario}» borrado.` : 'Ese usuario no existe.');
   } else if (orden === 'lista') {
     const us = DB.listaUsuarios(db);
-    console.log(us.length ? us.map((u) => `${u.usuario}  (desde ${String(u.creado).slice(0, 10)})`).join('\n') : 'No hay usuarios.');
+    console.log(us.length ? us.map((u) => `${u.usuario}  (desde ${String(u.creado).slice(0, 10)})${u.mfa ? '  · verificación en dos pasos' : ''}`).join('\n') : 'No hay usuarios.');
+    console.log(`Verificación en dos pasos obligatoria: ${DB.leerConfig(db, 'mfa_obligatorio') === '1' ? 'sí' : 'no'}`);
+  } else if (orden === 'mfa-quitar' && usuario) {
+    console.log(DB.quitarMfa(db, usuario) ? `Verificación en dos pasos quitada a «${usuario}». La próxima vez entrará solo con la contraseña${DB.leerConfig(db, 'mfa_obligatorio') === '1' ? ' y tendrá que configurarla de nuevo' : ''}.` : 'Ese usuario no existe.');
+  } else if (orden === 'mfa-obligatoria' && ['si', 'sí', 'no'].includes(usuario)) {
+    DB.guardarConfig(db, 'mfa_obligatorio', usuario === 'no' ? '0' : '1');
+    console.log(usuario === 'no' ? 'La verificación en dos pasos ya no es obligatoria.' : 'Ahora todos los usuarios tendrán que usar verificación en dos pasos.');
   } else {
-    console.log('Uso:\n  node server/usuarios.js nuevo <usuario>\n  node server/usuarios.js borrar <usuario>\n  node server/usuarios.js lista');
+    console.log('Uso:\n  nuevo <usuario>\n  borrar <usuario>\n  lista\n  mfa-quitar <usuario>\n  mfa-obligatoria si|no');
   }
 } catch (err) {
   console.error('Error: ' + err.message);

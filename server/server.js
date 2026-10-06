@@ -5,7 +5,9 @@ import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { join, normalize, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { randomBytes } from 'node:crypto';
 import * as DB from './db.js';
+import * as MFA from './mfa.js';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const RUTA_DB = process.env.PRESUPUESTOS_DB || join(RAIZ, 'datos', 'datos.db');
@@ -56,30 +58,135 @@ function fallo(dir) {
   fallos.set(dir, f);
 }
 
+// ---------- Verificación en dos pasos ----------
+
+const retos = new Map(); // reto del paso 2 del inicio de sesión → { usuario, expira, intentos }
+setInterval(() => { const t = Date.now(); for (const [k, r] of retos) if (r.expira < t) retos.delete(k); }, 60000).unref();
+
+// Código de la app o de recuperación. Devuelve { recuperacion, restantes } o null.
+function verificarCodigo(usuario, cod) {
+  const m = DB.datosMfa(db, usuario);
+  if (!m?.mfa_secreto) return null;
+  const paso = MFA.comprobar(m.mfa_secreto, cod, m.mfa_ultimo_paso ?? -1);
+  if (paso != null) { DB.guardarMfa(db, usuario, { mfa_ultimo_paso: paso }); return { recuperacion: false }; }
+  const resto = MFA.usarRecuperacion(JSON.parse(m.mfa_recuperacion || '[]'), cod || '');
+  if (!resto) return null;
+  DB.guardarMfa(db, usuario, { mfa_recuperacion: JSON.stringify(resto) });
+  return { recuperacion: true, restantes: resto.length };
+}
+
+// Nombre que sale en la app del móvil: «Presupuestos (empresa)».
+function emisor() {
+  try {
+    const nombre = JSON.parse(db.prepare("SELECT valor FROM ajustes WHERE id = 'ajustes'").get()?.valor || '{}').nombre;
+    return nombre ? `Presupuestos ${nombre}`.slice(0, 60) : 'Presupuestos';
+  } catch { return 'Presupuestos'; }
+}
+
 // ---------- API ----------
 
 async function api(req, res, ruta) {
   // Protección CSRF: las peticiones de la app llevan esta cabecera (otra web no puede ponerla sin permiso).
   if (req.method !== 'GET' && req.headers['x-presupuestos'] !== '1') return json(res, 403, { error: 'Petición no permitida' });
 
+  const leerJson = async (max = 10000) => { try { return JSON.parse((await cuerpo(req, max)).toString() || '{}'); } catch { return null; } };
+  const abrirSesion = (usuario, extra = {}) => {
+    const s = DB.crearSesion(db, usuario);
+    const cookie = `sid=${s.token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${s.maxAge}${esHttps(req) ? '; Secure' : ''}`;
+    return json(res, 200, { usuario, ...extra }, { 'Set-Cookie': cookie });
+  };
+
+  // Paso 1: usuario y contraseña. Si tiene verificación en dos pasos, se devuelve un «reto» en vez de la sesión.
   if (ruta === 'entrar' && req.method === 'POST') {
     const dir = ip(req);
     if (bloqueado(dir)) return json(res, 429, { error: 'Demasiados intentos. Espera 15 minutos.' });
-    let datos;
-    try { datos = JSON.parse((await cuerpo(req, 10000)).toString() || '{}'); } catch { return json(res, 400, { error: 'Datos no válidos' }); }
+    const datos = await leerJson();
+    if (!datos) return json(res, 400, { error: 'Datos no válidos' });
     const usuario = String(datos.usuario || '').trim();
     if (!DB.comprobarClave(db, usuario, String(datos.clave || ''))) { fallo(dir); return json(res, 401, { error: 'Usuario o contraseña incorrectos' }); }
     fallos.delete(dir);
-    const s = DB.crearSesion(db, usuario);
-    const cookie = `sid=${s.token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${s.maxAge}${esHttps(req) ? '; Secure' : ''}`;
-    return json(res, 200, { usuario }, { 'Set-Cookie': cookie });
+    if (DB.datosMfa(db, usuario)?.mfa_secreto) {
+      const reto = randomBytes(24).toString('hex');
+      retos.set(reto, { usuario, expira: Date.now() + 5 * 60000, intentos: 0 });
+      return json(res, 200, { mfa: true, reto });
+    }
+    return abrirSesion(usuario);
+  }
+
+  // Paso 2: código de la app (o uno de recuperación).
+  if (ruta === 'entrar-mfa' && req.method === 'POST') {
+    const dir = ip(req);
+    if (bloqueado(dir)) return json(res, 429, { error: 'Demasiados intentos. Espera 15 minutos.' });
+    const datos = await leerJson();
+    const r = datos && retos.get(String(datos.reto || ''));
+    if (!r || r.expira < Date.now()) return json(res, 401, { error: 'Ha pasado demasiado tiempo. Vuelve a escribir la contraseña.', reiniciar: true });
+    const v = verificarCodigo(r.usuario, datos.codigo);
+    if (!v) {
+      fallo(dir);
+      if (++r.intentos >= 5) { retos.delete(datos.reto); return json(res, 401, { error: 'Demasiados códigos incorrectos. Vuelve a empezar.', reiniciar: true }); }
+      return json(res, 401, { error: 'Código incorrecto' });
+    }
+    retos.delete(datos.reto);
+    fallos.delete(dir);
+    return abrirSesion(r.usuario, v.recuperacion ? { recuperacionRestantes: v.restantes } : {});
   }
 
   const token = cookies(req).sid;
   const usuario = DB.usuarioDeSesion(db, token);
   if (!usuario) return json(res, 401, { error: 'Hay que entrar con usuario y contraseña' });
 
-  if (ruta === 'yo' && req.method === 'GET') return json(res, 200, { usuario });
+  const mfaActivo = !!DB.datosMfa(db, usuario)?.mfa_secreto;
+  const obligatorio = DB.leerConfig(db, 'mfa_obligatorio') === '1';
+  // Si la verificación en dos pasos es obligatoria, sin activarla solo se puede configurar.
+  if (obligatorio && !mfaActivo && !['yo', 'salir'].includes(ruta) && !ruta.startsWith('mfa/')) {
+    return json(res, 403, { error: 'Tienes que activar la verificación en dos pasos', configurarMfa: true });
+  }
+
+  if (ruta === 'yo' && req.method === 'GET') return json(res, 200, { usuario, mfa: mfaActivo, mfaObligatorio: obligatorio });
+
+  if (ruta.startsWith('mfa/') && req.method === 'POST') {
+    const datos = (await leerJson()) || {};
+    const dir = ip(req);
+    if (bloqueado(dir)) return json(res, 429, { error: 'Demasiados intentos. Espera 15 minutos.' });
+    const accion = ruta.slice(4);
+    if (accion === 'iniciar') {
+      if (mfaActivo) return json(res, 400, { error: 'Ya está activada. Desactívala primero para cambiar de móvil.' });
+      const secreto = MFA.nuevoSecreto();
+      DB.guardarMfa(db, usuario, { mfa_pendiente: secreto });
+      return json(res, 200, { secreto, uri: MFA.uri(secreto, usuario, emisor()) });
+    }
+    if (accion === 'activar') {
+      const pendiente = DB.datosMfa(db, usuario)?.mfa_pendiente;
+      if (!pendiente) return json(res, 400, { error: 'Empieza de nuevo la activación.' });
+      const paso = MFA.comprobar(pendiente, datos.codigo);
+      if (paso == null) { fallo(dir); return json(res, 400, { error: 'Código incorrecto. Comprueba que la hora del móvil es la correcta y prueba con el código nuevo.' }); }
+      const { codigos, hashes } = MFA.nuevosCodigosRecuperacion();
+      DB.guardarMfa(db, usuario, { mfa_secreto: pendiente, mfa_pendiente: null, mfa_ultimo_paso: paso, mfa_recuperacion: JSON.stringify(hashes) });
+      DB.cerrarOtrasSesiones(db, usuario, token); // las sesiones abiertas solo con contraseña se cierran
+      return json(res, 200, { codigos });
+    }
+    if (accion === 'desactivar') {
+      if (!DB.comprobarClave(db, usuario, String(datos.clave || '')) || !verificarCodigo(usuario, datos.codigo)) {
+        fallo(dir); return json(res, 400, { error: 'Contraseña o código incorrectos' });
+      }
+      DB.quitarMfa(db, usuario);
+      return json(res, 200, { ok: true, mfaObligatorio: obligatorio });
+    }
+    if (accion === 'recuperacion') {
+      const m = DB.datosMfa(db, usuario);
+      const paso = m?.mfa_secreto ? MFA.comprobar(m.mfa_secreto, datos.codigo, m.mfa_ultimo_paso ?? -1) : null;
+      if (paso == null) { fallo(dir); return json(res, 400, { error: 'Código incorrecto' }); }
+      const { codigos, hashes } = MFA.nuevosCodigosRecuperacion();
+      DB.guardarMfa(db, usuario, { mfa_ultimo_paso: paso, mfa_recuperacion: JSON.stringify(hashes) });
+      return json(res, 200, { codigos });
+    }
+    if (accion === 'politica') {
+      if (!mfaActivo) return json(res, 400, { error: 'Activa primero la verificación en tu usuario.' });
+      DB.guardarConfig(db, 'mfa_obligatorio', datos.obligatorio ? '1' : '0');
+      return json(res, 200, { mfaObligatorio: !!datos.obligatorio });
+    }
+    return json(res, 404, { error: 'No existe' });
+  }
   if (ruta === 'salir' && req.method === 'POST') {
     DB.cerrarSesion(db, token);
     return json(res, 200, { ok: true }, { 'Set-Cookie': 'sid=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0' });

@@ -326,3 +326,13 @@ table.tarifa .nombre:hover { color: var(--accent); }
 .login-box .btn { margin-top: 8px; padding: 10px; }
 .login-box img { background: var(--logo-bg); border-radius: 6px; padding: 4px 8px; }
 body:not(.modo-servidor) .solo-servidor, body.modo-servidor .solo-navegador { display: none; }
+
+/* ---- Verificación en dos pasos ---- */
+.qr { background: #fff; padding: 10px; border-radius: 10px; display: inline-block; line-height: 0; }
+.qr svg { width: 200px; height: 200px; }
+.mfa-pasos { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: start; }
+.secreto { font-family: ui-monospace, Consolas, monospace; font-size: 1rem; letter-spacing: 1px; background: var(--bg); padding: 6px 10px; border-radius: 8px; word-break: break-all; }
+.codigos { display: grid; grid-template-columns: repeat(2, auto); gap: 6px 24px; font-family: ui-monospace, Consolas, monospace; font-size: 1.05rem; background: var(--bg); padding: 12px 16px; border-radius: 8px; justify-content: start; }
+.mfa-politica { margin-top: 12px; }
+#loginCodigo { font-size: 1.3rem; letter-spacing: 3px; text-align: center; }
+@media (max-width: 640px) { .mfa-pasos { grid-template-columns: 1fr; } }

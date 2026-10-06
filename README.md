@@ -32,13 +32,17 @@ los datos en el navegador.
    histórico.
 3. **Tarifa**: tarifa de precios sacada de todos los presupuestos (precio sugerido por artículo, en €/m² o por
    unidad). Fija tus precios, aplica un % general, quita lo que no quieras y descárgala en Excel o imprímela.
+   El botón **Añadir** pasa un artículo de la tarifa al presupuesto; si va por m², el precio se calcula al poner
+   las medidas.
 4. **Tema**: botón arriba a la derecha para elegir entre automático, claro y oscuro (letras naranjas).
+5. **Seguridad** (con servidor): verificación en dos pasos con app del móvil y códigos de recuperación, opcional u
+   obligatoria para todos (Ajustes → Seguridad).
 
 ## Privacidad
 
 - Este repositorio solo contiene el programa. **No subas aquí presupuestos ni datos de clientes.**
-- Con servidor, los datos solo se leen con usuario y contraseña (sesión con cookie segura y bloqueo tras
-  intentos fallidos). Sin servidor, no salen del navegador.
+- Con servidor, los datos solo se leen con usuario y contraseña, y con **verificación en dos pasos** (TOTP)
+  si se activa (sesión con cookie segura y bloqueo tras intentos fallidos). Sin servidor, no salen del navegador.
 
 ## Desarrollo
 
@@ -54,9 +58,9 @@ js/store.js      datos en memoria, guardado (en bloque para importaciones) y cop
 js/backend.js    dónde se guarda: API del servidor o IndexedDB del navegador
 js/columnas.js   lector a medida de los PDF del programa de gestión
 js/tarifa.js     tarifa de precios: agrupación de artículos y precio sugerido
-server/          servidor Node.js (sin dependencias): API, usuarios, base de datos SQLite (node:sqlite)
+server/          servidor Node.js (sin dependencias): API, usuarios, verificación en dos pasos (mfa.js), SQLite
 deploy/          instalación en el VPS (instalar.sh) y guía
 js/ui/*.js       pantallas
-vendor/          pdf.js y SheetJS (licencia Apache 2.0), incluidos para no depender de internet
+vendor/          pdf.js y SheetJS (Apache 2.0) y qrcode-generator (MIT), incluidos para no depender de internet
 ```
 

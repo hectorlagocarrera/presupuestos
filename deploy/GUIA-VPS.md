@@ -78,6 +78,8 @@ Todo esto se hace conectado al VPS como en el paso 2.
 | Crear otro usuario (o cambiar una contraseña) | `sudo presupuestos-usuario nuevo maria` |
 | Ver los usuarios | `sudo presupuestos-usuario lista` |
 | Borrar un usuario | `sudo presupuestos-usuario borrar maria` |
+| Quitar la verificación en dos pasos (móvil perdido y sin códigos) | `sudo presupuestos-usuario mfa-quitar maria` |
+| Exigir verificación en dos pasos a todos | `sudo presupuestos-usuario mfa-obligatoria si` (o `no`) |
 | Hacer una copia de seguridad ahora | `sudo presupuestos-copia` |
 | Traer la última versión de la aplicación | `sudo presupuestos-actualizar` (también se hace sola cada noche) |
 | Ver si el servicio funciona | `sudo systemctl status presupuestos` |
@@ -98,6 +100,24 @@ sudo -u presupuestos sh -c 'gunzip -c /var/backups/presupuestos/datos-2026-10-06
 sudo rm -f /var/lib/presupuestos/datos.db-wal /var/lib/presupuestos/datos.db-shm
 sudo systemctl start presupuestos
 ```
+
+## Verificación en dos pasos (MFA)
+
+Recomendado: así nadie puede entrar aunque conozca la contraseña.
+
+1. Entra en la aplicación y ve a **Ajustes → Seguridad → Activar**.
+2. Instala en el móvil **Google Authenticator** o **Microsoft Authenticator** (gratis), pulsa **+**, escanea el
+   código QR y escribe el código de 6 cifras que aparece.
+3. **Guarda los 10 códigos de recuperación** (botón «Descargar»). Cada uno sirve una vez para entrar sin el móvil.
+4. Si quieres que todos los usuarios la usen, marca **«Exigirla a todos los usuarios»**. Quien no la tenga tendrá
+   que configurarla la próxima vez que entre y, mientras tanto, no podrá ver ningún dato.
+
+Desde entonces, al entrar se pide la contraseña y después el código del móvil.
+
+- **Cambiar de móvil:** en Ajustes → Seguridad, «Desactivar o cambiar de móvil» y vuelve a activarla con el nuevo.
+- **Móvil perdido:** entra con un código de recuperación. Si tampoco los tienes, desde el VPS:
+  `sudo presupuestos-usuario mfa-quitar <usuario>`.
+- Si el código no vale, revisa que la hora del móvil está en automático.
 
 ## Qué instala el script
 
