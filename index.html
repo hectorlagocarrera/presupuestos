@@ -11,6 +11,7 @@
   <meta name="theme-color" content="#1d4ed8">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script src="js/tema.js"></script>
 </head>
 <body>
   <div class="app">
@@ -25,7 +26,10 @@
         <a href="#importar" data-tab="importar">Importar</a>
         <a href="#ajustes" data-tab="ajustes">Ajustes</a>
       </nav>
-      <div class="sesion hidden" id="sesion"><span id="sesionUsuario"></span><button class="btn small ghost" id="btnSalir">Salir</button></div>
+      <div class="top-right">
+        <button class="btn small ghost" id="btnTema" title="Cambiar entre automático, claro y oscuro">Tema</button>
+        <div class="sesion hidden" id="sesion"><span id="sesionUsuario"></span><button class="btn small ghost" id="btnSalir">Salir</button></div>
+      </div>
     </header>
     <div id="aviso" class="banner hidden no-print"></div>
 

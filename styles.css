@@ -11,24 +11,47 @@
   --warn: #8a6100;
   --good: #0f7a3d;
   --bad: #b42318;
+  --logo-bg: transparent;
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 2px 8px rgba(16, 24, 40, 0.04);
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0f141c;
-    --card: #171e2a;
-    --text: #e6ebf3;
-    --muted: #97a3b6;
-    --border: #2a3446;
-    --accent: #6ea2ff;
-    --accent-text: #0a1630;
-    --accent-soft: #1b2944;
-    --warn-bg: #3a3014;
-    --warn: #f2c94c;
-    --good: #4ade80;
-    --bad: #f87171;
+/* Modo oscuro con letras naranjas (el naranja del logotipo).
+   Se activa con el botón de la cabecera, o solo si el ordenador está en modo oscuro y se eligió «Automático». */
+:root[data-tema="oscuro"] {
+    color-scheme: dark;
+    --bg: #121110;
+    --card: #1c1a18;
+    --text: #ff9f40;
+    --muted: #c98d52;
+    --border: #3a2f25;
+    --accent: #ff8a1f;
+    --accent-text: #1a0f04;
+    --accent-soft: #33230f;
+    --warn-bg: #3d2c0b;
+    --warn: #ffd37a;
+    --good: #7ddc8f;
+    --bad: #ff8a80;
+    --logo-bg: #ffffff;
     --shadow: none;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+      color-scheme: dark;
+      --bg: #121110;
+      --card: #1c1a18;
+      --text: #ff9f40;
+      --muted: #c98d52;
+      --border: #3a2f25;
+      --accent: #ff8a1f;
+      --accent-text: #1a0f04;
+      --accent-soft: #33230f;
+      --warn-bg: #3d2c0b;
+      --warn: #ffd37a;
+      --good: #7ddc8f;
+      --bad: #ff8a80;
+      --logo-bg: #ffffff;
+      --shadow: none;
   }
 }
 
@@ -58,9 +81,7 @@ h2 { font-size: 1.05rem; margin: 0 0 10px; }
 }
 .brand img { max-width: 150px; object-fit: contain; }
 .brand span { color: var(--muted); font-weight: 600; border-left: 1px solid var(--border); padding-left: 10px; }
-@media (prefers-color-scheme: dark) {
-  .brand img, .logo-row img { background: #fff; border-radius: 6px; padding: 2px 6px; }
-}
+.brand img, .logo-row img { background: var(--logo-bg); border-radius: 6px; padding: 2px 6px; }
 .logo-row { display: flex; gap: 16px; align-items: center; margin-bottom: 6px; }
 .logo-row img { max-height: 70px; max-width: 220px; border: 1px solid var(--border); border-radius: 8px; padding: 6px; background: #fff; }
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.05rem; }
@@ -278,7 +299,8 @@ dialog::backdrop { background: rgba(10, 15, 25, 0.45); }
 }
 
 /* ---- Entrada y sesión ---- */
-.sesion { margin-left: auto; display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.85rem; }
+.top-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.sesion { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.85rem; }
 .login { position: fixed; inset: 0; z-index: 100; background: var(--bg); display: grid; place-items: center; padding: 16px; }
 .login-box {
   width: min(360px, 100%); background: var(--card); border: 1px solid var(--border); border-radius: 14px;
@@ -288,5 +310,5 @@ dialog::backdrop { background: rgba(10, 15, 25, 0.45); }
 .login-box h1 { font-size: 1.2rem; margin: 6px 0 12px; }
 .login-box label { text-align: left; }
 .login-box .btn { margin-top: 8px; padding: 10px; }
-@media (prefers-color-scheme: dark) { .login-box img { background: #fff; border-radius: 6px; padding: 4px 8px; } }
+.login-box img { background: var(--logo-bg); border-radius: 6px; padding: 4px 8px; }
 body:not(.modo-servidor) .solo-servidor, body.modo-servidor .solo-navegador { display: none; }
