@@ -44,7 +44,7 @@ export function resultCard({ doc, score }, opts = {}) {
         <div class="price">${fmtEur(p.precioUnitario)}</div>
         <div class="muted small">${p.cantidad && p.cantidad !== 1 ? `× ${fmtNum(p.cantidad)} = ${fmtEur(p.precioTotal)}` : 'por unidad'}</div>
         ${pm2 ? `<div class="pm2">${fmtEur(pm2)}/m²</div>` : ''}
-        ${score != null && opts.score !== false ? `<div class="sim" title="Parecido con la búsqueda">${Math.round(score)}% parecido</div>` : ''}
+        ${score != null && opts.score !== false ? `<div class="sim" data-ayuda="Cuánto se parece a lo que buscas, por el material, las palabras y las medidas. 100 % es casi igual." data-ayuda-fin>${Math.round(score)}% parecido</div>` : ''}
         <div class="btns">
           <button class="btn small" data-use="${esc(p.id)}">Usar como referencia</button>
           <button class="btn small ghost" data-ver="${esc(p.presupuestoId)}" title="Abrir el presupuesto original">Ver</button>
@@ -66,12 +66,12 @@ export function statsHtml(s, n) {
     <div class="stats">
       <div class="stats-head">Comparación de precios · ${s.n} ${s.n === 1 ? 'trabajo parecido' : 'trabajos parecidos'}${n > s.n ? ` <span class="muted">(de ${n} encontrados)</span>` : ''}</div>
       <div class="kpis">
-        <div><span>Último</span><strong>${fmtEur(u.precioUnitario)}</strong><small>${fmtDate(u.fecha)}${u.cliente ? ' · ' + esc(u.cliente) : ''}</small></div>
-        <div><span>Medio</span><strong>${fmtEur(s.medio)}</strong></div>
+        <div><span data-ayuda="Precio de la vez más reciente que se presupuestó un trabajo parecido.">Último</span><strong>${fmtEur(u.precioUnitario)}</strong><small>${fmtDate(u.fecha)}${u.cliente ? ' · ' + esc(u.cliente) : ''}</small></div>
+        <div><span data-ayuda="Media de los precios de los trabajos parecidos.">Medio</span><strong>${fmtEur(s.medio)}</strong></div>
         <div><span>Mínimo</span><strong>${fmtEur(s.min)}</strong></div>
         <div><span>Máximo</span><strong>${fmtEur(s.max)}</strong></div>
-        ${s.m2 ? `<div title="La mitad de los trabajos está por encima y la otra mitad por debajo"><span>€/m² habitual</span><strong>${fmtEur(s.m2.mediana)}</strong><small>${fmtEur(s.m2.min)} – ${fmtEur(s.m2.max)}</small></div>` : ''}
-        ${s.orientativo ? `<div class="ref"><span>Orientativo ${fmtM2(s.orientativo.area)}</span><strong>${fmtEur(s.orientativo.precio)}</strong><small>con el €/m² habitual</small></div>` : ''}
+        ${s.m2 ? `<div title="La mitad de los trabajos está por encima y la otra mitad por debajo"><span data-ayuda="El precio por m² más típico (la mediana): la mitad de los trabajos parecidos está por encima y la otra mitad por debajo. Un caso raro no lo desvía.">€/m² habitual</span><strong>${fmtEur(s.m2.mediana)}</strong><small>${fmtEur(s.m2.min)} – ${fmtEur(s.m2.max)}</small></div>` : ''}
+        ${s.orientativo ? `<div class="ref"><span data-ayuda="Lo que costaría tu medida con el €/m² habitual. Es solo una referencia: el precio lo decides tú.">Orientativo ${fmtM2(s.orientativo.area)}</span><strong>${fmtEur(s.orientativo.precio)}</strong><small>con el €/m² habitual</small></div>` : ''}
       </div>
       ${evo}
       <p class="muted small">Es solo una referencia: el precio lo decides tú.</p>

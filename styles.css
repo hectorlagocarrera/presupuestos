@@ -436,3 +436,19 @@ body:not(.modo-servidor) .solo-servidor, body.modo-servidor .solo-navegador { di
   table.tarifa input { width: 100%; }
   table.data.cards .clamp { max-width: none; }
 }
+
+/* ---- Ayuda («?») ---- */
+.ayuda {
+  display: inline-flex; align-items: center; justify-content: center; vertical-align: middle;
+  width: 18px; height: 18px; margin: 0 4px; padding: 0; border-radius: 50%; flex: none;
+  border: 1px solid var(--muted); background: transparent; color: var(--muted);
+  font: 700 11px/1 system-ui, sans-serif; cursor: help;
+}
+.ayuda:hover, .ayuda:focus-visible, .ayuda[aria-expanded="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); outline: none; }
+.burbuja {
+  position: fixed; z-index: 200; background: var(--text); color: var(--card); padding: 10px 12px; border-radius: 10px;
+  font-size: 0.85rem; line-height: 1.4; font-weight: 400; text-transform: none; letter-spacing: normal;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); pointer-events: none;
+}
+label > .ayuda, th > .ayuda, h2 > .ayuda { margin-left: 6px; }
+@media (pointer: coarse) { .ayuda { width: 24px; height: 24px; font-size: 13px; } }

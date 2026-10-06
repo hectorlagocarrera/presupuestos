@@ -133,12 +133,12 @@ function lineHtml(l, i) {
     </div>
     <div class="line-grid">
       <label class="w2">Material <input data-f="material" list="dlMateriales" value="${esc(l.material)}"></label>
-      <label>Ancho m <input data-f="ancho" inputmode="decimal" value="${num(l.ancho)}"></label>
+      <label data-ayuda="En metros: 1,5 = 150 cm.">Ancho m <input data-f="ancho" inputmode="decimal" value="${num(l.ancho)}"></label>
       <label>Alto m <input data-f="alto" inputmode="decimal" value="${num(l.alto)}"></label>
-      <label>m² <output data-o="m2">${c.m2 ? fmtNum(round(c.m2, 2)) : '—'}</output></label>
+      <label data-ayuda="Superficie de una pieza: ancho × alto. Se calcula sola.">m² <output data-o="m2">${c.m2 ? fmtNum(round(c.m2, 2)) : '—'}</output></label>
       <label>Cantidad <input data-f="cantidad" inputmode="decimal" value="${num(l.cantidad)}"></label>
-      <label>Precio ud. <input data-f="precioUnitario" inputmode="decimal" value="${num(l.precioUnitario)}"></label>
-      <label>€/m² <input data-f="precioM2" inputmode="decimal" value="${num(c.precioM2)}" ${c.m2 ? '' : 'disabled'} title="Si escribes el precio por m², se calcula el precio por unidad"></label>
+      <label data-ayuda="Precio de una unidad, sin IVA. El total de la línea es precio × cantidad.">Precio ud. <input data-f="precioUnitario" inputmode="decimal" value="${num(l.precioUnitario)}"></label>
+      <label data-ayuda="Precio por metro cuadrado. Si lo escribes, el precio por unidad se calcula solo (€/m² × m²). Sirve para comparar trabajos de medidas distintas.">€/m² <input data-f="precioM2" inputmode="decimal" value="${num(c.precioM2)}" ${c.m2 ? '' : 'disabled'} title="Si escribes el precio por m², se calcula el precio por unidad"></label>
       <label>Total <output data-o="total">${fmtEur(c.precioTotal)}</output></label>
     </div>
     <textarea data-f="descripcion" rows="2" placeholder="Descripción">${esc(l.descripcion)}</textarea>

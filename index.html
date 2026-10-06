@@ -72,19 +72,19 @@
               <input id="edCliente" list="dlClientes" autocomplete="off" placeholder="Nombre del cliente">
               <small id="edClienteInfo" class="muted"></small>
             </label>
-            <label>Nº <input id="edNumero"></label>
+            <label data-ayuda="Se pone solo: el siguiente al último de este año (por ejemplo 336). Puedes cambiarlo a mano.">Nº <input id="edNumero"></label>
             <label>Fecha <input id="edFecha" type="date"></label>
           </div>
           <div id="edLineas" class="lines"></div>
           <div class="drop-hint" id="edDrop">Arrastra aquí partidas del histórico o pulsa «Usar como referencia»</div>
           <button class="btn ghost" id="edAdd">+ Añadir partida</button>
           <div class="grid g2 foot">
-            <label>Notas y condiciones
+            <label data-ayuda="Texto que sale al final del presupuesto impreso: plazo de entrega, forma de pago… El texto por defecto se cambia en Ajustes.">Notas y condiciones
               <textarea id="edNotas" rows="3" placeholder="Plazo de entrega, forma de pago…"></textarea>
             </label>
             <div class="totals">
               <div><span>Base imponible</span><strong id="edBase">0,00 €</strong></div>
-              <div><span>IVA <input id="edIva" class="mini" inputmode="decimal"> %</span><strong id="edCuota">0,00 €</strong></div>
+              <div><span data-ayuda="Porcentaje de IVA de este presupuesto. Normalmente 21. El valor por defecto se cambia en Ajustes.">IVA <input id="edIva" class="mini" inputmode="decimal"> %</span><strong id="edCuota">0,00 €</strong></div>
               <div class="grand"><span>Total</span><strong id="edTotal">0,00 €</strong></div>
             </div>
           </div>
@@ -129,8 +129,8 @@
           <input id="aQ" placeholder="Filtrar (búsqueda inteligente)" autocomplete="off">
           <select id="aCat"></select>
           <select id="aAnio"></select>
-          <label class="check"><input type="checkbox" id="aRevisar"> Solo por revisar</label>
-          <button class="btn small ghost" id="aRecalcular" title="Vuelve a calcular categoría y material de todas las partidas con los sinónimos actuales">Recalcular categorías</button>
+          <label class="check" data-ayuda="Partidas que no se leyeron con seguridad al importar (por ejemplo, sin precio o con importes que no cuadran). Revísalas con «Revisar»."><input type="checkbox" id="aRevisar"> Solo por revisar</label>
+          <span data-ayuda="Vuelve a decidir la categoría y el material de todas las partidas según el texto y los sinónimos actuales. Úsalo después de cambiar los sinónimos. También cambia las que hayas corregido a mano." data-ayuda-fin><button class="btn small ghost" id="aRecalcular">Recalcular categorías</button></span>
         </div>
         <div class="table-wrap">
           <table class="data cards">
@@ -151,7 +151,7 @@
         <div class="chips" id="pAnios"></div>
         <div class="table-wrap">
           <table class="data cards">
-            <thead><tr><th>Fecha</th><th>Nº</th><th>Cliente</th><th class="num">Partidas</th><th class="num">Base</th><th class="num">Total</th><th>Origen</th><th></th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Nº</th><th>Cliente</th><th class="num">Partidas</th><th class="num">Base</th><th class="num">Total</th><th data-ayuda="«Importado»: viene de un PDF o Excel antiguo (pulsa «original» para verlo). «Creado aquí»: hecho en esta aplicación.">Origen</th><th></th></tr></thead>
             <tbody id="pTabla"></tbody>
           </table>
         </div>
@@ -174,14 +174,14 @@
         <div class="filters">
           <input id="tQ" placeholder="Buscar artículo" autocomplete="off">
           <select id="tCat"></select>
-          <label class="check"><input type="checkbox" id="tRepetidos" checked> Solo los que se repiten (2 o más veces)</label>
-          <label class="check">Ajuste general <input id="tAjuste" class="mini" inputmode="decimal"> %</label>
-          <label class="check"><input type="checkbox" id="tOcultos"> Ver los quitados</label>
+          <label class="check" data-ayuda="Oculta los trabajos que solo se han presupuestado una vez: suelen ser encargos especiales que no conviene meter en la tarifa."><input type="checkbox" id="tRepetidos" checked> Solo los que se repiten (2 o más veces)</label>
+          <label class="check" data-ayuda="Sube o baja todos los precios sugeridos de golpe. Por ejemplo, 5 sube un 5 % y -3 baja un 3 %. No cambia los precios que hayas escrito a mano ni los presupuestos guardados.">Ajuste general <input id="tAjuste" class="mini" inputmode="decimal"> %</label>
+          <label class="check" data-ayuda="Muestra los artículos que has quitado de la tarifa con ✕, para volver a incluirlos con ↺."><input type="checkbox" id="tOcultos"> Ver los quitados</label>
         </div>
         <p id="tInfo" class="muted small"></p>
         <div class="table-wrap">
           <table class="data tarifa cards">
-            <thead><tr><th>Artículo</th><th>Unidad</th><th class="num">Sugerido</th><th class="num">Rango reciente</th><th class="num">Veces</th><th>Último uso</th><th class="num">Precio tarifa</th><th></th></tr></thead>
+            <thead><tr><th>Artículo</th><th data-ayuda="«€/m²»: el precio es por metro cuadrado (lonas, vinilos, Alupanel…); al añadirlo a un presupuesto, el precio sale de multiplicar por las medidas. «unidad»: precio por pieza.">Unidad</th><th class="num" data-ayuda="Precio que propone la aplicación: el del medio (la mediana) de las 10 últimas veces que se presupuestó este trabajo.">Sugerido</th><th class="num" data-ayuda="Precio más bajo y más alto de esas 10 últimas veces. Si es muy amplio, el artículo agrupa trabajos distintos: mira los ejemplos pulsando su nombre.">Rango reciente</th><th class="num" data-ayuda="Cuántas veces aparece este trabajo en todos los presupuestos.">Veces</th><th data-ayuda="Fecha y precio de la última vez que se presupuestó.">Último uso</th><th class="num" data-ayuda="El precio final de la tarifa. Si lo dejas vacío se usa el sugerido con el ajuste general (es el número gris). Si escribes uno, queda fijado.">Precio tarifa</th><th></th></tr></thead>
             <tbody id="tTabla"></tbody>
           </table>
         </div>
@@ -230,7 +230,7 @@
           <div class="btns">
             <button class="btn ghost" id="iDescartar">Descartar este</button>
             <button class="btn" id="iGuardar">Guardar y seguir</button>
-            <button class="btn ghost" id="iGuardarTodos">Guardar todos</button>
+            <button class="btn ghost" id="iGuardarTodos" title="Guarda todos los presupuestos leídos sin revisarlos uno a uno. Los que ya estaban importados se saltan.">Guardar todos</button>
           </div>
         </div>
         <p class="muted small" id="iOrigen"></p>
@@ -242,7 +242,7 @@
         <p id="iDup" class="warn hidden"></p>
         <div class="table-wrap">
           <table class="data edit">
-            <thead><tr><th>Revisar</th><th>Artículo / descripción</th><th>Categoría</th><th>Material</th><th class="num">Ancho m</th><th class="num">Alto m</th><th class="num">Cant.</th><th class="num">Precio ud.</th><th class="num">Total</th><th></th></tr></thead>
+            <thead><tr><th data-ayuda="Marcadas en amarillo: la aplicación no está segura de haberlas leído bien. Puedes corregirlas aquí o más tarde en Artículos.">Revisar</th><th>Artículo / descripción</th><th>Categoría</th><th>Material</th><th class="num">Ancho m</th><th class="num">Alto m</th><th class="num">Cant.</th><th class="num">Precio ud.</th><th class="num">Total</th><th></th></tr></thead>
             <tbody id="iTabla"></tbody>
           </table>
         </div>
@@ -259,7 +259,7 @@
           (por ejemplo, la de la versión que usabas en el navegador).</p>
         <div class="btns">
           <button class="btn" id="bkExport">Descargar copia</button>
-          <label class="check"><input type="checkbox" id="bkOrig"> incluir los PDF/Excel originales</label>
+          <label class="check" data-ayuda="Mete también en la copia los archivos PDF y Excel importados. Ocupa mucho más, pero así se pueden volver a ver los originales."><input type="checkbox" id="bkOrig"> incluir los PDF/Excel originales</label>
           <label class="btn ghost file-btn">Cargar copia<input type="file" id="bkImport" accept=".json,application/json"></label>
         </div>
         <p id="bkMsg" class="muted"></p>
@@ -276,10 +276,10 @@
           <label>CIF / NIF <input data-aj="cif"></label>
           <label>Dirección <input data-aj="direccion"></label>
           <label>Teléfono / email / web <input data-aj="contacto"></label>
-          <label>IVA por defecto (%) <input data-aj="iva" inputmode="decimal"></label>
-          <label>Validez del presupuesto <input data-aj="validez"></label>
+          <label data-ayuda="IVA que se pone al empezar un presupuesto nuevo. Luego se puede cambiar en cada uno.">IVA por defecto (%) <input data-aj="iva" inputmode="decimal"></label>
+          <label data-ayuda="Sale al final del presupuesto impreso, por ejemplo «30 días».">Validez del presupuesto <input data-aj="validez"></label>
         </div>
-        <label>Condiciones por defecto <textarea data-aj="condiciones" rows="3"></textarea></label>
+        <label data-ayuda="Texto que se pone en «Notas y condiciones» al empezar cada presupuesto nuevo.">Condiciones por defecto <textarea data-aj="condiciones" rows="3"></textarea></label>
         <h2>Logotipo</h2>
         <div class="logo-row">
           <img id="ajLogoImg" alt="Logotipo" class="hidden">
@@ -300,13 +300,13 @@
           <button class="btn ghost" id="mfaCodigos">Nuevos códigos de recuperación</button>
           <button class="btn ghost" id="mfaDesactivar">Desactivar o cambiar de móvil</button>
         </div>
-        <label class="check mfa-politica"><input type="checkbox" id="mfaObligatoria"> Exigirla a todos los usuarios
+        <label class="check mfa-politica" data-ayuda="Quien todavía no la tenga tendrá que configurarla la próxima vez que entre y, hasta hacerlo, no podrá ver ningún dato. Solo se puede marcar si ya la tienes activada tú."><input type="checkbox" id="mfaObligatoria"> Exigirla a todos los usuarios
           (quien no la tenga deberá configurarla al entrar)</label>
       </section>
 
       <section class="pane">
         <div class="pane-head">
-          <h2>Sinónimos del buscador</h2>
+          <h2 data-ayuda="Palabras que el buscador trata como lo mismo. Por ejemplo, si «Dibond» está en la línea de Alupanel, buscar «alupanel» también encuentra los trabajos de Dibond. Tras cambiarlos, pulsa «Recalcular categorías» en Artículos.">Sinónimos del buscador</h2>
           <button class="btn ghost" id="ajSinReset">Restaurar los de fábrica</button>
         </div>
         <p class="muted small">Una línea por concepto: <code>Nombre [Categoría] = sinónimo, sinónimo, …</code>. Todas las palabras de una línea se consideran lo mismo al buscar.</p>

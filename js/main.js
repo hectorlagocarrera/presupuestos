@@ -10,6 +10,7 @@ import { initBuscador, initArticulos, initPresupuestos, initClientes } from './u
 import { initImportar } from './ui/importar.js';
 import { initTarifa } from './ui/tarifa.js';
 import { show, current, initMenu } from './ui/nav.js';
+import { initAyuda } from './ui/ayuda.js';
 
 function initAjustes() {
   $$('[data-aj]').forEach((el) => {
@@ -115,6 +116,7 @@ function initLogin() {
 async function start() {
   initLogin();
   initMenu();
+  initAyuda();
   const srv = await detectarServidor();
   if (srv === 'login') { mostrarLogin(); return; }
   let yo = null;
