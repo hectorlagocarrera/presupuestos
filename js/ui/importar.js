@@ -3,7 +3,7 @@ import { $, esc, fmtEur, fmtNum, numOrNull, today, calcPartida, round } from '..
 import { textToBudget, rowsToBudgets } from '../parse.js';
 import { itemsToRows, rowsToLines, looksLikeColumns, columnsToBudgets } from '../columnas.js';
 import { classify } from '../search.js';
-import { data, savePresupuesto, exportar, importar, notify, saveAjustes } from '../store.js';
+import { data, savePresupuesto, exportar, importar, notify, saveAjustes, enBloque, recargar } from '../store.js';
 import { toast } from './common.js';
 import { onShow } from './nav.js';
 
@@ -240,15 +240,21 @@ export function initImportar() {
       leerCabecera();
       let saltados = 0;
       let hechos = 0;
-      while (cola.length) {
-        const b = cola[0].b;
-        if (esDuplicado(b.numero, b.fecha)) { cola.shift(); saltados++; continue; }
-        await guardarActual(false);
-        if (++hechos % 50 === 0) $('#iTitulo').textContent = `Guardando… ${hechos} de ${n}`;
-      }
-      if (saltados) toast(`${saltados} ya estaban importados y se han saltado.`);
+      // Todo en un solo envío a la base de datos.
+      await enBloque(async () => {
+        while (cola.length) {
+          const b = cola[0].b;
+          if (esDuplicado(b.numero, b.fecha)) { cola.shift(); saltados++; continue; }
+          await guardarActual(false);
+          hechos++;
+        }
+        $('#iTitulo').textContent = `Guardando ${hechos} presupuestos…`;
+      });
       toast(`${hechos} presupuestos guardados${saltados ? ` · ${saltados} repetidos saltados` : ''}`);
-    } catch (err) { toast('Error: ' + err.message); }
+    } catch (err) {
+      toast('No se pudo guardar: ' + err.message);
+      await recargar().catch(() => {});
+    }
     mostrarCola();
     notify();
   });

@@ -1,7 +1,8 @@
 // Arranque de la aplicación.
 import { $, $$, debounce, numOrNull, today } from './util.js';
 import { DEFAULT_SINONIMOS } from './search.js';
-import { open, data, saveAjustes, onChange } from './store.js';
+import { open, data, saveAjustes, onChange, modo, recargar } from './store.js';
+import { servidor, navegador, detectarServidor, entrar, NoAutorizado } from './backend.js';
 import { refreshDatalists, toast } from './ui/common.js';
 import { initEditor } from './ui/editor.js';
 import { initBuscador, initArticulos, initPresupuestos, initClientes } from './ui/screens.js';
@@ -54,9 +55,10 @@ function initLogo() {
   pintarLogo();
 }
 
-// Recordatorio de copia de seguridad (los datos solo están en este navegador).
+// Recordatorio de copia de seguridad (solo cuando los datos están en este navegador; el servidor hace copias solo).
 function avisoCopia() {
   const el = $('#aviso');
+  if (modo() === 'servidor') { el.classList.add('hidden'); return; }
   const n = data.presupuestos.length;
   const ult = data.ajustes.ultimaCopia;
   const dias = ult ? (new Date(today()) - new Date(ult)) / 86400000 : Infinity;
@@ -65,12 +67,52 @@ function avisoCopia() {
   if (mostrar) el.innerHTML = `${ult ? `Tu última copia de seguridad es del ${ult.split('-').reverse().join('/')}.` : 'Aún no has hecho ninguna copia de seguridad.'} Los datos solo están en este navegador. <a href="#importar">Hacer copia ahora</a>`;
 }
 
+function mostrarLogin(msg) {
+  $('#login').classList.remove('hidden');
+  if (msg) { $('#loginMsg').textContent = msg; $('#loginMsg').classList.remove('hidden'); }
+  $('#loginUsuario').focus();
+}
+
+function initLogin() {
+  $('#loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await entrar($('#loginUsuario').value.trim(), $('#loginClave').value);
+      location.reload();
+    } catch (err) {
+      $('#loginMsg').textContent = err.message;
+      $('#loginMsg').classList.remove('hidden');
+      $('#loginClave').select();
+    }
+  });
+  // Si la sesión caduca mientras se trabaja, se vuelve a pedir la contraseña.
+  window.addEventListener('unhandledrejection', (e) => {
+    if (e.reason instanceof NoAutorizado) { e.preventDefault(); mostrarLogin('La sesión ha caducado. Vuelve a entrar.'); }
+  });
+}
+
 async function start() {
+  initLogin();
+  const srv = await detectarServidor();
+  if (srv === 'login') { mostrarLogin(); return; }
   try {
-    await open();
+    await open(srv === 'si' ? servidor : navegador);
   } catch (err) {
-    document.body.innerHTML = `<p style="padding:2rem">No se puede abrir la base de datos: ${err.message}. Usa Chrome, Edge o Firefox (no en modo incógnito).</p>`;
+    if (err instanceof NoAutorizado) { mostrarLogin(); return; }
+    document.body.innerHTML = `<p style="padding:2rem">No se pueden cargar los datos: ${err.message}.</p>`;
     return;
+  }
+  if (srv === 'si') {
+    const { usuario } = await servidor.usuario();
+    $('#sesionUsuario').textContent = usuario;
+    $('#sesion').classList.remove('hidden');
+    $('#btnSalir').addEventListener('click', async () => { await servidor.salir(); location.reload(); });
+    // Al volver a la pestaña, traer lo que hayan guardado otros ordenadores.
+    let ultima = Date.now();
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && Date.now() - ultima > 60000) { ultima = Date.now(); recargar().catch(() => {}); }
+    });
+    document.body.classList.add('modo-servidor');
   }
   initEditor();
   initBuscador();

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- Privacidad: la página solo puede conectarse a su propio origen; ningún dato puede enviarse a otro servidor. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' data: blob:; worker-src 'self' blob:; object-src blob:; frame-src blob:; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' data: blob:; worker-src 'self' blob:; object-src blob:; frame-src blob:; base-uri 'none'; form-action 'self'">
   <meta name="referrer" content="no-referrer">
   <meta name="robots" content="noindex, nofollow">
   <title>Presupuestos</title>
@@ -25,6 +25,7 @@
         <a href="#importar" data-tab="importar">Importar</a>
         <a href="#ajustes" data-tab="ajustes">Ajustes</a>
       </nav>
+      <div class="sesion hidden" id="sesion"><span id="sesionUsuario"></span><button class="btn small ghost" id="btnSalir">Salir</button></div>
     </header>
     <div id="aviso" class="banner hidden no-print"></div>
 
@@ -192,8 +193,11 @@
 
       <section class="pane" id="iCopia">
         <h2>Copia de seguridad</h2>
-        <p>Los datos están guardados <strong>solo en este navegador</strong>. Haz una copia de vez en cuando y guárdala en un sitio seguro de la empresa.
+        <p class="solo-navegador">Los datos están guardados <strong>solo en este navegador</strong>. Haz una copia de vez en cuando y guárdala en un sitio seguro de la empresa.
           También sirve para pasar los datos a otro ordenador.</p>
+        <p class="solo-servidor">Los datos están en la <strong>base de datos del servidor</strong>, que hace una copia automática cada noche.
+          Aquí puedes descargar además una copia para guardarla fuera del servidor, o cargar una copia hecha en otro sitio
+          (por ejemplo, la de la versión que usabas en el navegador).</p>
         <div class="btns">
           <button class="btn" id="bkExport">Descargar copia</button>
           <label class="check"><input type="checkbox" id="bkOrig"> incluir los PDF/Excel originales</label>
@@ -241,6 +245,18 @@
     <datalist id="dlClientes"></datalist>
     <datalist id="dlCategorias"></datalist>
     <datalist id="dlMateriales"></datalist>
+  </div>
+
+  <!-- Entrada (solo con servidor) -->
+  <div id="login" class="login hidden">
+    <form id="loginForm" class="login-box" autocomplete="on">
+      <img src="logo.png" alt="" height="48">
+      <h1>Presupuestos</h1>
+      <label>Usuario <input id="loginUsuario" name="username" autocomplete="username" required autofocus></label>
+      <label>Contraseña <input id="loginClave" name="password" type="password" autocomplete="current-password" required></label>
+      <button class="btn" type="submit">Entrar</button>
+      <p id="loginMsg" class="warn hidden"></p>
+    </form>
   </div>
 
   <dialog id="modal"><div id="modalBody"></div></dialog>

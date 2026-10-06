@@ -1,10 +1,8 @@
-// Base de datos local (IndexedDB) con copia en memoria para búsquedas instantáneas.
-// Los datos solo existen en este navegador: no se envían a ningún servidor.
+// Datos de la aplicación: copia en memoria para búsquedas instantáneas + almacenamiento permanente,
+// que puede ser la base de datos del servidor o, sin servidor, el propio navegador (ver backend.js).
 import { uid, today, calcPartida, round } from './util.js';
 import { buildDoc, setSinonimos, DEFAULT_SINONIMOS, normalize } from './search.js';
-
-const DB_NAME = 'presupuestos';
-const STORES = ['presupuestos', 'partidas', 'clientes', 'archivos', 'ajustes'];
+import { navegador } from './backend.js';
 
 export const DEFAULT_AJUSTES = {
   nombre: '', cif: '', direccion: '', contacto: '', iva: 21, validez: '30 días', condiciones: '',
@@ -12,47 +10,69 @@ export const DEFAULT_AJUSTES = {
 };
 
 export const data = { presupuestos: [], partidas: [], clientes: [], ajustes: { ...DEFAULT_AJUSTES } };
-let idb = null;
+let backend = navegador;
 let docs = null;
 const listeners = new Set();
 
 export const onChange = (fn) => listeners.add(fn);
 function changed() { docs = null; listeners.forEach((fn) => fn()); }
 export const notify = changed;
+export const modo = () => backend.nombre;
 
-function req(r) {
-  return new Promise((resolve, reject) => { r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error); });
+// ---------- Escrituras (de una en una o en bloque) ----------
+
+let lote = null;
+function juntar(destino, ops) {
+  for (const tipo of ['put', 'del']) {
+    for (const [tabla, filas] of Object.entries(ops[tipo] || {})) {
+      destino[tipo] = destino[tipo] || {};
+      (destino[tipo][tabla] = destino[tipo][tabla] || []).push(...filas);
+    }
+  }
 }
-function tx(stores, mode = 'readonly') { return idb.transaction(stores, mode); }
-function done(t) {
-  return new Promise((resolve, reject) => { t.oncomplete = resolve; t.onerror = () => reject(t.error); t.onabort = () => reject(t.error); });
+async function escribir(ops) {
+  if (lote) { juntar(lote.ops, ops); return; }
+  await backend.escribir(ops);
 }
 
-export async function open() {
-  if (!('indexedDB' in window)) throw new Error('Este navegador no permite guardar datos.');
-  idb = await new Promise((resolve, reject) => {
-    const r = indexedDB.open(DB_NAME, 1);
-    r.onupgradeneeded = () => {
-      const db = r.result;
-      for (const s of STORES) if (!db.objectStoreNames.contains(s)) {
-        const os = db.createObjectStore(s, { keyPath: 'id' });
-        if (s === 'partidas') os.createIndex('presupuestoId', 'presupuestoId');
+// Ejecuta fn acumulando todas las escrituras y las envía juntas al final (para importaciones grandes).
+export async function enBloque(fn) {
+  lote = { ops: {} };
+  try {
+    await fn();
+    const { ops } = lote;
+    lote = null;
+    // Por partes, para no mandar peticiones gigantes.
+    const trozos = [];
+    const MAX = 3000;
+    for (const tipo of ['del', 'put']) {
+      for (const [tabla, filas] of Object.entries(ops[tipo] || {})) {
+        for (let i = 0; i < filas.length; i += MAX) trozos.push({ [tipo]: { [tabla]: filas.slice(i, i + MAX) } });
       }
-    };
-    r.onsuccess = () => resolve(r.result);
-    r.onerror = () => reject(r.error);
-  });
-  const t = tx(['presupuestos', 'partidas', 'clientes', 'ajustes']);
-  const [p, pa, c, a] = await Promise.all(['presupuestos', 'partidas', 'clientes', 'ajustes'].map((s) => req(t.objectStore(s).getAll())));
-  data.presupuestos = p;
-  data.partidas = pa;
-  data.clientes = c;
-  data.ajustes = { ...DEFAULT_AJUSTES, ...((a.find((x) => x.id === 'ajustes') || {}).valor || {}) };
+    }
+    // Primero clientes y presupuestos, luego partidas.
+    const orden = { clientes: 0, presupuestos: 1, partidas: 2, ajustes: 3, archivos: 4 };
+    trozos.sort((a, b) => orden[Object.keys(Object.values(a)[0])[0]] - orden[Object.keys(Object.values(b)[0])[0]]);
+    for (const t of trozos) await backend.escribir(t);
+  } finally {
+    lote = null;
+    changed();
+  }
+}
+
+export async function open(be) {
+  if (be) backend = be;
+  const d = await backend.cargar();
+  data.presupuestos = d.presupuestos || [];
+  data.partidas = (d.partidas || []).map((p) => ({ ...p, revisar: !!p.revisar }));
+  data.clientes = d.clientes || [];
+  data.ajustes = { ...DEFAULT_AJUSTES, ...(d.ajustes || {}) };
   setSinonimos(data.ajustes.sinonimos);
-  // Pedir al navegador que no borre los datos para liberar espacio.
-  try { await navigator.storage?.persist?.(); } catch { /* no disponible */ }
   changed();
 }
+
+// Vuelve a leer los datos (para ver lo que han guardado otros ordenadores).
+export const recargar = () => open();
 
 // ---------- Lectura ----------
 
@@ -91,27 +111,21 @@ export function nextNumber(fecha) {
 export async function saveAjustes(cambios) {
   Object.assign(data.ajustes, cambios);
   if ('sinonimos' in cambios) setSinonimos(data.ajustes.sinonimos);
-  const t = tx(['ajustes'], 'readwrite');
-  t.objectStore('ajustes').put({ id: 'ajustes', valor: data.ajustes });
-  await done(t);
+  await escribir({ put: { ajustes: [data.ajustes] } });
   if ('sinonimos' in cambios) changed();
 }
 
 export async function saveCliente(c) {
   const cliente = { id: c.id || uid(), nombre: (c.nombre || '').trim(), cif: c.cif || '', direccion: c.direccion || '', telefono: c.telefono || '', email: c.email || '', notas: c.notas || '' };
-  const t = tx(['clientes'], 'readwrite');
-  t.objectStore('clientes').put(cliente);
-  await done(t);
+  await escribir({ put: { clientes: [cliente] } });
   const i = data.clientes.findIndex((x) => x.id === cliente.id);
   if (i >= 0) data.clientes[i] = cliente; else data.clientes.push(cliente);
-  changed();
+  if (!lote) changed();
   return cliente;
 }
 
 export async function deleteCliente(id) {
-  const t = tx(['clientes'], 'readwrite');
-  t.objectStore('clientes').delete(id);
-  await done(t);
+  await escribir({ del: { clientes: [id] } });
   data.clientes = data.clientes.filter((c) => c.id !== id);
   changed();
 }
@@ -144,11 +158,10 @@ export async function savePresupuesto(pres, partidas, opts = {}) {
     creado: pres.creado || now,
     modificado: now,
   };
-  const t = tx(['presupuestos', 'partidas', 'archivos'], 'readwrite');
   if (opts.archivo) {
     p.archivoId = p.archivoId || uid();
     p.archivoNombre = opts.archivo.nombre;
-    t.objectStore('archivos').put({ id: p.archivoId, ...opts.archivo });
+    await backend.guardarArchivo({ id: p.archivoId, ...opts.archivo });
   }
   const lista = partidas
     .filter((x) => x.articulo || x.descripcion || x.precioUnitario)
@@ -165,49 +178,39 @@ export async function savePresupuesto(pres, partidas, opts = {}) {
     }));
   // Al importar se respetan los totales del PDF (puede haber partidas opcionales o descuentos globales).
   Object.assign(p, opts.totalesPdf ? { base: opts.totalesPdf.base, total: opts.totalesPdf.total ?? totales(lista, p.iva).total } : totales(lista, p.iva));
-  t.objectStore('presupuestos').put(p);
-  const os = t.objectStore('partidas');
-  for (const old of partidasDe(p.id)) os.delete(old.id);
-  for (const x of lista) os.put(x);
-  await done(t);
+  const viejas = partidasDe(p.id).map((x) => x.id).filter((id) => !lista.some((x) => x.id === id));
+  await escribir({ put: { presupuestos: [p], partidas: lista }, del: viejas.length ? { partidas: viejas } : {} });
 
   const i = data.presupuestos.findIndex((x) => x.id === p.id);
   if (i >= 0) data.presupuestos[i] = p; else data.presupuestos.push(p);
   data.partidas = data.partidas.filter((x) => x.presupuestoId !== p.id).concat(lista);
   docs = null;
-  if (!opts.silencioso) changed();
+  if (!opts.silencioso && !lote) changed();
   return p;
 }
 
 // Cambia una partida suelta (desde la pantalla de artículos).
 export async function savePartida(partida) {
   const p = calcPartida(partida);
-  const t = tx(['partidas', 'presupuestos'], 'readwrite');
-  t.objectStore('partidas').put(p);
   const i = data.partidas.findIndex((x) => x.id === p.id);
   if (i >= 0) data.partidas[i] = p;
   const pres = getPresupuesto(p.presupuestoId);
-  if (pres) { Object.assign(pres, totales(partidasDe(pres.id), pres.iva)); t.objectStore('presupuestos').put(pres); }
-  await done(t);
+  if (pres) Object.assign(pres, totales(partidasDe(pres.id), pres.iva));
+  await escribir({ put: { partidas: [p], ...(pres ? { presupuestos: [pres] } : {}) } });
   changed();
 }
 
 export async function deletePresupuesto(id) {
   const p = getPresupuesto(id);
-  const t = tx(['presupuestos', 'partidas', 'archivos'], 'readwrite');
-  t.objectStore('presupuestos').delete(id);
-  for (const x of partidasDe(id)) t.objectStore('partidas').delete(x.id);
   // El original puede ser compartido (un Excel con varios presupuestos).
-  if (p?.archivoId && !data.presupuestos.some((x) => x.id !== id && x.archivoId === p.archivoId)) t.objectStore('archivos').delete(p.archivoId);
-  await done(t);
+  const borrarArchivo = p?.archivoId && !data.presupuestos.some((x) => x.id !== id && x.archivoId === p.archivoId);
+  await escribir({ del: { presupuestos: [id], partidas: partidasDe(id).map((x) => x.id), ...(borrarArchivo ? { archivos: [p.archivoId] } : {}) } });
   data.presupuestos = data.presupuestos.filter((x) => x.id !== id);
   data.partidas = data.partidas.filter((x) => x.presupuestoId !== id);
   changed();
 }
 
-export async function getArchivo(id) {
-  return req(tx(['archivos']).objectStore('archivos').get(id));
-}
+export const getArchivo = (id) => backend.leerArchivo(id);
 
 // ---------- Copia de seguridad ----------
 
@@ -216,8 +219,10 @@ const blobToDataUrl = (blob) => new Promise((resolve) => { const r = new FileRea
 export async function exportar(conOriginales) {
   const out = { app: 'presupuestos', version: 1, fecha: new Date().toISOString(), ...data, archivos: [] };
   if (conOriginales) {
-    const all = await req(tx(['archivos']).objectStore('archivos').getAll());
-    for (const a of all) out.archivos.push({ id: a.id, nombre: a.nombre, tipo: a.tipo, data: await blobToDataUrl(a.blob) });
+    for (const meta of await backend.listaArchivos()) {
+      const a = await backend.leerArchivo(meta.id);
+      if (a) out.archivos.push({ id: a.id, nombre: a.nombre, tipo: a.tipo, data: await blobToDataUrl(a.blob) });
+    }
   }
   await saveAjustes({ ultimaCopia: today() });
   return new Blob([JSON.stringify(out)], { type: 'application/json' });
@@ -234,12 +239,8 @@ export async function importar(json) {
   const clientes = (json.clientes || []).filter((c) => !haveC.has(c.id));
   const archivos = (json.archivos || []).filter((a) => nuevos.some((p) => p.archivoId === a.id));
   const blobs = await Promise.all(archivos.map(async (a) => ({ id: a.id, nombre: a.nombre, tipo: a.tipo, blob: await (await fetch(a.data)).blob() })));
-  const t = tx(['presupuestos', 'partidas', 'clientes', 'archivos'], 'readwrite');
-  nuevos.forEach((p) => t.objectStore('presupuestos').put(p));
-  partidas.forEach((p) => t.objectStore('partidas').put(p));
-  clientes.forEach((c) => t.objectStore('clientes').put(c));
-  blobs.forEach((a) => t.objectStore('archivos').put(a));
-  await done(t);
+  for (const a of blobs) await backend.guardarArchivo(a);
+  await enBloque(async () => { await escribir({ put: { clientes, presupuestos: nuevos, partidas } }); });
   data.presupuestos.push(...nuevos);
   data.partidas.push(...partidas);
   data.clientes.push(...clientes);

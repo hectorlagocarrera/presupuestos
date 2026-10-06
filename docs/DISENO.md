@@ -9,39 +9,31 @@ es un dato secundario.
 ## 1. Arquitectura
 
 ```
-┌──────────────────────── Navegador del ordenador de la oficina ────────────────────────┐
-│                                                                                          │
-│  Interfaz (HTML + JS)                                                                    │
-│   Nuevo presupuesto · Buscador · Artículos · Presupuestos · Clientes · Importar · Ajustes │
-│        │                         │                                  │                    │
-│        ▼                         ▼                                  ▼                    │
-│  Motor de búsqueda          Importadores                       Impresión / PDF           │
-│  (sinónimos, medidas,       PDF (pdf.js) · Excel/CSV/ODS                                  │
-│   puntuación, estadísticas)  (SheetJS) · texto pegado                                    │
-│        │                         │                                                       │
-│        └──────────┬──────────────┘                                                       │
-│                   ▼                                                                      │
-│      Base de datos local (IndexedDB): presupuestos, partidas, clientes, archivos, ajustes  │
-│                                                                                          │
-└──────────────────────────────────────────────────────────────────────────────────────────┘
-          ▲  Solo se descarga el programa (GitHub Pages). Los datos nunca salen del equipo.
+ Ordenadores de la oficina (Chrome / Edge)                      VPS de OVH (Ubuntu)
+┌────────────────────────────────────────┐         ┌──────────────────────────────────────────────┐
+│ Interfaz (HTML + JS)                    │  HTTPS  │ nginx  ── archivos de la web                  │
+│  pantallas · buscador inteligente ·     │ ──────► │   └─ /api ──► servidor Node.js (usuarios,     │
+│  importadores PDF/Excel · impresión     │         │               sesiones, API)                  │
+│ Copia de los datos en memoria           │ ◄────── │                 └─ SQLite /var/lib/…/datos.db │
+│ (búsquedas al instante)                 │         │ copia diaria → /var/backups/presupuestos      │
+└────────────────────────────────────────┘         └──────────────────────────────────────────────┘
 ```
 
-- **Aplicación web sin servidor.** Es una página que se abre en el navegador (Chrome o Edge), sin instalar nada.
-  GitHub Pages solo sirve el programa. Los datos no se suben a ninguna parte.
-- **Base de datos local (IndexedDB) en el navegador.** Aguanta decenas de miles de partidas y la búsqueda es
-  instantánea, porque todo está en memoria.
-- **Librerías incluidas en el propio repositorio** (`vendor/`): pdf.js para leer PDF y SheetJS para Excel. No se
-  carga código de terceros desde internet.
-- **Privacidad.** Una política de seguridad (CSP) prohíbe a la página conectarse a cualquier servidor que no sea
-  el suyo. Ni presupuestos ni clientes pueden enviarse fuera aunque hubiera un fallo. El repositorio solo contiene
-  código: **nunca se guardan datos de la empresa en GitHub.**
-- **Copias de seguridad.** Se exporta un archivo `.json`, con los PDF originales si se quiere, para guardarlo o
-  llevarlo a otro ordenador.
-
-**Fase 2 (opcional)**, si varias personas tienen que compartir la base de datos al mismo tiempo: un servidor
-privado con usuario y contraseña (por ejemplo Supabase o un pequeño servidor en la oficina) con las mismas tablas.
-El diseño de datos de abajo ya está pensado para pasar a una base de datos SQL sin cambios.
+- **Servidor propio en el VPS**: Node.js 22 sin dependencias externas. Usa la base de datos **SQLite** que trae
+  Node (`node:sqlite`). nginx sirve la web con HTTPS (Let's Encrypt) y reenvía `/api` al servidor.
+- **Base de datos compartida**: todos los ordenadores trabajan sobre los mismos datos. Al abrir la app se cargan
+  enteros en memoria (unos 2 MB para 1.600 presupuestos), así que buscar es instantáneo. Cada cambio se guarda en
+  el servidor en una transacción; las importaciones grandes van en un solo envío. Al volver a la pestaña se
+  recargan los cambios de otros ordenadores.
+- **Acceso con usuario y contraseña**: contraseñas con scrypt, sesión en una cookie HttpOnly, SameSite=Strict y
+  Secure de 30 días, bloqueo tras 8 intentos fallidos, y cabecera anti-CSRF en las escrituras.
+- **Lectura de PDF y Excel en el navegador** (pdf.js y SheetJS incluidos en `vendor/`). Al servidor solo llegan
+  los datos ya extraídos y el archivo original.
+- **Privacidad**: una política de seguridad (CSP) impide a la página conectarse a otros servidores. El
+  repositorio solo contiene código: **nunca se guardan datos de la empresa en GitHub.**
+- **Copias**: copia diaria de la base de datos en el VPS (30 días), más la copia `.json` descargable desde la app.
+- **Modo sin servidor**: si la página se abre sin servidor (por ejemplo en GitHub Pages), guarda los datos en el
+  navegador (IndexedDB) con las mismas pantallas.
 
 ## 2. Base de datos
 
@@ -205,5 +197,4 @@ Entra en esta versión:
 Se deja para más adelante:
 
 - OCR de PDF escaneados.
-- Base de datos compartida entre varios ordenadores (servidor privado con usuarios).
 - Plantillas de impresión personalizadas con logotipo.
