@@ -59,7 +59,7 @@ function render() {
         <td class="num">${a.veces}</td>
         <td class="small">${fmtDate(a.ultimaFecha)} · ${fmtEur(a.ultimoPrecio)}</td>
         <td class="num"><input data-precio inputmode="decimal" class="${fijado ? 'fijado' : ''}" value="${fijado ? fmtNum(m) : ''}" placeholder="${fmtNum(precioTarifa(a, {}, ajuste()))}"></td>
-        <td class="nowrap"><button class="btn small" data-anadir title="Añadir al presupuesto que estás haciendo">Añadir</button>
+        <td class="nowrap acciones"><button class="btn small" data-anadir title="Añadir al presupuesto que estás haciendo">Añadir</button>
           <button class="icon" data-ocultar title="${$('#tOcultos').checked ? 'Volver a incluir en la tarifa' : 'Quitar de la tarifa'}">${$('#tOcultos').checked ? '↺' : '✕'}</button></td>
       </tr>`;
     if (abiertos.has(a.clave)) {

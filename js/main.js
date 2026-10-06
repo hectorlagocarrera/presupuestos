@@ -4,12 +4,12 @@ import { DEFAULT_SINONIMOS } from './search.js';
 import { open, data, saveAjustes, onChange, modo, recargar } from './store.js';
 import { servidor, navegador, detectarServidor, entrar, entrarMfa, NoAutorizado } from './backend.js';
 import { initSeguridad, configurarMfa } from './ui/seguridad.js';
-import { refreshDatalists, toast } from './ui/common.js';
+import { refreshDatalists, toast, etiquetarTablas } from './ui/common.js';
 import { initEditor } from './ui/editor.js';
 import { initBuscador, initArticulos, initPresupuestos, initClientes } from './ui/screens.js';
 import { initImportar } from './ui/importar.js';
 import { initTarifa } from './ui/tarifa.js';
-import { show, current } from './ui/nav.js';
+import { show, current, initMenu } from './ui/nav.js';
 
 function initAjustes() {
   $$('[data-aj]').forEach((el) => {
@@ -114,6 +114,7 @@ function initLogin() {
 
 async function start() {
   initLogin();
+  initMenu();
   const srv = await detectarServidor();
   if (srv === 'login') { mostrarLogin(); return; }
   let yo = null;
@@ -133,7 +134,11 @@ async function start() {
     $('#sesionUsuario').textContent = yo.usuario;
     initSeguridad(yo);
     $('#sesion').classList.remove('hidden');
-    $('#btnSalir').addEventListener('click', async () => { await servidor.salir(); location.reload(); });
+    const salir = async () => { await servidor.salir(); location.reload(); };
+    $('#btnSalir').addEventListener('click', salir);
+    $('#menuSalir').addEventListener('click', salir);
+    $('#menuUsuario').textContent = 'Usuario: ' + yo.usuario;
+    $('#menuSesion').classList.remove('hidden');
     // Al volver a la pestaña, traer lo que hayan guardado otros ordenadores.
     let ultima = Date.now();
     document.addEventListener('visibilitychange', () => {
@@ -151,6 +156,7 @@ async function start() {
   initAjustes();
   initLogo();
   refreshDatalists();
+  etiquetarTablas();
   avisoCopia();
   onChange(() => { refreshDatalists(); avisoCopia(); });
   window.addEventListener('hashchange', () => show(current()));

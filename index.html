@@ -16,7 +16,8 @@
 <body>
   <div class="app">
     <header class="top no-print">
-      <div class="brand"><img id="brandLogo" src="logo.png" alt="Logotipo" height="34"><span>Presupuestos</span></div>
+      <a class="brand" href="#nuevo" title="Ir al inicio (nuevo presupuesto)"><img id="brandLogo" src="logo.png" alt="Logotipo" height="34"><span>Presupuestos</span></a>
+      <span class="seccion-movil" id="seccionMovil"></span>
       <nav class="tabs">
         <a href="#nuevo" data-tab="nuevo">Nuevo presupuesto</a>
         <a href="#buscar" data-tab="buscar">Buscador histórico</a>
@@ -31,7 +32,28 @@
         <button class="btn small ghost" id="btnTema" title="Cambiar entre automático, claro y oscuro">Tema</button>
         <div class="sesion hidden" id="sesion"><span id="sesionUsuario"></span><button class="btn small ghost" id="btnSalir">Salir</button></div>
       </div>
+      <button class="btn-menu" id="btnMenu" aria-expanded="false" aria-controls="menuMovil" aria-label="Abrir el menú">
+        <span class="hamburguesa" aria-hidden="true"></span><span>Menú</span>
+      </button>
     </header>
+    <!-- Menú del móvil -->
+    <div id="menuMovil" class="menu-movil no-print" hidden>
+      <div class="menu-panel" role="dialog" aria-label="Menú">
+        <nav class="menu-nav" id="menuNav"></nav>
+        <div class="menu-bloque">
+          <span class="menu-titulo">Tema</span>
+          <div class="segmentado" id="menuTemas" role="group" aria-label="Tema de colores">
+            <button data-tema="auto">Automático</button>
+            <button data-tema="claro">Claro</button>
+            <button data-tema="oscuro">Oscuro</button>
+          </div>
+        </div>
+        <div class="menu-bloque menu-sesion hidden" id="menuSesion">
+          <span id="menuUsuario"></span>
+          <button class="btn ghost" id="menuSalir">Salir</button>
+        </div>
+      </div>
+    </div>
     <div id="aviso" class="banner hidden no-print"></div>
 
     <!-- 1. Nuevo presupuesto -->
@@ -74,7 +96,8 @@
         </section>
 
         <aside class="pane right" id="refPane">
-          <div class="pane-head"><h2>Referencias del histórico</h2></div>
+          <div class="pane-head"><h2>Referencias del histórico</h2>
+            <button class="btn small ghost solo-movil" id="refVolver">↑ Volver a la partida</button></div>
           <input id="refQ" class="search" placeholder="Busca: alupanel 3x2, lona, letras corpóreas…" autocomplete="off">
           <div class="filters" id="refFiltros"></div>
           <p class="muted small" id="refAyuda">Se busca solo con lo que escribes en la partida activa.</p>
@@ -110,7 +133,7 @@
           <button class="btn small ghost" id="aRecalcular" title="Vuelve a calcular categoría y material de todas las partidas con los sinónimos actuales">Recalcular categorías</button>
         </div>
         <div class="table-wrap">
-          <table class="data">
+          <table class="data cards">
             <thead><tr><th>Fecha</th><th>Artículo</th><th>Categoría</th><th>Material</th><th>Medidas</th><th class="num">Cant.</th><th class="num">Precio ud.</th><th class="num">€/m²</th><th class="num">Total</th><th>Nº / cliente</th><th></th></tr></thead>
             <tbody id="aTabla"></tbody>
           </table>
@@ -127,7 +150,7 @@
         </div>
         <div class="chips" id="pAnios"></div>
         <div class="table-wrap">
-          <table class="data">
+          <table class="data cards">
             <thead><tr><th>Fecha</th><th>Nº</th><th>Cliente</th><th class="num">Partidas</th><th class="num">Base</th><th class="num">Total</th><th>Origen</th><th></th></tr></thead>
             <tbody id="pTabla"></tbody>
           </table>
@@ -157,7 +180,7 @@
         </div>
         <p id="tInfo" class="muted small"></p>
         <div class="table-wrap">
-          <table class="data tarifa">
+          <table class="data tarifa cards">
             <thead><tr><th>Artículo</th><th>Unidad</th><th class="num">Sugerido</th><th class="num">Rango reciente</th><th class="num">Veces</th><th>Último uso</th><th class="num">Precio tarifa</th><th></th></tr></thead>
             <tbody id="tTabla"></tbody>
           </table>
@@ -176,7 +199,7 @@
           </div>
         </div>
         <div class="table-wrap">
-          <table class="data">
+          <table class="data cards">
             <thead><tr><th>Nombre</th><th>CIF</th><th>Contacto</th><th class="num">Presupuestos</th><th>Último</th><th></th></tr></thead>
             <tbody id="cTabla"></tbody>
           </table>

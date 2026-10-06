@@ -86,7 +86,7 @@ export function initArticulos() {
         <td class="num">${p.precioM2 ? fmtEur(p.precioM2) : ''}</td>
         <td class="num">${fmtEur(p.precioTotal)}</td>
         <td class="small">${esc(p.numero || '')}<div class="muted">${esc(p.cliente || '')}</div></td>
-        <td class="nowrap"><button class="btn small ghost" data-edit="${esc(p.id)}">${p.revisar ? 'Revisar' : 'Editar'}</button>
+        <td class="nowrap acciones"><button class="btn small ghost" data-edit="${esc(p.id)}">${p.revisar ? 'Revisar' : 'Editar'}</button>
           <button class="btn small ghost" data-use="${esc(p.id)}" title="Usar como referencia en el presupuesto nuevo">Usar</button></td>
       </tr>`).join('') || '<tr><td colspan="11" class="muted">No hay partidas.</td></tr>';
   };
@@ -135,7 +135,7 @@ export function initPresupuestos() {
         <td class="num">${fmtEur(p.base)}</td>
         <td class="num"><strong>${fmtEur(p.total)}</strong></td>
         <td class="small">${p.origen === 'importado' ? 'Importado' : 'Creado aquí'}${p.archivoId ? ` · <a href="#" data-orig="${esc(p.archivoId)}" title="${esc(p.archivoNombre)}">original</a>` : ''}</td>
-        <td class="nowrap">
+        <td class="nowrap acciones">
           <button class="btn small" data-abrir="${esc(p.id)}">Abrir</button>
           <button class="btn small ghost" data-dup="${esc(p.id)}">Duplicar</button>
           <button class="btn small ghost" data-del="${esc(p.id)}" title="Borrar">✕</button>
@@ -205,7 +205,7 @@ export function initClientes() {
         <td class="small">${[c.telefono, c.email].filter(Boolean).map(esc).join('<br>')}</td>
         <td class="num">${i.n}</td>
         <td>${fmtDate(i.ultimo)}</td>
-        <td class="nowrap">
+        <td class="nowrap acciones">
           <button class="btn small ghost" data-edit="${esc(c.id)}">Editar</button>
           <button class="btn small ghost" data-pres="${esc(c.nombre)}" ${i.n ? '' : 'disabled'}>Presupuestos</button>
           <button class="btn small" data-nuevo="${esc(c.nombre)}">Nuevo presupuesto</button>

@@ -142,6 +142,7 @@ function lineHtml(l, i) {
       <label>Total <output data-o="total">${fmtEur(c.precioTotal)}</output></label>
     </div>
     <textarea data-f="descripcion" rows="2" placeholder="Descripción">${esc(l.descripcion)}</textarea>
+    <button class="btn small ghost solo-movil ver-refs" data-act="refs">Ver trabajos parecidos y precios ↓</button>
     <details ${l.acabados || l.montaje || l.observaciones ? 'open' : ''}>
       <summary>Acabados, montaje y observaciones</summary>
       <div class="line-grid g3">
@@ -275,6 +276,11 @@ export function initEditor() {
     const b = e.target.closest('[data-act]');
     if (!b) return;
     const i = +b.closest('.line').dataset.i;
+    if (b.dataset.act === 'refs') {
+      if (i !== active) { active = i; renderLines(); autoRefs(); }
+      $('#refPane').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
     if (b.dataset.act === 'del') {
       if (!isEmpty(lines[i]) && !confirm('¿Quitar esta partida?')) return;
       lines.splice(i, 1);
@@ -314,6 +320,7 @@ export function initEditor() {
 
   // Referencias: escribir, usar, ver y arrastrar.
   $('#refQ').addEventListener('input', runRefsSoon);
+  $('#refVolver').addEventListener('click', () => $(`#edLineas .line[data-i="${active}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   $('#refList').addEventListener('click', (e) => {
     const use = e.target.closest('[data-use]');
     if (use) editor.usar(use.dataset.use);
