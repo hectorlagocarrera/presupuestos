@@ -2,7 +2,7 @@
 import { $, esc, fmtEur, fmtNum, fmtDate, numOrNull, today, debounce, calcPartida, round, piezasTexto, TIPOS, tipoDe } from '../util.js';
 import { search, similares, priceStats, parseQuery, classify, normalize, parseMeasures } from '../search.js';
 import { data, searchDocs, savePresupuesto, getPresupuesto, partidasDe, nextNumber, clientePorNombre, buscarDuplicado, onChange } from '../store.js';
-import { resultCard, statsHtml, mountFiltros, toast } from './common.js';
+import { resultCard, statsHtml, mountFiltros, ordenarResultados, toast } from './common.js';
 import { verPresupuesto } from './presview.js';
 import { imprimir } from './print.js';
 import { onShow } from './nav.js';
@@ -235,10 +235,11 @@ function runRefs() {
     return;
   }
   $('#refAyuda').classList.add('hidden');
-  const res = search(q, docs, readFiltros());
+  const f = readFiltros();
+  const res = search(q, docs, f);
   const stats = priceStats(similares(res), parseQuery(q).dims);
   $('#refStats').innerHTML = statsHtml(stats, res.length);
-  $('#refList').innerHTML = res.slice(0, 40).map((r) => resultCard(r)).join('') || '<p class="muted">Sin trabajos parecidos.</p>';
+  $('#refList').innerHTML = ordenarResultados(res, f.orden).slice(0, 40).map((r) => resultCard(r)).join('') || '<p class="muted">Sin trabajos parecidos.</p>';
 }
 const runRefsSoon = debounce(runRefs, 120);
 const autoRefsSoon = debounce(autoRefs, 250);

@@ -87,7 +87,14 @@ export function mountFiltros(el, onChange) {
     <input data-f="max" inputmode="decimal" placeholder="hasta">
     <select data-f="tipo" title="Facturado: lo que se cobró de verdad (facturas). Presupuestado: presupuestos y albaranes.">
       <option value="">Presupuestado y facturado</option><option value="facturado">Solo facturado</option><option value="presupuestado">Solo presupuestado</option>
+    </select>
+    <select data-f="orden" title="Orden de los resultados">
+      <option value="">Ordenar: más parecidos</option><option value="reciente">Más recientes primero</option><option value="antiguo">Más antiguos primero</option>
+      <option value="barato">Precio: de menor a mayor</option><option value="caro">Precio: de mayor a menor</option>
     </select>`;
+  // El orden elegido se recuerda (en este navegador) y es el mismo en el buscador y en las referencias.
+  const orden = el.querySelector('[data-f=orden]');
+  orden.addEventListener('change', () => { try { localStorage.setItem('ordenHistorico', orden.value); } catch { /* sin almacenamiento */ } });
   const fill = () => {
     const cat = el.querySelector('[data-f=categoria]');
     const an = el.querySelector('[data-f=anio]');
@@ -95,6 +102,7 @@ export function mountFiltros(el, onChange) {
     cat.innerHTML = '<option value="">Todas las categorías</option>' + categorias().map((c) => `<option>${esc(c)}</option>`).join('');
     an.innerHTML = '<option value="">Todos los años</option>' + anios().map((y) => `<option>${y}</option>`).join('');
     cat.value = cv; an.value = av;
+    try { orden.value = localStorage.getItem('ordenHistorico') || ''; } catch { /* sin almacenamiento */ }
   };
   fill();
   el.addEventListener('input', onChange);
@@ -105,9 +113,28 @@ export function mountFiltros(el, onChange) {
     min: numOrNull(el.querySelector('[data-f=min]').value),
     max: numOrNull(el.querySelector('[data-f=max]').value),
     tipo: el.querySelector('[data-f=tipo]').value,
+    orden: orden.value,
   });
   read.refresh = fill;
   return read;
+}
+
+// Ordena los resultados de una búsqueda (sin tocar la lista original, que sigue sirviendo para las estadísticas).
+// Con el mismo valor, primero el más parecido.
+export function ordenarResultados(res, orden) {
+  const fecha = (r) => r.doc.p.fecha || '';
+  const precio = (r) => r.doc.p.precioUnitario ?? null;
+  const porPrecio = (dir) => (a, b) => {
+    if (precio(a) == null || precio(b) == null) return (precio(a) == null) - (precio(b) == null); // sin precio, al final
+    return dir * (precio(a) - precio(b)) || b.score - a.score;
+  };
+  const cmp = {
+    reciente: (a, b) => fecha(b).localeCompare(fecha(a)) || b.score - a.score,
+    antiguo: (a, b) => fecha(a).localeCompare(fecha(b)) || b.score - a.score,
+    barato: porPrecio(1),
+    caro: porPrecio(-1),
+  }[orden];
+  return cmp ? [...res].sort(cmp) : res;
 }
 
 export function fillSelect(sel, values, all) {
