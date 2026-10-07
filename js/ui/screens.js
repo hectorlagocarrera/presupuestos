@@ -211,7 +211,7 @@ export function initPresupuestos() {
           ${firmable(p) && p.estadoFirma !== 'firmado' ? `<button class="btn small ghost" data-firmar="${esc(p.id)}" data-firmas title="Que el cliente firme ahora">✍ Firmar</button>` : ''}
           <button class="btn small" data-abrir="${esc(p.id)}">${p.estadoFirma === 'firmado' ? 'Ver' : 'Abrir'}</button>
           <button class="btn small ghost" data-dup="${esc(p.id)}">Duplicar</button>
-          <button class="btn small ghost" data-del="${esc(p.id)}" title="Borrar">✕</button>
+          <button class="btn small ghost ${p.estadoFirma === 'firmado' ? 'bloqueado' : ''}" data-del="${esc(p.id)}" title="${p.estadoFirma === 'firmado' ? 'Firmado: para borrarlo, anula antes la firma' : 'Borrar'}">✕</button>
         </td>
       </tr>`).join('') || '<tr><td colspan="10" class="muted">No hay documentos con ese filtro.</td></tr>';
   };
@@ -253,9 +253,16 @@ export function initPresupuestos() {
     if (t.dataset.dup && editor.duplicar(t.dataset.dup)) go('nuevo');
     if (t.dataset.del) {
       const p = data.presupuestos.find((x) => x.id === t.dataset.del);
+      // Firmado: protegido. Para borrarlo hay que anular antes la firma (queda constancia del motivo).
+      if (p.estadoFirma === 'firmado') {
+        if (confirm(`${TIPOS[tipoDe(p)].nombre} ${p.numero || ''} está firmado y no se puede borrar.\n\nPara borrarlo, primero hay que anular la firma (indicando el motivo). ¿Abrirlo para anular la firma?`)) verPresupuesto(p.id);
+        return;
+      }
       if (!confirm(`¿Borrar ${tipoDe(p) === 'factura' ? 'la' : 'el'} ${TIPOS[tipoDe(p)].nombre.toLowerCase()} ${p.numero || ''} de ${p.clienteNombre || 'sin cliente'}? Sus partidas dejarán de salir en el histórico.`)) return;
-      await deletePresupuesto(p.id);
-      toast(`${TIPOS[tipoDe(p)].nombre} borrad${tipoDe(p) === 'factura' ? 'a' : 'o'}`);
+      try {
+        await deletePresupuesto(p.id);
+        toast(`${TIPOS[tipoDe(p)].nombre} borrad${tipoDe(p) === 'factura' ? 'a' : 'o'}`);
+      } catch (err) { toast('No se ha podido borrar: ' + err.message); }
     }
   });
   onShow('presupuestos', run);
