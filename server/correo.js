@@ -4,6 +4,7 @@ import net from 'node:net';
 import tls from 'node:tls';
 import { randomBytes } from 'node:crypto';
 import { hostname } from 'node:os';
+import { lookup } from 'node:dns/promises';
 
 const b64 = (s) => Buffer.from(s).toString('base64');
 const enc = (s) => (/^[\x20-\x7e]*$/.test(s) ? s : `=?UTF-8?B?${b64(s)}?=`); // cabeceras con acentos
@@ -59,10 +60,14 @@ export async function enviar(config, mensaje) {
   for (const d of [de, ...destinos]) if (!emailValido(d)) throw new Error(`Dirección de email no válida: ${d}`);
   const datos = construir(mensaje);
 
+  // Por IPv4 si el servidor la tiene: en los relés autorizados por IP (Google, Microsoft) se suele autorizar la
+  // IPv4 del VPS, y si la conexión sale por IPv6 la rechazan. Con ipv6: true se usa lo que diga el sistema.
+  let destino = host;
+  if (!config.ipv6) { try { destino = (await lookup(host, { family: 4 })).address; } catch { destino = host; } }
   let socket = await new Promise((resolve, reject) => {
     const s = seguridad === 'ssl'
-      ? tls.connect({ host, port: puerto, servername: host }, () => resolve(s))
-      : net.connect({ host, port: puerto }, () => resolve(s));
+      ? tls.connect({ host: destino, port: puerto, servername: host }, () => resolve(s))
+      : net.connect({ host: destino, port: puerto }, () => resolve(s));
     s.once('error', reject);
     s.setTimeout(20000, () => s.destroy(new Error('El servidor de correo no responde')));
   });
@@ -95,14 +100,16 @@ export async function enviar(config, mensaje) {
           + 'Si prefieres usuario y contraseña: el usuario es la dirección completa de Workspace y, con verificación en dos pasos, la contraseña es una «contraseña de aplicación».';
       } else if (relay && /^(421|550|553|554)/.test(r)) {
         ayuda = ' → Relé SMTP de Google: en la consola de administración de Google Workspace (Aplicaciones → Google Workspace → Gmail → Enrutamiento → Servicio de relé SMTP) '
-          + 'añade la IP de tu VPS en «Solo aceptar correo de las direcciones IP especificadas» (o marca «Requerir autenticación SMTP» y pon aquí usuario y contraseña de aplicación), '
+          + 'añade la IP indicada arriba (la pública del VPS) en «Solo aceptar correo de las direcciones IP especificadas» (o marca «Requerir autenticación SMTP» y pon aquí usuario y contraseña de aplicación). Google puede tardar hasta una hora en aplicarlo. '
+          + 'Además, '
           + 'elige «Solo direcciones de mis dominios» y comprueba que el remitente es un buzón o alias de tu dominio.';
       } else if (/^53[45]/.test(r)) {
         ayuda = /gmail|google/i.test(`${host} ${usuario}`)
           ? ' → Gmail no acepta la contraseña normal de la cuenta: crea una «contraseña de aplicación» en myaccount.google.com/apppasswords (hace falta tener activada la verificación en dos pasos) y ponla aquí.'
           : ' → Usuario o contraseña del buzón incorrectos (con Microsoft 365/Outlook puede que haya que activar «SMTP autenticado» o usar una contraseña de aplicación).';
       }
-      throw new Error(`El servidor de correo rechazó ${visible || 'la conexión'}: ${r.split('\n').pop()}${ayuda}`);
+      const desde = socket.localAddress ? ` (conectado desde la IP ${String(socket.localAddress).replace(/^::ffff:/, '')})` : '';
+      throw new Error(`El servidor de correo rechazó ${visible || 'la conexión'}${desde}: ${r.split('\n').pop()}${ayuda}`);
     }
     return r;
   };
