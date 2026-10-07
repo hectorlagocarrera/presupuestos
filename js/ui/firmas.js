@@ -180,6 +180,49 @@ export async function descargarPdfDoc(id) {
   } catch (err) { toast('No se pudo crear el PDF: ' + err.message); }
 }
 
+// ---------- WhatsApp ----------
+
+// Teléfono → número para WhatsApp (con prefijo; en España se añade el 34). Si hay varios, se prefiere un móvil.
+export function telefonoWhatsapp(t) {
+  const numeros = String(t || '').split(/[\/,;]| y | o /).map((x) => x.replace(/[^\d+]/g, '')).filter((x) => x.replace('+', '').length >= 9);
+  let d = numeros.find((x) => /^(\+?34|0034)?[67]\d{8}$/.test(x)) || numeros[0] || '';
+  if (d.startsWith('+')) d = d.slice(1);
+  else if (d.startsWith('00')) d = d.slice(2);
+  else if (/^[6789]\d{8}$/.test(d)) d = '34' + d;
+  return /^\d{9,15}$/.test(d) ? d : '';
+}
+const urlWhatsapp = (tel, texto) => `https://wa.me/${telefonoWhatsapp(tel)}?text=${encodeURIComponent(texto)}`;
+
+// Bloque con el teléfono y el botón que abre WhatsApp con el mensaje ya escrito (lo pulsa la persona: si lo
+// abriera la página sola, muchos móviles lo bloquean).
+function bloqueWhatsapp(contenedor, telefono, texto) {
+  contenedor.innerHTML = `
+    <div class="whatsapp">
+      <label>Teléfono del cliente <span class="muted">(vacío: eliges el contacto en WhatsApp)</span>
+        <input id="waTel" type="tel" inputmode="tel" value="${esc(telefono || '')}" placeholder="600 000 000"></label>
+      <a class="btn btn-whatsapp" id="waAbrir" target="_blank" rel="noopener">Abrir WhatsApp</a>
+      <p class="muted small">Se abre WhatsApp con el mensaje y el enlace escritos: solo queda pulsar enviar.</p>
+    </div>`;
+  const pintar = () => { $('#waAbrir', contenedor).href = urlWhatsapp($('#waTel', contenedor).value, texto); };
+  $('#waTel', contenedor).addEventListener('input', pintar);
+  pintar();
+}
+
+async function copiaPorWhatsapp(id) {
+  const p = getPresupuesto(id);
+  const cli = clientePorNombre(p.clienteNombre || '') || {};
+  try {
+    const { url } = await firmasApi.enlaceCopia(id);
+    const t = TIPOS[tipoDe(p)].nombre.toLowerCase();
+    const dlg = dialogo(`
+      <div class="pane-head"><h2>Enviar copia firmada por WhatsApp</h2><button class="btn ghost small" data-cerrar>Cerrar</button></div>
+      <p>El cliente recibe un enlace para ver y descargar el ${t} ${esc(p.numero || '')} firmado en PDF (válido 90 días).</p>
+      <div id="waCopia"></div>`, 'firma-dlg');
+    bloqueWhatsapp($('#waCopia'), cli.telefono, `Hola, le enviamos el ${t} ${p.numero || ''} firmado${data.ajustes.nombre ? ` (${data.ajustes.nombre})` : ''}. Puede verlo y descargarlo en PDF aquí: ${url}`);
+    dlg.onclick = (e) => { if (e.target.closest('[data-cerrar]')) dlg.close(); };
+  } catch (err) { toast(err.message); }
+}
+
 // ---------- Enviar para firmar a distancia ----------
 
 export async function enviarParaFirmar(id) {
@@ -203,7 +246,8 @@ export async function enviarParaFirmar(id) {
       <p id="enMsg" class="warn hidden s2"></p>
       <div class="btns actions s2">
         ${estado.correoListo ? '<button class="btn" type="submit" data-modo="email">Enviar por email</button>' : ''}
-        <button class="btn ${estado.correoListo ? 'ghost' : ''}" type="submit" data-modo="copiar">Copiar enlace</button>
+        <button class="btn ${estado.correoListo ? 'ghost' : ''} btn-whatsapp-borde" type="submit" data-modo="whatsapp">Enviar por WhatsApp</button>
+        <button class="btn ghost" type="submit" data-modo="copiar">Copiar enlace</button>
         ${pend ? '<button class="btn ghost" type="button" data-cancelar>Cancelar el envío</button>' : ''}
       </div>
     </form>
@@ -228,13 +272,17 @@ export async function enviarParaFirmar(id) {
       actualizarFirma(id, r);
       let copiado = false;
       if (modo === 'copiar') { try { await navigator.clipboard.writeText(r.url); copiado = true; } catch { /* se enseña para copiar a mano */ } }
-      const wa = `https://wa.me/?text=${encodeURIComponent(`${data.ajustes.nombre || ''}: ${TIPOS[tipoDe(p)].nombre.toLowerCase()} ${p.numero || ''} para firmar: ${r.url}`)}`;
+      const t = TIPOS[tipoDe(p)].nombre.toLowerCase();
+      const texto = `Hola, le enviamos el ${t} ${p.numero || ''}${data.ajustes.nombre ? ` de ${data.ajustes.nombre}` : ''} para ${esPresupuesto(p) ? 'revisarlo y aceptarlo' : 'revisarlo y firmarlo'}: ${r.url}`;
       $('#enForm').classList.add('hidden');
       $('#enResultado').innerHTML = `
-        <p class="ok-msg">${r.enviado ? `✓ Enviado a <strong>${esc(r.enviado)}</strong>.` : copiado ? '✓ Enlace copiado: pégalo donde quieras (WhatsApp, SMS, email…).' : 'Enlace para el cliente:'}</p>
-        <p class="secreto enlace-firma">${esc(r.url)}</p>
-        <div class="btns actions"><a class="btn ghost" href="${esc(wa)}" target="_blank" rel="noopener">Enviar por WhatsApp</a><button class="btn" data-cerrar>Hecho</button></div>
-        <p class="muted small">Cuando el cliente firme, el ${TIPOS[tipoDe(p)].nombre.toLowerCase()} pasará a «Firmado» y le llegará la copia por email (si la deja).</p>`;
+        <p class="ok-msg">${r.enviado ? `✓ Enviado a <strong>${esc(r.enviado)}</strong>.` : copiado ? '✓ Enlace copiado: pégalo donde quieras (WhatsApp, SMS, email…).' : modo === 'whatsapp' ? 'Enlace preparado. Abre WhatsApp para enviarlo:' : 'Enlace para el cliente:'}</p>
+        ${modo === 'whatsapp' ? '<div id="enWhatsapp"></div>' : `<p class="secreto enlace-firma">${esc(r.url)}</p>`}
+        <div class="btns actions">${modo === 'whatsapp' ? '' : '<button class="btn ghost" data-otro-wa>Enviar también por WhatsApp</button>'}<button class="btn" data-cerrar>Hecho</button></div>
+        <p class="muted small">Cuando el cliente firme, el ${t} pasará a «Firmado» y le llegará la copia por email (si la deja).</p>`;
+      const ponerWa = () => bloqueWhatsapp($('#enWhatsapp') || Object.assign(document.createElement('div'), { id: 'enWhatsapp' }), cli.telefono, texto);
+      if (modo === 'whatsapp') ponerWa();
+      $('[data-otro-wa]')?.addEventListener('click', (ev) => { ev.target.replaceWith(Object.assign(document.createElement('div'), { id: 'enWhatsapp' })); ponerWa(); });
     } catch (err) {
       msg.textContent = err.message; msg.classList.remove('hidden');
       if (err.datos?.url) actualizarFirma(id, err.datos);
@@ -286,7 +334,7 @@ export async function panelFirma(id, contenedor) {
       <div class="btns">
         ${firmar ? `<button class="btn small" data-pf="firmar">${esPresupuesto(p) ? 'Aceptar ahora (firma)' : 'Firmar ahora'}</button><button class="btn small ghost" data-pf="enviar">${r.estado === 'pendiente' ? 'Reenviar enlace' : 'Enviar para firmar'}</button>` : ''}
         ${f ? '<button class="btn small" data-pf="pdf">Descargar PDF firmado</button>' : ''}
-        ${f && puedeFirmar() ? '<button class="btn small ghost" data-pf="reenviar">Reenviar copia</button>' : ''}
+        ${f && puedeFirmar() ? '<button class="btn small ghost" data-pf="reenviar">Reenviar copia por email</button><button class="btn small ghost" data-pf="whatsapp">Enviar copia por WhatsApp</button>' : ''}
         ${f && puedeAnular() ? '<button class="btn small ghost peligro" data-pf="anular">Anular firma</button>' : ''}
       </div>
       ${r.historial.filter((h) => h.anulada).length ? `<details class="small"><summary>Historial (${r.historial.filter((h) => h.anulada).length} anulada${r.historial.filter((h) => h.anulada).length === 1 ? '' : 's'})</summary>
@@ -300,6 +348,7 @@ export async function panelFirma(id, contenedor) {
     try {
       if (b.dataset.pf === 'firmar') firmarAhora(id);
       if (b.dataset.pf === 'pdf') descargarPdfDoc(id);
+      if (b.dataset.pf === 'whatsapp') copiaPorWhatsapp(id);
       if (b.dataset.pf === 'enviar') enviarParaFirmar(id);
       if (b.dataset.pf === 'reenviar') {
         const cli = clientePorNombre(p.clienteNombre || '') || {};

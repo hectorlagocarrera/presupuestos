@@ -472,6 +472,14 @@ async function api(req, res, ruta) {
       return json(res, 200, { url, enviado, ...estado() });
     }
     if (accion === 'cancelar') { Firmas.cancelarPendiente(db, id); return json(res, 200, estado()); }
+    // Enlace para que el cliente vea y descargue la copia firmada (para mandarlo por WhatsApp, por ejemplo).
+    if (accion === 'enlace-copia') {
+      if (!d.firmaId) return json(res, 400, { error: 'No está firmado.' });
+      const f = Firmas.resumenFirma(db, d.firmaId);
+      const t = Firmas.crearEnlace(db, id, { creadoPor: usuario, dias: 90, mostrarImportes: !!f?.mostrarImportes, solover: true });
+      aviso(req, `«${usuario}» ha creado un enlace a la copia firmada de ${nombreDoc}`);
+      return json(res, 200, { url: `${urlPublica(req)}/firmar.html?t=${t}` });
+    }
     if (accion === 'reenviar') {
       if (!d.firmaId) return json(res, 400, { error: 'No está firmado.' });
       const email = String(datos.email || '').trim();

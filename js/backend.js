@@ -95,6 +95,7 @@ export const firmasApi = {
   presencial: (datos) => post('firmas/presencial', datos),
   enlace: (datos) => post('firmas/enlace', datos),
   cancelar: (presupuestoId) => post('firmas/cancelar', { presupuestoId }),
+  enlaceCopia: (presupuestoId) => post('firmas/enlace-copia', { presupuestoId }),
   reenviar: (presupuestoId, email) => post('firmas/reenviar', { presupuestoId, email }),
   anular: (presupuestoId, motivo) => post('firmas/anular', { presupuestoId, motivo }),
   async imagen(firmaId) { return (await api('firmas/imagen/' + encodeURIComponent(firmaId))).blob(); },
