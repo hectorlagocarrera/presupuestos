@@ -55,8 +55,17 @@ export function findDate(text) {
   return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
 }
 
+// Tipo de documento por las primeras líneas del texto.
+export function tipoTexto(text) {
+  const inicio = String(text).split('\n').slice(0, 15).join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (/\bpresupuesto\b|\bproforma\b/.test(inicio)) return 'presupuesto';
+  if (/\bfactura\s*(n[º°o.]|num|:|\d)|^\s*factura\b/.test(inicio)) return 'factura';
+  if (/\balbaran\b/.test(inicio)) return 'albaran';
+  return 'presupuesto';
+}
+
 export function findNumber(text) {
-  const m = String(text).match(/presupuesto\s*(?:n[º°o.]*|num(?:ero)?\.?|número)?\s*[:#]?\s*([A-Z]{0,4}[-/]?\d[\w\-/]*)/i)
+  const m = String(text).match(/(?:presupuesto|factura|albar[aá]n)\s*(?:n[º°o.]*|num(?:ero)?\.?|número)?\s*[:#]?\s*([A-Z]{0,4}[-/]?\d[\w\-/]*)/i)
     || String(text).match(/\bn[º°]\s*(?:de\s+)?(?:presupuesto)?\s*[:#]?\s*([A-Z]{0,4}[-/]?\d[\w\-/]*)/i);
   return m ? m[1] : '';
 }
@@ -138,6 +147,7 @@ export function textToBudget(lines) {
   }
   flush();
   return {
+    tipo: tipoTexto(text),
     numero: findNumber(text),
     fecha: findDate(text),
     cliente: findClient(lines),

@@ -76,3 +76,15 @@ test('presupuestos en columnas: partidas, descripción, notas y varias páginas'
   assert.equal(c.partidas[0].articulo, 'LETRERO EN ALUCABOND MEDIDAS: 600x2000mm', 'la descripción estaba encima del precio');
   assert.equal(c.partidas[0].precioUnitario, 590);
 });
+
+test('tipo de documento por el título de la página', async () => {
+  const { tipoTitulo } = await import('../js/columnas.js');
+  const pag = (t) => ({ rows: [{ y: 805, cells: [{ x: 434, w: 100, s: t }] }, { y: 719, cells: [{ x: 315, w: 100, s: 'FACTURAS Y GESTIÓN S.L.' }] }] });
+  assert.equal(tipoTitulo(pag('PRESUPUESTO')), 'presupuesto');
+  assert.equal(tipoTitulo(pag('FACTURA')), 'factura');
+  assert.equal(tipoTitulo(pag('ALBARÁN')), 'albaran');
+  assert.equal(tipoTitulo(pag('FACTURA PROFORMA')), 'presupuesto');
+  const { tipoTexto } = await import('../js/parse.js');
+  assert.equal(tipoTexto('EMPRESA\nFACTURA Nº 2026/015\nFecha 01/02/2026'), 'factura');
+  assert.equal(tipoTexto('EMPRESA\nPRESUPUESTO Nº 12\nCliente: Facturas SL'), 'presupuesto');
+});

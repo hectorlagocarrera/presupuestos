@@ -23,7 +23,7 @@ async function qrSvg(texto) {
 }
 
 function descargarCodigos(codigos) {
-  const txt = `Códigos de recuperación · Presupuestos · usuario ${estado.usuario}\nGenerados el ${today()}\n\n`
+  const txt = `Códigos de recuperación · Albaranes · usuario ${estado.usuario}\nGenerados el ${today()}\n\n`
     + 'Cada código sirve UNA vez para entrar si no tienes el móvil. Guárdalos en un lugar seguro.\n\n' + codigos.join('\n') + '\n';
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([txt], { type: 'text/plain' }));

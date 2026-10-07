@@ -1,5 +1,5 @@
 // Pantalla «Nuevo presupuesto»: presupuesto a la izquierda, referencias del histórico a la derecha.
-import { $, esc, fmtEur, fmtNum, fmtDate, numOrNull, today, debounce, calcPartida, round, piezasTexto } from '../util.js';
+import { $, esc, fmtEur, fmtNum, fmtDate, numOrNull, today, debounce, calcPartida, round, piezasTexto, TIPOS, tipoDe } from '../util.js';
 import { search, similares, priceStats, parseQuery, classify, normalize } from '../search.js';
 import { data, searchDocs, savePresupuesto, getPresupuesto, partidasDe, nextNumber, clientePorNombre, onChange } from '../store.js';
 import { resultCard, statsHtml, mountFiltros, toast } from './common.js';
@@ -10,7 +10,7 @@ import { onShow } from './nav.js';
 const CAMPOS_TEXTO = ['articulo', 'categoria', 'material', 'descripcion', 'acabados', 'montaje', 'observaciones'];
 const CAMPOS_NUM = ['ancho', 'alto', 'cantidad', 'precioUnitario'];
 
-let draft = null;   // datos del presupuesto
+let draft = null;   // datos del documento (albarán, presupuesto o factura)
 let lines = [];     // partidas
 let active = 0;     // partida activa (la que alimenta el buscador de referencias)
 let dirty = false;
@@ -20,9 +20,10 @@ const emptyLine = () => ({ articulo: '', categoria: '', material: '', descripcio
 const isEmpty = (l) => !l.articulo && !l.descripcion && !(l.precioUnitario > 0);
 
 function nuevo(base = {}) {
+  const tipo = base.tipo || 'albaran'; // lo nuevo es un albarán, salvo que se elija otro tipo
   draft = {
-    id: null, numero: nextNumber(base.fecha), autoNumero: true, fecha: today(), clienteNombre: '', iva: data.ajustes.iva,
-    notas: data.ajustes.condiciones || '', ...base,
+    id: null, tipo, numero: nextNumber(base.fecha, tipo), autoNumero: true, fecha: today(), clienteNombre: '', iva: data.ajustes.iva,
+    notas: data.ajustes.condiciones || '', ...base, tipo,
   };
   lines = base.lines || [emptyLine()];
   delete draft.lines;
@@ -32,7 +33,7 @@ function nuevo(base = {}) {
 }
 
 function confirmarSalida() {
-  return !dirty || confirm('Hay cambios sin guardar en el presupuesto actual. ¿Continuar y perderlos?');
+  return !dirty || confirm(`Hay cambios sin guardar en el ${TIPOS[tipoDe(draft)].nombre.toLowerCase()} actual. ¿Continuar y perderlos?`);
 }
 
 const copiaPartida = (p) => {
@@ -58,7 +59,7 @@ export const editor = {
     const p = getPresupuesto(id);
     nuevo({ clienteNombre: p.clienteNombre, iva: p.iva, notas: p.notas, lines: partidasDe(id).map(copiaPartida) });
     dirty = true;
-    toast(`Copia del presupuesto ${p.numero || ''}. Revisa y guarda.`);
+    toast(`Copia del ${TIPOS[tipoDe(p)].nombre.toLowerCase()} ${p.numero || ''} como albarán nuevo. Revisa y guarda.`);
     return true;
   },
   // Añade una partida del histórico como referencia. Si la partida activa aún no tiene precio, la sustituye.
@@ -66,7 +67,7 @@ export const editor = {
     const p = data.partidas.find((x) => x.id === pid);
     if (!p) return;
     const l = copiaPartida(p);
-    l.observaciones = ''; // las notas del presupuesto antiguo eran para aquel cliente
+    l.observaciones = ''; // las notas del documento antiguo eran para aquel cliente
     l.ref = { numero: p.numero, fecha: p.fecha, precio: p.precioUnitario, cliente: p.cliente };
     if (lines[active] && !(lines[active].precioUnitario > 0)) lines[active] = l;
     else { lines.push(l); active = lines.length - 1; }
@@ -98,7 +99,9 @@ export const editor = {
 // ---------- Render ----------
 
 function render() {
-  $('#edTitulo').textContent = draft.id ? `Presupuesto ${draft.numero || ''}` : 'Nuevo presupuesto';
+  const t = TIPOS[tipoDe(draft)];
+  $('#edTitulo').textContent = draft.id ? `${t.nombre} ${draft.numero || ''}` : `Nuevo ${t.nombre.toLowerCase()}`;
+  $('#edTipo').value = tipoDe(draft);
   $('#edCliente').value = draft.clienteNombre || '';
   $('#edNumero').value = draft.numero || '';
   $('#edFecha').value = draft.fecha || '';
@@ -112,7 +115,7 @@ function render() {
 
 function clienteInfo() {
   const c = clientePorNombre(draft.clienteNombre || '');
-  $('#edClienteInfo').textContent = c ? [c.cif, c.direccion, c.telefono, c.email].filter(Boolean).join(' · ') || 'Cliente guardado' : (draft.clienteNombre ? 'Cliente nuevo: se guardará al guardar el presupuesto' : '');
+  $('#edClienteInfo').textContent = c ? [c.cif, c.direccion, c.telefono, c.email].filter(Boolean).join(' · ') || 'Cliente guardado' : (draft.clienteNombre ? 'Cliente nuevo: se guardará al guardar el documento' : '');
 }
 
 const num = (v) => (v == null ? '' : fmtNum(v));
@@ -182,7 +185,7 @@ function updateOutputs(card, l, skip) {
 // Número automático: se recalcula (p. ej. tras importar) mientras no se haya escrito a mano.
 function numeroAuto() {
   if (draft.id || !draft.autoNumero) return;
-  draft.numero = nextNumber(draft.fecha);
+  draft.numero = nextNumber(draft.fecha, tipoDe(draft));
   $('#edNumero').value = draft.numero;
 }
 
@@ -304,6 +307,13 @@ export function initEditor() {
   $('#edCliente').addEventListener('input', (e) => { draft.clienteNombre = e.target.value; dirty = true; clienteInfo(); });
   $('#edNumero').addEventListener('input', (e) => { draft.numero = e.target.value; draft.autoNumero = false; dirty = true; });
   $('#edFecha').addEventListener('input', (e) => { draft.fecha = e.target.value; dirty = true; numeroAuto(); });
+  $('#edTipo').addEventListener('change', (e) => {
+    draft.tipo = e.target.value;
+    dirty = true;
+    numeroAuto();
+    if (!draft.id) $('#edTitulo').textContent = `Nuevo ${TIPOS[draft.tipo].nombre.toLowerCase()}`;
+    else $('#edTitulo').textContent = `${TIPOS[draft.tipo].nombre} ${draft.numero || ''}`;
+  });
   $('#edNotas').addEventListener('input', (e) => { draft.notas = e.target.value; dirty = true; });
   $('#edIva').addEventListener('input', (e) => { draft.iva = numOrNull(e.target.value) ?? 0; dirty = true; renderTotals(); });
 
@@ -350,7 +360,7 @@ export function initEditor() {
 
 async function guardar() {
   if (!lines.some((l) => !isEmpty(l))) { $('#edMsg').textContent = 'Añade al menos una partida.'; return; }
-  if (!draft.clienteNombre?.trim() && !confirm('El presupuesto no tiene cliente. ¿Guardarlo igualmente?')) return;
+  if (!draft.clienteNombre?.trim() && !confirm(`El ${TIPOS[tipoDe(draft)].nombre.toLowerCase()} no tiene cliente. ¿Guardarlo igualmente?`)) return;
   numeroAuto();
   try {
     const saved = await savePresupuesto(draft, lines.map(calcPartida));
@@ -360,7 +370,7 @@ async function guardar() {
     dirty = false;
     render();
     $('#edMsg').textContent = `Guardado ${new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}. Ya forma parte del histórico.`;
-    toast('Presupuesto guardado');
+    toast(`${TIPOS[tipoDe(draft)].nombre} guardado`);
   } catch (err) {
     $('#edMsg').textContent = 'No se pudo guardar: ' + err.message;
   }

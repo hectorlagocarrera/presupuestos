@@ -1,5 +1,5 @@
 // Vista rápida de un presupuesto (sin salir de la pantalla actual) y acceso al archivo original.
-import { $, esc, fmtEur, fmtNum, fmtDate } from '../util.js';
+import { $, esc, fmtEur, fmtNum, fmtDate, TIPOS, tipoDe } from '../util.js';
 import { getPresupuesto, partidasDe, getArchivo } from '../store.js';
 import { medidasTxt, toast } from './common.js';
 import { go } from './nav.js';
@@ -24,7 +24,7 @@ export function verPresupuesto(id) {
   const partidas = partidasDe(id);
   const dlg = $('#modal');
   $('#modalBody').innerHTML = `
-    <div class="pane-head"><h2>Presupuesto ${esc(p.numero || '')}</h2><button class="btn ghost small" data-cerrar>Cerrar</button></div>
+    <div class="pane-head"><h2>${TIPOS[tipoDe(p)].nombre} ${esc(p.numero || '')}</h2><button class="btn ghost small" data-cerrar>Cerrar</button></div>
     <p>${fmtDate(p.fecha)} · <strong>${esc(p.clienteNombre || 'sin cliente')}</strong>${p.archivoNombre ? ` · original: ${esc(p.archivoNombre)}` : ''}</p>
     <div class="table-wrap"><table class="data">
       <thead><tr><th>Artículo</th><th>Medidas</th><th class="num">Cant.</th><th class="num">Precio</th><th class="num">Total</th></tr></thead>

@@ -75,12 +75,12 @@ function verificarCodigo(usuario, cod) {
   return { recuperacion: true, restantes: resto.length };
 }
 
-// Nombre que sale en la app del móvil: «Presupuestos (empresa)».
+// Nombre que sale en la app del móvil: «Albaranes (empresa)».
 function emisor() {
   try {
     const nombre = JSON.parse(db.prepare("SELECT valor FROM ajustes WHERE id = 'ajustes'").get()?.valor || '{}').nombre;
-    return nombre ? `Presupuestos ${nombre}`.slice(0, 60) : 'Presupuestos';
-  } catch { return 'Presupuestos'; }
+    return nombre ? `Albaranes ${nombre}`.slice(0, 60) : 'Albaranes';
+  } catch { return 'Albaranes'; }
 }
 
 // ---------- API ----------
@@ -256,7 +256,7 @@ const servidor = http.createServer(async (req, res) => {
 });
 
 servidor.listen(PORT, HOST, () => {
-  console.log(`Presupuestos en http://${HOST}:${PORT} · base de datos ${RUTA_DB}`);
+  console.log(`Albaranes en http://${HOST}:${PORT} · base de datos ${RUTA_DB}`);
   if (!DB.listaUsuarios(db).length) console.log('Aún no hay usuarios. Crea uno con:  node server/usuarios.js nuevo <usuario>');
 });
 

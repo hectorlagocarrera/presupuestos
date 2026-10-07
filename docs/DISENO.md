@@ -45,6 +45,7 @@ es un dato secundario.
 presupuestos                     partidas (lo que se busca)            clientes
 ─────────────────                ───────────────────────────           ───────────────
 id                               id                                    id
+tipo          albaran | presupuesto | factura
 numero        "2025-014"         presupuestoId  → presupuestos.id      nombre
 fecha         2025-03-12         orden                                 cif
 clienteId     → clientes.id      articulo       "Cartel Alupanel"      direccion
@@ -66,14 +67,17 @@ creado, modificado               m2             ancho × alto           id, nomb
                                                 no fue segura
 ```
 
+- Cada documento tiene un **tipo**: albarán, presupuesto o factura (los antiguos sin tipo cuentan como
+  presupuesto). La numeración automática es independiente por tipo. Las partidas copian el tipo para poder
+  separar lo **facturado** (cobrado) de lo **presupuestado**.
 - Cada línea de un presupuesto (antiguo o nuevo) es una **partida**, y las búsquedas se hacen sobre ellas.
 - Cada partida lleva una copia de la fecha, el cliente y el número para mostrar los resultados sin más consultas.
 - La superficie y el precio por m² se recalculan siempre a partir de ancho, alto y precio.
 
 ## 3. Pantallas
 
-1. **Nuevo presupuesto** (pantalla principal). A la izquierda está el presupuesto que se está haciendo: cliente,
-   nº, fecha y partidas con artículo, categoría, material, medidas, cantidad, precio, €/m², acabados, montaje y
+1. **Nuevo albarán** (pantalla principal). A la izquierda está el documento que se está haciendo: cliente,
+   tipo, nº, fecha y partidas con artículo, categoría, material, medidas, cantidad, precio, €/m², acabados, montaje y
    observaciones, más los totales. A la derecha aparecen las **referencias históricas**, buscadas solas según lo
    que se escribe en la partida activa, con las estadísticas de precio. Cada resultado tiene **«Usar como
    referencia»** y también se puede **arrastrar** al presupuesto.
@@ -81,7 +85,7 @@ creado, modificado               m2             ancho × alto           id, nomb
    precios (último, medio, mínimo, máximo, €/m², evolución por año) y la lista de trabajos parecidos.
 3. **Artículos / trabajos.** Tabla con todas las partidas para revisar y corregir las importadas. Las que no se
    leyeron con seguridad salen marcadas como «Revisar».
-4. **Presupuestos anteriores.** Lista por año (2024, 2025, 2026…). Desde ahí se abre, duplica, imprime o borra un
+4. **Albaranes** (documentos anteriores). Lista por año (2024, 2025, 2026…) y por tipo. Desde ahí se abre, duplica, imprime o borra un
    presupuesto, y se ve el PDF o Excel original.
 5. **Clientes.** Datos para el encabezado del presupuesto. Se crean solos al guardar.
 6. **Importar.** PDF, Excel, CSV, ODS o texto pegado, con pantalla de revisión antes de guardar. Aquí está también
@@ -91,7 +95,10 @@ creado, modificado               m2             ancho × alto           id, nomb
    más recientes: en €/m² si la mayoría lleva medidas y las piezas son grandes (de media ≥ 0,25 m²), y por
    unidad en el resto (textil, imprenta, pegatinas…). Cada precio se puede fijar a mano, se puede aplicar un
    ajuste general en % y quitar artículos. Sale en Excel o impresa con el logo.
-8. **Ajustes.** Datos de la empresa, IVA y diccionario de sinónimos (editable).
+8. **Facturas.** Resumen de lo facturado por año y buscador de los artículos facturados, con filtros por
+   categoría, año y cliente. El tipo se detecta al importar por el título del documento (FACTURA, PRESUPUESTO,
+   ALBARÁN) y se puede corregir en la revisión.
+9. **Ajustes.** Datos de la empresa, IVA y diccionario de sinónimos (editable).
 
 ## 4. Flujo de trabajo
 

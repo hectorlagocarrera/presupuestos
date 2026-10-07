@@ -1,5 +1,5 @@
 // Importación del histórico (PDF, Excel, ODS, CSV, texto) con revisión manual, y copias de seguridad.
-import { $, esc, fmtEur, fmtNum, numOrNull, today, calcPartida, round } from '../util.js';
+import { $, esc, fmtEur, fmtNum, numOrNull, today, calcPartida, round, tipoDe, TIPOS } from '../util.js';
 import { textToBudget, rowsToBudgets } from '../parse.js';
 import { itemsToRows, rowsToLines, looksLikeColumns, columnsToBudgets } from '../columnas.js';
 import { classify } from '../search.js';
@@ -73,6 +73,8 @@ function mostrarCola() {
   $('#iOrigen').textContent = `${it.archivo?.nombre || 'Texto pegado'}${it.hoja ? ' · hoja ' + it.hoja : ''} · ${b.partidas.length} partidas detectadas. ${it.aviso || 'Revisa lo marcado en amarillo.'}`;
   $('#iCliente').value = b.cliente || '';
   $('#iNumero').value = b.numero || '';
+  $('#iTipo').value = tipoDe(b);
+  $('#iTipoTodos').classList.toggle('hidden', cola.length < 2);
   $('#iFecha').value = b.fecha || '';
   $('#iTextoPre').textContent = it.texto || '';
   $('#iTextoOrig').classList.toggle('hidden', !it.texto);
@@ -82,14 +84,15 @@ function mostrarCola() {
   renderTabla();
 }
 
-const esDuplicado = (n, f) => n && data.presupuestos.find((p) => p.numero === n && (!f || p.fecha === f));
+// Ya importado: mismo tipo de documento, nº y fecha.
+const esDuplicado = (n, f, tipo) => n && data.presupuestos.find((p) => tipoDe(p) === tipo && p.numero === n && (!f || p.fecha === f));
 
 function dupCheck() {
   const n = $('#iNumero').value.trim();
   const f = $('#iFecha').value;
-  const dup = esDuplicado(n, f);
+  const dup = esDuplicado(n, f, $('#iTipo').value);
   $('#iDup').classList.toggle('hidden', !dup);
-  if (dup) $('#iDup').textContent = `Ya hay un presupuesto nº ${n}${dup.fecha ? ' con fecha ' + dup.fecha.split('-').reverse().join('/') : ''}. ¿Quizá ya lo importaste?`;
+  if (dup) $('#iDup').textContent = `Ya hay un ${TIPOS[$('#iTipo').value].nombre.toLowerCase()} nº ${n}${dup.fecha ? ' con fecha ' + dup.fecha.split('-').reverse().join('/') : ''}. ¿Quizá ya lo importaste?`;
 }
 
 function renderTabla() {
@@ -113,6 +116,7 @@ function leerCabecera() {
   const b = cola[0].b;
   b.cliente = $('#iCliente').value.trim();
   b.numero = $('#iNumero').value.trim();
+  b.tipo = $('#iTipo').value;
   b.fecha = $('#iFecha').value;
 }
 
@@ -123,7 +127,7 @@ async function guardarActual(leer = true) {
   const b = it.b;
   const reuse = it.archivo ? archivosGuardados.get(it.archivo.blob) : null;
   const p = await savePresupuesto(
-    { numero: b.numero, fecha: b.fecha || today(), clienteNombre: b.cliente, clienteDatos: b.clienteDatos, origen: 'importado', archivoId: reuse || null, archivoNombre: it.archivo?.nombre || '', notas: '' },
+    { tipo: tipoDe(b), numero: b.numero, fecha: b.fecha || today(), clienteNombre: b.cliente, clienteDatos: b.clienteDatos, origen: 'importado', archivoId: reuse || null, archivoNombre: it.archivo?.nombre || '', notas: '' },
     b.partidas,
     { archivo: it.archivo && !reuse ? it.archivo : null, silencioso: cola.length > 1, totalesPdf: b.base != null ? { base: b.base, total: b.total } : null },
   );
@@ -181,6 +185,13 @@ export function initImportar() {
   });
 
   $('#iNumero').addEventListener('input', dupCheck);
+  $('#iTipo').addEventListener('change', dupCheck);
+  $('#iTipoTodos').addEventListener('click', () => {
+    const t = $('#iTipo').value;
+    for (const it of cola) it.b.tipo = t;
+    toast(`Los ${cola.length} documentos se guardarán como ${TIPOS[t].plural.toLowerCase()}`);
+    dupCheck();
+  });
   $('#iFecha').addEventListener('input', dupCheck);
 
   $('#iTabla').addEventListener('input', (e) => {
@@ -222,7 +233,7 @@ export function initImportar() {
   });
   $('#iGuardarTodos').addEventListener('click', async () => {
     const n = cola.length;
-    if (!confirm(`¿Guardar los ${n} presupuestos tal como están? Las partidas dudosas quedarán marcadas «revisar» y los ya importados se saltarán.`)) return;
+    if (!confirm(`¿Guardar los ${n} documentos tal como están? Las partidas dudosas quedarán marcadas «revisar» y los ya importados se saltarán.`)) return;
     try {
       leerCabecera();
       let saltados = 0;
@@ -231,13 +242,13 @@ export function initImportar() {
       await enBloque(async () => {
         while (cola.length) {
           const b = cola[0].b;
-          if (esDuplicado(b.numero, b.fecha)) { cola.shift(); saltados++; continue; }
+          if (esDuplicado(b.numero, b.fecha, tipoDe(b))) { cola.shift(); saltados++; continue; }
           await guardarActual(false);
           hechos++;
         }
-        $('#iTitulo').textContent = `Guardando ${hechos} presupuestos…`;
+        $('#iTitulo').textContent = `Guardando ${hechos} documentos…`;
       });
-      toast(`${hechos} presupuestos guardados${saltados ? ` · ${saltados} repetidos saltados` : ''}`);
+      toast(`${hechos} documentos guardados${saltados ? ` · ${saltados} repetidos saltados` : ''}`);
     } catch (err) {
       toast('No se pudo guardar: ' + err.message);
       await recargar().catch(() => {});
@@ -251,7 +262,7 @@ export function initImportar() {
     const blob = await exportar($('#bkOrig').checked);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `copia-presupuestos-${today()}.json`;
+    a.download = `copia-albaranes-${today()}.json`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     $('#bkMsg').textContent = `Copia descargada (${round(blob.size / 1048576, 1)} MB). Guárdala en un lugar seguro: contiene datos privados.`;
@@ -262,7 +273,7 @@ export function initImportar() {
     if (!f) return;
     try {
       const n = await importar(JSON.parse(await f.text()));
-      $('#bkMsg').textContent = `${n} presupuestos añadidos desde la copia.`;
+      $('#bkMsg').textContent = `${n} documentos añadidos desde la copia.`;
     } catch (err) {
       $('#bkMsg').textContent = 'No se pudo cargar la copia: ' + err.message;
     }

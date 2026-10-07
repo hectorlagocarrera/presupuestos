@@ -7,7 +7,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' data: blob:; worker-src 'self' blob:; object-src blob:; frame-src blob:; base-uri 'none'; form-action 'self'">
   <meta name="referrer" content="no-referrer">
   <meta name="robots" content="noindex, nofollow">
-  <title>Presupuestos</title>
+  <title>Albaranes</title>
   <meta name="theme-color" content="#1d4ed8">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
@@ -16,14 +16,15 @@
 <body>
   <div class="app">
     <header class="top no-print">
-      <a class="brand" href="#nuevo" title="Ir al inicio (nuevo presupuesto)"><img id="brandLogo" src="logo.png" alt="Logotipo" height="34"><span>Presupuestos</span></a>
+      <a class="brand" href="#nuevo" title="Ir al inicio (nuevo albarán)"><img id="brandLogo" src="logo.png" alt="Logotipo" height="34"><span>Albaranes</span></a>
       <span class="seccion-movil" id="seccionMovil"></span>
       <nav class="tabs">
-        <a href="#nuevo" data-tab="nuevo">Nuevo presupuesto</a>
+        <a href="#nuevo" data-tab="nuevo">Nuevo albarán</a>
         <a href="#buscar" data-tab="buscar">Buscador histórico</a>
         <a href="#articulos" data-tab="articulos">Artículos</a>
-        <a href="#presupuestos" data-tab="presupuestos">Presupuestos</a>
+        <a href="#presupuestos" data-tab="presupuestos">Albaranes</a>
         <a href="#tarifa" data-tab="tarifa">Tarifa</a>
+        <a href="#facturas" data-tab="facturas">Facturas</a>
         <a href="#clientes" data-tab="clientes">Clientes</a>
         <a href="#importar" data-tab="importar">Importar</a>
         <a href="#ajustes" data-tab="ajustes">Ajustes</a>
@@ -61,30 +62,32 @@
       <div class="split">
         <section class="pane left" id="edPane">
           <div class="pane-head">
-            <h2 id="edTitulo">Nuevo presupuesto</h2>
+            <h2 id="edTitulo">Nuevo albarán</h2>
             <div class="btns">
               <button class="btn ghost" id="edNuevo" title="Vaciar y empezar otro">Nuevo</button>
               <button class="btn ghost" id="edDuplicar" title="Copia con nueva fecha y número">Duplicar</button>
             </div>
           </div>
-          <div class="grid g4">
-            <label class="s2">Cliente
+          <div class="grid cab">
+            <label>Cliente
               <input id="edCliente" list="dlClientes" autocomplete="off" placeholder="Nombre del cliente">
               <small id="edClienteInfo" class="muted"></small>
             </label>
-            <label data-ayuda="Se pone solo: el siguiente al último de este año (por ejemplo 336). Puedes cambiarlo a mano.">Nº <input id="edNumero"></label>
+            <label data-ayuda="Albarán, presupuesto o factura. Cambia el título del documento impreso y cada tipo lleva su propia numeración.">Tipo
+              <select id="edTipo"><option value="albaran">Albarán</option><option value="presupuesto">Presupuesto</option><option value="factura">Factura</option></select></label>
+            <label data-ayuda="Se pone solo: el siguiente al último de este año para este tipo de documento. Puedes cambiarlo a mano.">Nº <input id="edNumero"></label>
             <label>Fecha <input id="edFecha" type="date"></label>
           </div>
           <div id="edLineas" class="lines"></div>
           <div class="drop-hint" id="edDrop">Arrastra aquí partidas del histórico o pulsa «Usar como referencia»</div>
           <button class="btn ghost" id="edAdd">+ Añadir partida</button>
           <div class="grid g2 foot">
-            <label data-ayuda="Texto que sale al final del presupuesto impreso: plazo de entrega, forma de pago… El texto por defecto se cambia en Ajustes.">Notas y condiciones
+            <label data-ayuda="Texto que sale al final del documento impreso: plazo de entrega, forma de pago… El texto por defecto se cambia en Ajustes.">Notas y condiciones
               <textarea id="edNotas" rows="3" placeholder="Plazo de entrega, forma de pago…"></textarea>
             </label>
             <div class="totals">
               <div><span>Base imponible</span><strong id="edBase">0,00 €</strong></div>
-              <div><span data-ayuda="Porcentaje de IVA de este presupuesto. Normalmente 21. El valor por defecto se cambia en Ajustes.">IVA <input id="edIva" class="mini" inputmode="decimal"> %</span><strong id="edCuota">0,00 €</strong></div>
+              <div><span data-ayuda="Porcentaje de IVA de este documento. Normalmente 21. El valor por defecto se cambia en Ajustes.">IVA <input id="edIva" class="mini" inputmode="decimal"> %</span><strong id="edCuota">0,00 €</strong></div>
               <div class="grand"><span>Total</span><strong id="edTotal">0,00 €</strong></div>
             </div>
           </div>
@@ -145,13 +148,14 @@
     <main class="screen hidden" id="s-presupuestos">
       <section class="pane">
         <div class="pane-head">
-          <h2>Presupuestos</h2>
+          <h2>Albaranes</h2>
           <input id="pQ" placeholder="Filtrar por nº, cliente o concepto" autocomplete="off" class="narrow">
         </div>
+        <div class="chips" id="pTipos"></div>
         <div class="chips" id="pAnios"></div>
         <div class="table-wrap">
           <table class="data cards">
-            <thead><tr><th>Fecha</th><th>Nº</th><th>Cliente</th><th class="num">Partidas</th><th class="num">Base</th><th class="num">Total</th><th data-ayuda="«Importado»: viene de un PDF o Excel antiguo (pulsa «original» para verlo). «Creado aquí»: hecho en esta aplicación.">Origen</th><th></th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Nº</th><th>Tipo</th><th>Cliente</th><th class="num">Partidas</th><th class="num">Base</th><th class="num">Total</th><th data-ayuda="«Importado»: viene de un PDF o Excel antiguo (pulsa «original» para verlo). «Creado aquí»: hecho en esta aplicación.">Origen</th><th></th></tr></thead>
             <tbody id="pTabla"></tbody>
           </table>
         </div>
@@ -168,14 +172,14 @@
             <button class="btn" id="tImprimir">Imprimir / PDF</button>
           </div>
         </div>
-        <p class="muted small">Sale de todos los presupuestos: cada artículo agrupa los trabajos parecidos y el <strong>precio sugerido</strong>
+        <p class="muted small">Sale de todos los documentos (presupuestos, albaranes y facturas): cada artículo agrupa los trabajos parecidos y el <strong>precio sugerido</strong>
           es la mediana de sus 10 usos más recientes (en €/m² para los trabajos que se cobran por superficie). «Precio tarifa» es el
           precio final: el sugerido con el ajuste general. Si escribes otro, queda fijado a mano. Precios sin IVA.</p>
         <div class="filters">
           <input id="tQ" placeholder="Buscar artículo" autocomplete="off">
           <select id="tCat"></select>
           <label class="check" data-ayuda="Oculta los trabajos que solo se han presupuestado una vez: suelen ser encargos especiales que no conviene meter en la tarifa."><input type="checkbox" id="tRepetidos" checked> Solo los que se repiten (2 o más veces)</label>
-          <label class="check" data-ayuda="Sube o baja todos los precios sugeridos de golpe. Por ejemplo, 5 sube un 5 % y -3 baja un 3 %. No cambia los precios que hayas escrito a mano ni los presupuestos guardados.">Ajuste general <input id="tAjuste" class="mini" inputmode="decimal"> %</label>
+          <label class="check" data-ayuda="Sube o baja todos los precios sugeridos de golpe. Por ejemplo, 5 sube un 5 % y -3 baja un 3 %. No cambia los precios que hayas escrito a mano ni los documentos guardados.">Ajuste general <input id="tAjuste" class="mini" inputmode="decimal"> %</label>
           <label class="check" data-ayuda="Muestra los artículos que has quitado de la tarifa con ✕, para volver a incluirlos con ↺."><input type="checkbox" id="tOcultos"> Ver los quitados</label>
         </div>
         <p id="tAjusteInfo" class="aviso-ajuste hidden"></p>
@@ -188,8 +192,34 @@
         </div>
         <div class="table-wrap">
           <table class="data tarifa cards">
-            <thead><tr><th>Artículo</th><th data-ayuda="«€/m²»: el precio es por metro cuadrado (lonas, vinilos, Alupanel…); al añadirlo a un presupuesto, el precio sale de multiplicar por las medidas. «unidad»: precio por pieza.">Unidad</th><th class="num" data-ayuda="Precio que propone la aplicación: el del medio (la mediana) de las 10 últimas veces que se presupuestó este trabajo.">Sugerido</th><th class="num" data-ayuda="Precio más bajo y más alto de esas 10 últimas veces. Si es muy amplio, el artículo agrupa trabajos distintos: mira los ejemplos pulsando su nombre.">Rango reciente</th><th class="num" data-ayuda="Cuántas veces aparece este trabajo en todos los presupuestos.">Veces</th><th data-ayuda="Fecha y precio de la última vez que se presupuestó.">Último uso</th><th class="num" data-ayuda="El precio final de la tarifa: el sugerido con el ajuste general aplicado. Si escribes otro, queda «fijado a mano» y el ajuste ya no le afecta; con ↺ vuelve a ser automático.">Precio tarifa</th><th></th></tr></thead>
+            <thead><tr><th>Artículo</th><th data-ayuda="«€/m²»: el precio es por metro cuadrado (lonas, vinilos, Alupanel…); al añadirlo a un albarán, el precio sale de multiplicar por las medidas. «unidad»: precio por pieza.">Unidad</th><th class="num" data-ayuda="Precio que propone la aplicación: el del medio (la mediana) de las 10 últimas veces que se presupuestó este trabajo.">Sugerido</th><th class="num" data-ayuda="Precio más bajo y más alto de esas 10 últimas veces. Si es muy amplio, el artículo agrupa trabajos distintos: mira los ejemplos pulsando su nombre.">Rango reciente</th><th class="num" data-ayuda="Cuántas veces aparece este trabajo en todos los documentos (y cuántas en facturas).">Veces</th><th data-ayuda="Fecha y precio de la última vez que se presupuestó.">Último uso</th><th class="num" data-ayuda="El precio final de la tarifa: el sugerido con el ajuste general aplicado. Si escribes otro, queda «fijado a mano» y el ajuste ya no le afecta; con ↺ vuelve a ser automático.">Precio tarifa</th><th></th></tr></thead>
             <tbody id="tTabla"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <!-- Facturas -->
+    <main class="screen hidden" id="s-facturas">
+      <section class="pane">
+        <div class="pane-head">
+          <h2>Facturas</h2>
+          <a class="btn ghost" href="#importar">Importar facturas</a>
+        </div>
+        <p class="muted small">Lo que se ha cobrado de verdad. Las facturas se importan como los presupuestos (PDF o Excel); la
+          aplicación las reconoce por el título «FACTURA». Sus precios salen como <span class="tag fact">facturado</span> en el buscador y en la tarifa.</p>
+        <div id="fResumen" class="resumen-fact"></div>
+        <div class="filters">
+          <input id="fQ" placeholder="Buscar artículo facturado (búsqueda inteligente)" autocomplete="off">
+          <select id="fCat"></select>
+          <select id="fAnio"></select>
+          <input id="fCliente" list="dlClientes" placeholder="Cliente" autocomplete="off">
+        </div>
+        <p id="fInfo" class="muted small"></p>
+        <div class="table-wrap">
+          <table class="data cards">
+            <thead><tr><th>Fecha</th><th>Factura</th><th>Cliente</th><th>Artículo</th><th>Medidas</th><th class="num">Cant.</th><th class="num">Precio ud.</th><th class="num">€/m²</th><th class="num">Total</th><th></th></tr></thead>
+            <tbody id="fTabla"></tbody>
           </table>
         </div>
       </section>
@@ -207,7 +237,7 @@
         </div>
         <div class="table-wrap">
           <table class="data cards">
-            <thead><tr><th>Nombre</th><th>CIF</th><th>Contacto</th><th class="num">Presupuestos</th><th>Último</th><th></th></tr></thead>
+            <thead><tr><th>Nombre</th><th>CIF</th><th>Contacto</th><th class="num">Documentos</th><th>Último</th><th></th></tr></thead>
             <tbody id="cTabla"></tbody>
           </table>
         </div>
@@ -217,7 +247,7 @@
     <!-- Importar -->
     <main class="screen hidden" id="s-importar">
       <section class="pane" id="iInicio">
-        <h2>Importar presupuestos antiguos</h2>
+        <h2>Importar presupuestos, albaranes y facturas</h2>
         <label class="dropzone" id="iDrop">
           <input type="file" id="iFiles" multiple accept=".pdf,.xlsx,.xls,.xlsm,.ods,.csv,.txt,application/pdf">
           <strong>Arrastra aquí los archivos o pulsa para elegirlos</strong>
@@ -225,7 +255,7 @@
         </label>
         <details>
           <summary>Pegar texto de otro documento (Word, correo…)</summary>
-          <textarea id="iTexto" rows="8" placeholder="Copia aquí el presupuesto completo"></textarea>
+          <textarea id="iTexto" rows="8" placeholder="Copia aquí el documento completo"></textarea>
           <button class="btn ghost" id="iTextoBtn">Procesar texto</button>
         </details>
         <p id="iMsg" class="muted"></p>
@@ -237,12 +267,15 @@
           <div class="btns">
             <button class="btn ghost" id="iDescartar">Descartar este</button>
             <button class="btn" id="iGuardar">Guardar y seguir</button>
-            <button class="btn ghost" id="iGuardarTodos" title="Guarda todos los presupuestos leídos sin revisarlos uno a uno. Los que ya estaban importados se saltan.">Guardar todos</button>
+            <button class="btn ghost" id="iGuardarTodos" title="Guarda todos los documentos leídos sin revisarlos uno a uno. Los que ya estaban importados se saltan.">Guardar todos</button>
           </div>
         </div>
         <p class="muted small" id="iOrigen"></p>
         <div class="grid g4">
           <label class="s2">Cliente <input id="iCliente" list="dlClientes"></label>
+          <label data-ayuda="Se detecta por el título del PDF (PRESUPUESTO, FACTURA o ALBARÁN). Las facturas van a la pestaña Facturas y sus precios salen como «facturado».">Tipo
+            <select id="iTipo"><option value="presupuesto">Presupuesto</option><option value="albaran">Albarán</option><option value="factura">Factura</option></select>
+            <button type="button" class="btn small ghost hidden" id="iTipoTodos">Aplicar a todos</button></label>
           <label>Nº <input id="iNumero"></label>
           <label>Fecha <input id="iFecha" type="date"></label>
         </div>
@@ -277,16 +310,16 @@
     <main class="screen hidden" id="s-ajustes">
       <section class="pane">
         <h2>Datos de la empresa</h2>
-        <p class="muted small">Salen en el presupuesto impreso. Se guardan solos.</p>
+        <p class="muted small">Salen en los documentos impresos. Se guardan solos.</p>
         <div class="grid g2">
           <label>Nombre <input data-aj="nombre"></label>
           <label>CIF / NIF <input data-aj="cif"></label>
           <label>Dirección <input data-aj="direccion"></label>
           <label>Teléfono / email / web <input data-aj="contacto"></label>
-          <label data-ayuda="IVA que se pone al empezar un presupuesto nuevo. Luego se puede cambiar en cada uno.">IVA por defecto (%) <input data-aj="iva" inputmode="decimal"></label>
-          <label data-ayuda="Sale al final del presupuesto impreso, por ejemplo «30 días».">Validez del presupuesto <input data-aj="validez"></label>
+          <label data-ayuda="IVA que se pone al empezar un documento nuevo. Luego se puede cambiar en cada uno.">IVA por defecto (%) <input data-aj="iva" inputmode="decimal"></label>
+          <label data-ayuda="Sale al final de los presupuestos impresos (no en albaranes ni facturas), por ejemplo «30 días».">Validez del presupuesto <input data-aj="validez"></label>
         </div>
-        <label data-ayuda="Texto que se pone en «Notas y condiciones» al empezar cada presupuesto nuevo.">Condiciones por defecto <textarea data-aj="condiciones" rows="3"></textarea></label>
+        <label data-ayuda="Texto que se pone en «Notas y condiciones» al empezar cada documento nuevo.">Condiciones por defecto <textarea data-aj="condiciones" rows="3"></textarea></label>
         <h2>Logotipo</h2>
         <div class="logo-row">
           <img id="ajLogoImg" alt="Logotipo" class="hidden">
@@ -295,7 +328,7 @@
             <button class="btn ghost hidden" id="ajLogoQuitar">Volver al logo de la empresa</button>
           </div>
         </div>
-        <p class="muted small">Sale en la cabecera de la aplicación y en los presupuestos impresos.</p>
+        <p class="muted small">Sale en la cabecera de la aplicación y en los documentos impresos.</p>
       </section>
       <section class="pane solo-servidor" id="seguridad">
         <h2>Seguridad · verificación en dos pasos</h2>
@@ -331,7 +364,7 @@
   <div id="login" class="login hidden">
     <form id="loginForm" class="login-box" autocomplete="on">
       <img src="logo.png" alt="" height="48">
-      <h1>Presupuestos</h1>
+      <h1>Albaranes</h1>
       <div id="loginPaso1">
         <label>Usuario <input id="loginUsuario" name="username" autocomplete="username" required autofocus></label>
         <label>Contraseña <input id="loginClave" name="password" type="password" autocomplete="current-password" required></label>

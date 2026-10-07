@@ -26,16 +26,22 @@ los datos en el navegador.
 1. **Importar**: arrastra los PDF de presupuestos que saca el programa de gestión (uno por año, con todos los
    presupuestos dentro), revisa lo detectado y pulsa **Guardar todos**. También admite Excel, CSV y texto pegado.
    Los datos de la empresa se rellenan solos desde el PDF y el logotipo ya viene puesto.
-2. **Nuevo presupuesto**: escribe el trabajo en la partida (por ejemplo «Alupanel» y medidas 3 × 2). A la derecha
+2. **Nuevo albarán**: elige el tipo (albarán, presupuesto o factura; cada uno con su numeración), escribe el trabajo en la partida (por ejemplo «Alupanel» y medidas 3 × 2). A la derecha
    salen los trabajos parecidos con último precio, medio, mínimo, máximo, €/m² habitual y evolución por año.
    Pulsa **Usar como referencia** o arrastra el resultado a la izquierda, ajusta y guarda. Lo guardado pasa al
-   histórico.
+   histórico. Al imprimir sale solo el documento, sin la fecha, el título ni la dirección web del navegador
+   (en Chrome y Edge; en Firefox desmarca «Encabezados y pies» en el diálogo de impresión).
 3. **Tarifa**: tarifa de precios sacada de todos los presupuestos (precio sugerido por artículo, en €/m² o por
    unidad). Fija tus precios, aplica un % general, quita lo que no quieras y descárgala en Excel o imprímela.
    El botón **Añadir** pasa un artículo de la tarifa al presupuesto; si va por m², el precio se calcula al poner
    las medidas.
-4. **Tema**: botón arriba a la derecha para elegir entre automático, claro y oscuro (letras naranjas).
-5. **Seguridad** (con servidor): verificación en dos pasos con app del móvil y códigos de recuperación, opcional u
+4. **Facturas**: al importar se detecta si cada documento es factura, presupuesto o albarán (se puede corregir en
+   la revisión). La pestaña Facturas muestra lo facturado por año y los artículos que se han cobrado de verdad. En
+   el buscador y la tarifa los precios facturados llevan la etiqueta «facturado», y se puede filtrar por solo
+   facturado o solo presupuestado.
+5. **Tema**: botón arriba a la derecha para elegir entre automático, claro y oscuro (textos blancos, detalles en
+   naranja).
+6. **Seguridad** (con servidor): verificación en dos pasos con app del móvil y códigos de recuperación, opcional u
    obligatoria para todos (Ajustes → Seguridad).
 
 ## Privacidad

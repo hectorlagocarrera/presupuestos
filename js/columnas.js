@@ -52,9 +52,23 @@ function pageInfo(page) {
   return { n, total };
 }
 
+// Tipo de documento según el título grande de la página (PRESUPUESTO, FACTURA, ALBARÁN).
+export function tipoTitulo(page) {
+  for (const r of page.rows.slice(0, 12)) {
+    for (const c of r.cells) {
+      const t = norm(c.s);
+      // Solo el título exacto (no un cliente que se llame «Facturas S.L.»).
+      if (/^factura( simplificada| rectificativa)?$/.test(t)) return 'factura';
+      if (/^albaran( de entrega)?$/.test(t)) return 'albaran';
+      if (/^(presupuesto|factura proforma)$/.test(t)) return 'presupuesto';
+    }
+  }
+  return 'presupuesto';
+}
+
 // Nº, fecha, cliente y datos del emisor (cabecera de la página).
 function cabecera(page) {
-  const out = { numero: '', fecha: '', cliente: '', clienteDatos: {}, empresa: [] };
+  const out = { numero: '', fecha: '', cliente: '', clienteDatos: {}, empresa: [], tipo: tipoTitulo(page) };
   const num = findCell(page.rows, /^numero$/);
   const fec = findCell(page.rows, /^fecha$/);
   const val = findCell(page.rows, /^valido hasta$/);
@@ -74,7 +88,7 @@ function cabecera(page) {
   const yMin = yNum - 30;
   const lines = page.rows
     .filter((r) => r.y > yMin && (!head || r.y > head.row.y))
-    .map((r) => ({ y: r.y, s: r.cells.filter((c) => c.x >= rightX && !/^(presupuesto|pagina|\d+\s*\/?|\/)$/.test(norm(c.s))).map((c) => c.s).join(' ').trim() }))
+    .map((r) => ({ y: r.y, s: r.cells.filter((c) => c.x >= rightX && !/^(presupuesto|factura|albaran|factura proforma|pagina|\d+\s*\/?|\/)$/.test(norm(c.s))).map((c) => c.s).join(' ').trim() }))
     .filter((l) => l.s);
   if (lines.length) {
     const last = lines[lines.length - 1];
@@ -98,7 +112,7 @@ function pie(page) {
   if (!r) return null;
   const nums = r.cells.filter((c) => isNum(c.s.replace('€', '').trim())).map((c) => ({ x: c.x, v: parseNum(c.s) }));
   const near = (x) => nums.reduce((best, n) => (Math.abs(n.x - x) < Math.abs((best?.x ?? 1e9) - x) ? n : best), null);
-  const t = findCell(page.rows, /^total presupuesto$/);
+  const t = findCell(page.rows, /^total (presupuesto|factura|albaran)$/);
   return { base: near(b.cell.x + 20)?.v ?? null, total: t ? near(t.cell.x + 40)?.v ?? null : null };
 }
 
@@ -211,7 +225,7 @@ export function columnsToBudgets(pages, nombre = '') {
     const sigue = cur && info.n > 1 && (!cab.numero || cab.numero === cur.numero);
     const { items, antes } = partidasPagina(page, sigue);
     if (!sigue) {
-      cur = { numero: cab.numero, fecha: cab.fecha, cliente: cab.cliente, clienteDatos: cab.clienteDatos, empresa: cab.empresa, raw: [], nombre };
+      cur = { tipo: cab.tipo, numero: cab.numero, fecha: cab.fecha, cliente: cab.cliente, clienteDatos: cab.clienteDatos, empresa: cab.empresa, raw: [], nombre };
       out.push(cur);
     } else if (antes.length && cur.raw.length) {
       // Texto al principio de una página de continuación: sigue la partida anterior.

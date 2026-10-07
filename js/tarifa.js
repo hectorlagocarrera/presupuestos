@@ -68,6 +68,7 @@ export function generarTarifa(partidas) {
       min: round(Math.min(...todos), 2),
       max: round(Math.max(...todos), 2),
       veces: items.length,
+      facturadas: items.filter((p) => p.tipo === 'factura').length,
       ultimaFecha: items[0].fecha || '',
       ultimoPrecio: round(valor(validos[0] || items[0]), 2),
       ejemplos: items.slice(0, 8),

@@ -1,5 +1,5 @@
 // Pantallas de consulta: buscador histórico, artículos, presupuestos anteriores y clientes.
-import { $, esc, fmtEur, fmtNum, fmtDate, debounce, year } from '../util.js';
+import { $, esc, fmtEur, fmtNum, fmtDate, debounce, year, tipoDe, TIPOS } from '../util.js';
 import { search, similares, priceStats, parseQuery, classify } from '../search.js';
 import { data, searchDocs, anios, partidasDe, savePartida, deletePresupuesto, saveCliente, deleteCliente, onChange, recalcularCategorias } from '../store.js';
 import { resultCard, statsHtml, mountFiltros, fillSelect, modalForm, medidasTxt, categorias, toast } from './common.js';
@@ -21,7 +21,7 @@ export function initBuscador() {
       $('#bStats').innerHTML = '';
       $('#bInfo').textContent = data.partidas.length
         ? `${data.partidas.length} trabajos en el histórico. Escribe lo que buscas: material, medidas, tipo de trabajo…`
-        : 'El histórico está vacío. Importa los presupuestos antiguos en la pestaña «Importar».';
+        : 'El histórico está vacío. Importa los presupuestos, albaranes o facturas en la pestaña «Importar».';
       $('#bList').innerHTML = '';
       return;
     }
@@ -87,7 +87,7 @@ export function initArticulos() {
         <td class="num">${fmtEur(p.precioTotal)}</td>
         <td class="small">${esc(p.numero || '')}<div class="muted">${esc(p.cliente || '')}</div></td>
         <td class="nowrap acciones"><button class="btn small ghost" data-edit="${esc(p.id)}">${p.revisar ? 'Revisar' : 'Editar'}</button>
-          <button class="btn small ghost" data-use="${esc(p.id)}" title="Usar como referencia en el presupuesto nuevo">Usar</button></td>
+          <button class="btn small ghost" data-use="${esc(p.id)}" title="Usar como referencia en el albarán que estás haciendo">Usar</button></td>
       </tr>`).join('') || '<tr><td colspan="11" class="muted">No hay partidas.</td></tr>';
   };
   $('#aQ').addEventListener('input', debounce(run, 150));
@@ -111,17 +111,22 @@ export function initArticulos() {
 
 let anioSel = '';
 let clienteSel = '';
+let tipoSel = '';
 export function filtrarPorCliente(nombre) { clienteSel = nombre; anioSel = ''; go('presupuestos'); }
 
 export function initPresupuestos() {
   const run = () => {
     const ys = anios();
+    const n = (t) => data.presupuestos.filter((p) => !t || tipoDe(p) === t).length;
+    $('#pTipos').innerHTML = [['', 'Todos'], ['albaran', 'Albaranes'], ['presupuesto', 'Presupuestos'], ['factura', 'Facturas']]
+      .map(([t, nombre]) => `<button class="chip ${t === tipoSel ? 'on' : ''}" data-t="${t}">${nombre} <small>${n(t)}</small></button>`).join('');
     $('#pAnios').innerHTML = ['', ...ys].map((y) => `<button class="chip ${String(y) === String(anioSel) ? 'on' : ''}" data-y="${y}">${y || 'Todos'} <small>${data.presupuestos.filter((p) => !y || year(p.fecha) === y).length}</small></button>`).join('')
       + (clienteSel ? `<button class="chip on" data-quitar>Cliente: ${esc(clienteSel)} ✕</button>` : '');
     const q = $('#pQ').value.trim();
     const conceptos = q ? new Set(search(q, searchDocs()).filter((r) => r.score >= 60).map((r) => r.doc.p.presupuestoId)) : null;
     const nq = q.toLowerCase();
     const rows = data.presupuestos
+      .filter((p) => !tipoSel || tipoDe(p) === tipoSel)
       .filter((p) => !anioSel || year(p.fecha) === Number(anioSel))
       .filter((p) => !clienteSel || p.clienteNombre === clienteSel)
       .filter((p) => !q || (p.numero || '').toLowerCase().includes(nq) || (p.clienteNombre || '').toLowerCase().includes(nq) || conceptos.has(p.id))
@@ -130,6 +135,7 @@ export function initPresupuestos() {
       <tr>
         <td>${fmtDate(p.fecha)}</td>
         <td><a href="#" data-ver="${esc(p.id)}">${esc(p.numero || '—')}</a></td>
+        <td><span class="tag ${tipoDe(p) === 'factura' ? 'fact' : 'soft'}">${TIPOS[tipoDe(p)].nombre}</span></td>
         <td>${esc(p.clienteNombre)}</td>
         <td class="num">${partidasDe(p.id).length}</td>
         <td class="num">${fmtEur(p.base)}</td>
@@ -140,9 +146,13 @@ export function initPresupuestos() {
           <button class="btn small ghost" data-dup="${esc(p.id)}">Duplicar</button>
           <button class="btn small ghost" data-del="${esc(p.id)}" title="Borrar">✕</button>
         </td>
-      </tr>`).join('') || '<tr><td colspan="8" class="muted">No hay presupuestos.</td></tr>';
+      </tr>`).join('') || '<tr><td colspan="9" class="muted">No hay documentos con ese filtro.</td></tr>';
   };
   $('#pQ').addEventListener('input', debounce(run, 150));
+  $('#pTipos').addEventListener('click', (e) => {
+    const b = e.target.closest('.chip');
+    if (b) { tipoSel = b.dataset.t; run(); }
+  });
   $('#pAnios').addEventListener('click', (e) => {
     const b = e.target.closest('.chip');
     if (!b) return;
@@ -160,13 +170,61 @@ export function initPresupuestos() {
     if (t.dataset.dup && editor.duplicar(t.dataset.dup)) go('nuevo');
     if (t.dataset.del) {
       const p = data.presupuestos.find((x) => x.id === t.dataset.del);
-      if (!confirm(`¿Borrar el presupuesto ${p.numero || ''} de ${p.clienteNombre || 'sin cliente'}? Sus partidas dejarán de salir en el histórico.`)) return;
+      if (!confirm(`¿Borrar ${tipoDe(p) === 'factura' ? 'la' : 'el'} ${TIPOS[tipoDe(p)].nombre.toLowerCase()} ${p.numero || ''} de ${p.clienteNombre || 'sin cliente'}? Sus partidas dejarán de salir en el histórico.`)) return;
       await deletePresupuesto(p.id);
-      toast('Presupuesto borrado');
+      toast(`${TIPOS[tipoDe(p)].nombre} borrad${tipoDe(p) === 'factura' ? 'a' : 'o'}`);
     }
   });
   onShow('presupuestos', run);
   onChange(() => { if (visible('s-presupuestos')) run(); });
+}
+
+// ---------- Facturas ----------
+
+export function initFacturas() {
+  const run = () => {
+    const facturas = data.presupuestos.filter((p) => p.tipo === 'factura');
+    fillSelect($('#fCat'), categorias(), 'Todas las categorías');
+    fillSelect($('#fAnio'), [...new Set(facturas.map((p) => year(p.fecha)).filter(Boolean))].sort((a, b) => b - a).map(String), 'Todos los años');
+    // Resumen por año (base imponible).
+    const porAnio = new Map();
+    for (const f of facturas) { const y = year(f.fecha); porAnio.set(y, (porAnio.get(y) || 0) + (f.base || 0)); }
+    $('#fResumen').innerHTML = facturas.length
+      ? `<div><span>Facturas</span><strong>${facturas.length}</strong></div>`
+        + `<div><span>Partidas facturadas</span><strong>${data.partidas.filter((p) => p.tipo === 'factura').length}</strong></div>`
+        + [...porAnio].sort((a, b) => b[0] - a[0]).map(([y, t]) => `<div><span>Facturado ${y} (base)</span><strong>${fmtEur(t)}</strong></div>`).join('')
+      : '';
+    const q = $('#fQ').value.trim();
+    const cli = $('#fCliente').value.trim().toLowerCase();
+    let rows = search(q, searchDocs(), { categoria: $('#fCat').value, anio: $('#fAnio').value, tipo: 'facturado' }).map((r) => r.doc.p);
+    if (cli) rows = rows.filter((p) => (p.cliente || '').toLowerCase().includes(cli));
+    if (!q) rows.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+    $('#fInfo').textContent = facturas.length ? `${rows.length} partidas` : '';
+    $('#fTabla').innerHTML = rows.slice(0, 400).map((p) => `
+      <tr>
+        <td>${fmtDate(p.fecha)}</td>
+        <td><a href="#" data-ver="${esc(p.presupuestoId)}">${esc(p.numero || '—')}</a></td>
+        <td>${esc(p.cliente || '')}</td>
+        <td><strong>${esc(p.articulo)}</strong>${p.descripcion ? `<div class="muted small clamp">${esc(p.descripcion)}</div>` : ''}</td>
+        <td class="nowrap">${medidasTxt(p)}</td>
+        <td class="num">${fmtNum(p.cantidad)}</td>
+        <td class="num"><strong>${fmtEur(p.precioUnitario)}</strong></td>
+        <td class="num">${p.precioM2 ? fmtEur(p.precioM2) : ''}</td>
+        <td class="num">${fmtEur(p.precioTotal)}</td>
+        <td class="nowrap acciones"><button class="btn small ghost" data-use="${esc(p.id)}" title="Usar como referencia en el albarán que estás haciendo">Usar</button></td>
+      </tr>`).join('') || `<tr><td colspan="10" class="muted">${facturas.length ? 'No hay partidas con ese filtro.' : 'Todavía no hay facturas. Impórtalas en «Importar» (se reconocen por el título «FACTURA»).'}</td></tr>`;
+  };
+  $('#fQ').addEventListener('input', debounce(run, 150));
+  $('#fCliente').addEventListener('input', debounce(run, 200));
+  ['#fCat', '#fAnio'].forEach((s) => $(s).addEventListener('change', run));
+  $('#fTabla').addEventListener('click', (e) => {
+    const ver = e.target.closest('[data-ver]');
+    if (ver) { e.preventDefault(); verPresupuesto(ver.dataset.ver); }
+    const use = e.target.closest('[data-use]');
+    if (use) { editor.usar(use.dataset.use); go('nuevo'); }
+  });
+  onShow('facturas', run);
+  onChange(() => { if (visible('s-facturas')) run(); });
 }
 
 // ---------- 5. Clientes ----------
@@ -207,11 +265,11 @@ export function initClientes() {
         <td>${fmtDate(i.ultimo)}</td>
         <td class="nowrap acciones">
           <button class="btn small ghost" data-edit="${esc(c.id)}">Editar</button>
-          <button class="btn small ghost" data-pres="${esc(c.nombre)}" ${i.n ? '' : 'disabled'}>Presupuestos</button>
-          <button class="btn small" data-nuevo="${esc(c.nombre)}">Nuevo presupuesto</button>
+          <button class="btn small ghost" data-pres="${esc(c.nombre)}" ${i.n ? '' : 'disabled'}>Documentos</button>
+          <button class="btn small" data-nuevo="${esc(c.nombre)}">Nuevo albarán</button>
           ${i.n ? '' : `<button class="btn small ghost" data-del="${esc(c.id)}" title="Borrar">✕</button>`}
         </td></tr>`;
-    }).join('') || '<tr><td colspan="6" class="muted">No hay clientes. Se crean solos al guardar presupuestos.</td></tr>';
+    }).join('') || '<tr><td colspan="6" class="muted">No hay clientes. Se crean solos al guardar albaranes o importar documentos.</td></tr>';
   };
   $('#cQ').addEventListener('input', debounce(run, 150));
   $('#cNuevo').addEventListener('click', () => editarCliente());

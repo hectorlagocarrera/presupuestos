@@ -6,11 +6,11 @@ import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 
 // Columnas de cada tabla (el resto de campos que lleguen se ignoran).
 export const COLUMNAS = {
-  presupuestos: ['id', 'numero', 'fecha', 'clienteId', 'clienteNombre', 'iva', 'notas', 'origen', 'archivoId',
+  presupuestos: ['id', 'tipo', 'numero', 'fecha', 'clienteId', 'clienteNombre', 'iva', 'notas', 'origen', 'archivoId',
     'archivoNombre', 'base', 'total', 'creado', 'modificado'],
   partidas: ['id', 'presupuestoId', 'orden', 'articulo', 'categoria', 'descripcion', 'material', 'acabados', 'montaje',
     'observaciones', 'ancho', 'alto', 'm2', 'cantidad', 'precioUnitario', 'precioTotal', 'precioM2', 'revisar',
-    'fecha', 'cliente', 'numero'],
+    'fecha', 'cliente', 'numero', 'tipo'],
   clientes: ['id', 'nombre', 'cif', 'direccion', 'telefono', 'email', 'notas'],
 };
 const NUMERICAS = new Set(['iva', 'base', 'total', 'orden', 'ancho', 'alto', 'm2', 'cantidad', 'precioUnitario', 'precioTotal', 'precioM2']);
@@ -39,6 +39,8 @@ CREATE TABLE IF NOT EXISTS config (clave TEXT PRIMARY KEY, valor TEXT);
 
 // Columnas añadidas después (bases de datos ya creadas se actualizan solas).
 const MIGRACIONES = {
+  presupuestos: { tipo: 'TEXT' },
+  partidas: { tipo: 'TEXT' },
   usuarios: { mfa_secreto: 'TEXT', mfa_pendiente: 'TEXT', mfa_ultimo_paso: 'INTEGER', mfa_recuperacion: 'TEXT' },
 };
 

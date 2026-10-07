@@ -16,14 +16,14 @@
   color-scheme: light;
 }
 
-/* Modo oscuro con letras naranjas (el naranja del logotipo).
+/* Modo oscuro: letras blancas y detalles en el naranja del logotipo.
    Se activa con el botón de la cabecera, o solo si el ordenador está en modo oscuro y se eligió «Automático». */
 :root[data-tema="oscuro"] {
     color-scheme: dark;
     --bg: #121110;
     --card: #1c1a18;
-    --text: #ff9f40;
-    --muted: #c98d52;
+    --text: #f4f1ec;
+    --muted: #b9b1a7;
     --border: #3a2f25;
     --accent: #ff8a1f;
     --accent-text: #1a0f04;
@@ -40,8 +40,8 @@
       color-scheme: dark;
       --bg: #121110;
       --card: #1c1a18;
-      --text: #ff9f40;
-      --muted: #c98d52;
+      --text: #f4f1ec;
+      --muted: #b9b1a7;
       --border: #3a2f25;
       --accent: #ff8a1f;
       --accent-text: #1a0f04;
@@ -130,6 +130,7 @@ output { display: block; padding: 7px 0; font-weight: 600; color: var(--text); f
 .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .s2 { grid-column: span 2; }
+.cab { grid-template-columns: 2fr 1fr 1fr 1fr; }
 .mini { width: 64px; padding: 2px 6px; display: inline-block; }
 .search { font-size: 1rem; padding: 10px 12px; }
 .search.big { font-size: 1.2rem; padding: 14px 16px; }
@@ -168,6 +169,7 @@ output { display: block; padding: 7px 0; font-weight: 600; color: var(--text); f
 .line-grid .w2 { grid-column: span 1; }
 .line-grid.g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 6px; }
 .line-grid input { padding: 6px 7px; }
+.line-grid > label { justify-content: flex-end; } /* si una etiqueta ocupa dos líneas, las casillas siguen alineadas */
 .line textarea { margin-top: 2px; }
 .line details summary { cursor: pointer; color: var(--muted); font-size: 0.82rem; margin-top: 6px; }
 .refnote { margin-top: 6px; font-size: 0.8rem; color: var(--muted); }
@@ -196,6 +198,7 @@ output { display: block; padding: 7px 0; font-weight: 600; color: var(--text); f
 .tag { font-size: 0.75rem; padding: 1px 7px; border-radius: 999px; background: var(--accent); color: var(--accent-text); }
 .tag.soft { background: var(--accent-soft); color: var(--text); }
 .tag.warn { background: var(--warn-bg); color: var(--warn); }
+.tag.fact { background: var(--good); color: var(--card); font-weight: 600; }
 
 /* ---- Comparación de precios ---- */
 .stats { border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--accent-soft); margin-top: 6px; }
@@ -266,6 +269,8 @@ dialog::backdrop { background: rgba(10, 15, 25, 0.45); }
   .g2 { grid-template-columns: 1fr; }
   .g4 { grid-template-columns: 1fr 1fr; }
   .g4 .s2 { grid-column: span 2; }
+  .cab { grid-template-columns: 1fr 1fr 1fr; }
+  .cab > :first-child { grid-column: 1 / -1; }
   .g2 .s2 { grid-column: auto; }
   .line-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .res { flex-direction: column; }
@@ -297,7 +302,12 @@ table.tarifa .nombre:hover { color: var(--accent); }
 /* ---- Impresión ---- */
 .print-only { display: none; }
 @media print {
-  @page { margin: 15mm; }
+  /* Sin margen de página: el navegador no tiene dónde poner su fecha, título y dirección. */
+  @page { size: A4; margin: 0; }
+  html, body { margin: 0; padding: 0; }
+  .p-pagina { width: 100%; border-collapse: collapse; }
+  .p-pagina > thead > tr > td, .p-pagina > tfoot > tr > td, .p-pagina > tbody > tr > td { padding: 0 15mm; border: none; }
+  .p-margen { height: 14mm; }
   body { background: #fff; color: #000; font-size: 10.5pt; }
   .app, dialog, .toast { display: none !important; }
   .print-only { display: block; }
@@ -465,5 +475,16 @@ body:not(.modo-servidor) .solo-servidor, body.modo-servidor .solo-navegador { di
   font-size: 0.85rem; line-height: 1.4; font-weight: 400; text-transform: none; letter-spacing: normal;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); pointer-events: none;
 }
-label > .ayuda, th > .ayuda, h2 > .ayuda { margin-left: 6px; }
+label > .ayuda, .etq > .ayuda, th > .ayuda, h2 > .ayuda { margin-left: 6px; }
 @media (pointer: coarse) { .ayuda { width: 24px; height: 24px; font-size: 13px; } }
+
+.etq { display: inline-flex; align-items: center; }
+/* El «?» no agranda la línea: así los campos con y sin ayuda quedan alineados. */
+.etq > .ayuda { margin-block: -4px; }
+@media (pointer: coarse) { .etq > .ayuda { margin-block: -6px; } }
+
+/* ---- Facturas ---- */
+.resumen-fact { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 10px; }
+.resumen-fact div { background: var(--accent-soft); border-radius: 10px; padding: 8px 12px; display: flex; flex-direction: column; min-width: 120px; }
+.resumen-fact span { font-size: 0.75rem; color: var(--muted); }
+.resumen-fact strong { font-size: 1.1rem; }

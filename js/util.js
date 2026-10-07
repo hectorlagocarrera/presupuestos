@@ -70,3 +70,11 @@ export function calcPartida(p) {
   const precioM2 = area && area >= MIN_M2 && p.precioUnitario > 0 ? round(p.precioUnitario / area) : null;
   return { ...p, m2, precioTotal, precioM2 };
 }
+
+// Tipos de documento. Los que no tienen tipo (importados antes) son presupuestos.
+export const TIPOS = {
+  albaran: { nombre: 'Albarán', plural: 'Albaranes', titulo: 'ALBARÁN' },
+  presupuesto: { nombre: 'Presupuesto', plural: 'Presupuestos', titulo: 'PRESUPUESTO' },
+  factura: { nombre: 'Factura', plural: 'Facturas', titulo: 'FACTURA' },
+};
+export const tipoDe = (doc) => (doc && TIPOS[doc.tipo] ? doc.tipo : 'presupuesto');

@@ -38,7 +38,7 @@ export function resultCard({ doc, score }, opts = {}) {
           ${med ? `<span class="tag soft">${esc(med)}${m2 ? ' · ' + fmtM2(m2) : ''}</span>` : ''}
           ${p.revisar ? '<span class="tag warn">revisar</span>' : ''}
         </div>
-        <div class="res-meta">${fmtDate(p.fecha)}${p.numero ? ' · nº ' + esc(p.numero) : ''}${p.cliente ? ' · ' + esc(p.cliente) : ''}</div>
+        <div class="res-meta">${p.tipo === 'factura' ? '<span class="tag fact">facturado</span> ' : ''}${fmtDate(p.fecha)}${p.numero ? ` · ${p.tipo === 'factura' ? 'factura' : p.tipo === 'albaran' ? 'albarán' : 'nº'} ${esc(p.numero)}` : ''}${p.cliente ? ' · ' + esc(p.cliente) : ''}</div>
       </div>
       <div class="res-side">
         <div class="price">${fmtEur(p.precioUnitario)}</div>
@@ -66,7 +66,7 @@ export function statsHtml(s, n) {
     <div class="stats">
       <div class="stats-head">Comparación de precios · ${s.n} ${s.n === 1 ? 'trabajo parecido' : 'trabajos parecidos'}${n > s.n ? ` <span class="muted">(de ${n} encontrados)</span>` : ''}</div>
       <div class="kpis">
-        <div><span data-ayuda="Precio de la vez más reciente que se presupuestó un trabajo parecido.">Último</span><strong>${fmtEur(u.precioUnitario)}</strong><small>${fmtDate(u.fecha)}${u.cliente ? ' · ' + esc(u.cliente) : ''}</small></div>
+        <div><span data-ayuda="Precio de la vez más reciente que se hizo un trabajo parecido (presupuesto, albarán o factura).">Último</span><strong>${fmtEur(u.precioUnitario)}</strong><small>${fmtDate(u.fecha)}${u.cliente ? ' · ' + esc(u.cliente) : ''}</small></div>
         <div><span data-ayuda="Media de los precios de los trabajos parecidos.">Medio</span><strong>${fmtEur(s.medio)}</strong></div>
         <div><span>Mínimo</span><strong>${fmtEur(s.min)}</strong></div>
         <div><span>Máximo</span><strong>${fmtEur(s.max)}</strong></div>
@@ -84,7 +84,10 @@ export function mountFiltros(el, onChange) {
     <select data-f="categoria"></select>
     <select data-f="anio"></select>
     <input data-f="min" inputmode="decimal" placeholder="Precio desde">
-    <input data-f="max" inputmode="decimal" placeholder="hasta">`;
+    <input data-f="max" inputmode="decimal" placeholder="hasta">
+    <select data-f="tipo" title="Facturado: lo que se cobró de verdad (facturas). Presupuestado: presupuestos y albaranes.">
+      <option value="">Presupuestado y facturado</option><option value="facturado">Solo facturado</option><option value="presupuestado">Solo presupuestado</option>
+    </select>`;
   const fill = () => {
     const cat = el.querySelector('[data-f=categoria]');
     const an = el.querySelector('[data-f=anio]');
@@ -101,6 +104,7 @@ export function mountFiltros(el, onChange) {
     anio: el.querySelector('[data-f=anio]').value,
     min: numOrNull(el.querySelector('[data-f=min]').value),
     max: numOrNull(el.querySelector('[data-f=max]').value),
+    tipo: el.querySelector('[data-f=tipo]').value,
   });
   read.refresh = fill;
   return read;

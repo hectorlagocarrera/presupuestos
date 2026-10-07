@@ -1,9 +1,24 @@
-// Presupuesto para imprimir o guardar como PDF (desde el diálogo de impresión del navegador).
-import { $, esc, fmtEur, fmtNum, fmtDate, calcPartida, round } from '../util.js';
+// Documento (albarán, presupuesto o factura) para imprimir o guardar como PDF desde el diálogo del navegador.
+import { $, esc, fmtEur, fmtNum, fmtDate, calcPartida, round, TIPOS, tipoDe } from '../util.js';
 import { data, clientePorNombre } from '../store.js';
 import { medidasTxt } from './common.js';
 
+// Imprime el HTML dado. La página se imprime sin margen del navegador (así no salen su fecha, título y
+// dirección arriba y abajo) y el margen lo pone el documento: la cabecera y el pie vacíos de la tabla se
+// repiten en cada página. titulo: nombre que se propone al guardar como PDF.
+export function imprimirHtml(html, titulo) {
+  $('#print').innerHTML = `<table class="p-pagina">
+    <thead><tr><td><div class="p-margen"></div></td></tr></thead>
+    <tbody><tr><td>${html}</td></tr></tbody>
+    <tfoot><tr><td><div class="p-margen"></div></td></tr></tfoot></table>`;
+  const old = document.title;
+  document.title = titulo;
+  window.print();
+  document.title = old;
+}
+
 export function imprimir(pres, partidas) {
+  const tipo = TIPOS[tipoDe(pres)];
   const a = data.ajustes;
   const lineas = partidas.map(calcPartida).filter((l) => l.articulo || l.descripcion || l.precioUnitario);
   const base = round(lineas.reduce((s, l) => s + (l.precioTotal || 0), 0));
@@ -16,10 +31,10 @@ export function imprimir(pres, partidas) {
     l.montaje && 'Montaje: ' + l.montaje,
     l.observaciones,
   ].filter(Boolean).map(esc).join('<br>');
-  $('#print').innerHTML = `
+  const html = `
     <header class="p-head">
       <div><img class="p-logo" src="${esc(a.logo || 'logo.png')}" alt=""><h1>${esc(a.nombre || '')}</h1><p>${[a.cif && 'NIF ' + a.cif, a.direccion, a.contacto].filter(Boolean).map(esc).join('<br>')}</p></div>
-      <div class="p-meta"><h2>PRESUPUESTO</h2><p>Nº <strong>${esc(pres.numero || '')}</strong><br>Fecha: ${fmtDate(pres.fecha)}</p></div>
+      <div class="p-meta"><h2>${tipo.titulo}</h2><p>Nº <strong>${esc(pres.numero || '')}</strong><br>Fecha: ${fmtDate(pres.fecha)}</p></div>
     </header>
     <div class="p-client"><span>Cliente</span><strong>${esc(pres.clienteNombre || '')}</strong>
       ${[c.cif, c.direccion, c.telefono, c.email].filter(Boolean).map(esc).join(' · ')}</div>
@@ -34,9 +49,6 @@ export function imprimir(pres, partidas) {
       <tr class="grand"><td>TOTAL</td><td class="num">${fmtEur(base + iva)}</td></tr>
     </table>
     ${pres.notas ? `<p class="p-notes">${esc(pres.notas).replace(/\n/g, '<br>')}</p>` : ''}
-    ${a.validez ? `<p class="p-notes">Validez del presupuesto: ${esc(a.validez)}.</p>` : ''}`;
-  const old = document.title;
-  document.title = `Presupuesto ${pres.numero || ''} ${pres.clienteNombre || ''}`.trim();
-  window.print();
-  document.title = old;
+    ${a.validez && tipoDe(pres) === 'presupuesto' ? `<p class="p-notes">Validez del presupuesto: ${esc(a.validez)}.</p>` : ''}`;
+  imprimirHtml(html, `${tipo.nombre} ${pres.numero || ''} ${pres.clienteNombre || ''}`.trim());
 }

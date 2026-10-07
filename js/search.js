@@ -249,6 +249,9 @@ export function search(query, docs, filtros = {}) {
     const p = d.p;
     if (years.length && !years.includes(d.year)) continue;
     if (filtros.categoria && p.categoria !== filtros.categoria) continue;
+    // «facturado»: solo facturas · «presupuestado»: presupuestos y albaranes.
+    if (filtros.tipo === 'facturado' && p.tipo !== 'factura') continue;
+    if (filtros.tipo === 'presupuestado' && p.tipo === 'factura') continue;
     if (filtros.min != null && !(p.precioUnitario >= filtros.min)) continue;
     if (filtros.max != null && !(p.precioUnitario <= filtros.max)) continue;
 

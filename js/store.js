@@ -1,6 +1,6 @@
 // Datos de la aplicación: copia en memoria para búsquedas instantáneas + almacenamiento permanente,
 // que puede ser la base de datos del servidor o, sin servidor, el propio navegador (ver backend.js).
-import { uid, today, calcPartida, round } from './util.js';
+import { uid, today, calcPartida, round, tipoDe } from './util.js';
 import { buildDoc, setSinonimos, DEFAULT_SINONIMOS, normalize } from './search.js';
 import { navegador } from './backend.js';
 
@@ -65,6 +65,9 @@ export async function open(be) {
   const d = await backend.cargar();
   data.presupuestos = d.presupuestos || [];
   data.partidas = (d.partidas || []).map((p) => ({ ...p, revisar: !!p.revisar }));
+  // Las partidas guardadas antes de existir el tipo llevan el de su documento.
+  const tipos = new Map((d.presupuestos || []).map((p) => [p.id, tipoDe(p)]));
+  for (const p of data.partidas) if (!p.tipo) p.tipo = tipos.get(p.presupuestoId) || 'presupuesto';
   data.clientes = d.clientes || [];
   data.ajustes = { ...DEFAULT_AJUSTES, ...(d.ajustes || {}) };
   setSinonimos(data.ajustes.sinonimos);
@@ -91,12 +94,13 @@ export function anios() {
   return [...new Set(data.presupuestos.map((p) => Number(String(p.fecha).slice(0, 4))).filter(Boolean))].sort((a, b) => b - a);
 }
 
-// Siguiente nº del año: continúa la numeración existente (335, 336… o 2026-001, 2026-002…).
-export function nextNumber(fecha) {
+// Siguiente nº del año para ese tipo de documento: continúa la numeración existente (335, 336… o 2026-001, 2026-002…).
+export function nextNumber(fecha, tipo = 'albaran') {
   const y = (fecha || today()).slice(0, 4);
   let maxPlano = 0;
   let maxAnio = 0;
   for (const p of data.presupuestos) {
+    if (tipoDe(p) !== tipo) continue; // cada tipo de documento lleva su propia numeración
     const n = String(p.numero || '').trim();
     const m = n.match(new RegExp(`^${y}[-/](\\d+)$`));
     if (m) maxAnio = Math.max(maxAnio, +m[1]);
@@ -146,6 +150,7 @@ export async function savePresupuesto(pres, partidas, opts = {}) {
   const now = new Date().toISOString();
   const p = {
     id: pres.id || uid(),
+    tipo: tipoDe(pres),
     numero: pres.numero || '',
     fecha: pres.fecha || today(),
     clienteId: cliente ? cliente.id : null,
@@ -174,7 +179,7 @@ export async function savePresupuesto(pres, partidas, opts = {}) {
       ancho: x.ancho || null, alto: x.alto || null, m2: x.ancho && x.alto ? null : (x.m2 || null),
       cantidad: x.cantidad ?? 1, precioUnitario: x.precioUnitario ?? null, precioTotal: x.precioTotal ?? null,
       revisar: !!x.revisar,
-      fecha: p.fecha, cliente: p.clienteNombre, numero: p.numero,
+      fecha: p.fecha, cliente: p.clienteNombre, numero: p.numero, tipo: p.tipo,
     }));
   // Al importar se respetan los totales del PDF (puede haber partidas opcionales o descuentos globales).
   Object.assign(p, opts.totalesPdf ? { base: opts.totalesPdf.base, total: opts.totalesPdf.total ?? totales(lista, p.iva).total } : totales(lista, p.iva));

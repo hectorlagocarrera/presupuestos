@@ -6,7 +6,7 @@ import { servidor, navegador, detectarServidor, entrar, entrarMfa, NoAutorizado 
 import { initSeguridad, configurarMfa } from './ui/seguridad.js';
 import { refreshDatalists, toast, etiquetarTablas } from './ui/common.js';
 import { initEditor } from './ui/editor.js';
-import { initBuscador, initArticulos, initPresupuestos, initClientes } from './ui/screens.js';
+import { initBuscador, initArticulos, initPresupuestos, initClientes, initFacturas } from './ui/screens.js';
 import { initImportar } from './ui/importar.js';
 import { initTarifa } from './ui/tarifa.js';
 import { show, current, initMenu } from './ui/nav.js';
@@ -152,6 +152,7 @@ async function start() {
   initBuscador();
   initArticulos();
   initPresupuestos();
+  initFacturas();
   initClientes();
   initImportar();
   initTarifa();
@@ -163,7 +164,7 @@ async function start() {
   onChange(() => { refreshDatalists(); avisoCopia(); });
   window.addEventListener('hashchange', () => show(current()));
   show(current());
-  if (!data.partidas.length && current() === 'nuevo') toast('Empieza importando tus presupuestos antiguos en «Importar».');
+  if (!data.partidas.length && current() === 'nuevo') toast('Empieza importando tus presupuestos, albaranes o facturas en «Importar».');
 }
 
 start();

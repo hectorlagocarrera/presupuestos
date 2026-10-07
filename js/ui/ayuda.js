@@ -52,8 +52,15 @@ function decorar(el) {
   btn.setAttribute('aria-expanded', 'false');
   // Justo después del primer texto del elemento (la etiqueta), o al final.
   const texto = [...el.childNodes].find((n) => n.nodeType === 3 && n.textContent.trim());
-  if (texto && !el.matches('[data-ayuda-fin]')) texto.after(btn);
-  else el.appendChild(btn);
+  if (texto && !el.matches('[data-ayuda-fin]')) {
+    if (el.tagName === 'LABEL') {
+      // En las etiquetas en columna, el texto y el «?» van juntos en una línea.
+      const fila = document.createElement('span');
+      fila.className = 'etq';
+      texto.replaceWith(fila);
+      fila.append(texto.textContent.trim(), btn);
+    } else texto.after(btn);
+  } else el.appendChild(btn);
 }
 
 export function initAyuda() {

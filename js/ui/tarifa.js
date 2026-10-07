@@ -7,6 +7,7 @@ import { fillSelect, toast, loadScript } from './common.js';
 import { verPresupuesto } from './presview.js';
 import { onShow, go } from './nav.js';
 import { editor } from './editor.js';
+import { imprimirHtml } from './print.js';
 
 let tarifa = null;      // se recalcula cuando cambian los datos
 const abiertos = new Set(); // artículos con los ejemplos desplegados
@@ -92,19 +93,19 @@ function render() {
         <td>${a.unidad === 'm²' ? '€/m²' : 'unidad'}</td>
         <td class="num">${fmtEur(a.sugerido)}</td>
         <td class="num muted">${a.min === a.max ? '' : `${fmtEur(a.min)} – ${fmtEur(a.max)}`}</td>
-        <td class="num">${a.veces}</td>
+        <td class="num">${a.veces}${a.facturadas ? `<div class="nota-precio" title="Veces que aparece en facturas">${a.facturadas} facturado${a.facturadas === 1 ? '' : 's'}</div>` : ''}</td>
         <td class="small">${fmtDate(a.ultimaFecha)} · ${fmtEur(a.ultimoPrecio)}</td>
         <td class="num precio-tarifa">${celdaPrecio(a)}</td>
-        <td class="nowrap acciones"><button class="btn small" data-anadir title="Añadir al presupuesto que estás haciendo">Añadir</button>
+        <td class="nowrap acciones"><button class="btn small" data-anadir title="Añadir al albarán que estás haciendo">Añadir</button>
           <button class="icon" data-ocultar title="${$('#tOcultos').checked ? 'Volver a incluir en la tarifa' : 'Quitar de la tarifa'}">${$('#tOcultos').checked ? '↺' : '✕'}</button></td>
       </tr>`;
     if (abiertos.has(a.clave)) {
       html += a.ejemplos.map((p) => `
-        <tr class="ej"><td colspan="5">${fmtDate(p.fecha)} · <a href="#" data-ver="${esc(p.presupuestoId)}">nº ${esc(p.numero || '—')}</a> · ${esc(p.cliente || '')} — ${esc(p.articulo)}</td>
+        <tr class="ej"><td colspan="5">${p.tipo === 'factura' ? '<span class="tag fact">facturado</span> ' : ''}${fmtDate(p.fecha)} · <a href="#" data-ver="${esc(p.presupuestoId)}">${p.tipo === 'factura' ? 'factura' : p.tipo === 'albaran' ? 'albarán' : 'nº'} ${esc(p.numero || '—')}</a> · ${esc(p.cliente || '')} — ${esc(p.articulo)}</td>
         <td class="num">${fmtNum(p.cantidad)} × ${fmtEur(p.precioUnitario)}</td><td class="num">${p.precioM2 ? fmtEur(p.precioM2) + '/m²' : ''}</td><td></td></tr>`).join('');
     }
   }
-  $('#tTabla').innerHTML = html || '<tr><td colspan="8" class="muted">No hay artículos. Importa presupuestos para generar la tarifa.</td></tr>';
+  $('#tTabla').innerHTML = html || '<tr><td colspan="8" class="muted">No hay artículos. Importa presupuestos, albaranes o facturas para generar la tarifa.</td></tr>';
 }
 
 // Lista final (lo que se exporta e imprime): lo filtrado, con el precio de tarifa.
@@ -147,11 +148,7 @@ function imprimir() {
     html += `<tr><td>${esc(x.nombre)}</td><td class="ud">${x.unidad === 'm²' ? '/ m²' : '/ ud'}</td><td class="num">${fmtEur(x.precio)}</td></tr>`;
   }
   if (cat !== null) html += '</table>';
-  $('#print').innerHTML = html;
-  const old = document.title;
-  document.title = `Tarifa de precios ${today()}`;
-  window.print();
-  document.title = old;
+  imprimirHtml(html, `Tarifa de precios ${today()}`);
 }
 
 export function initTarifa() {
@@ -202,7 +199,7 @@ export function initTarifa() {
     if (an) {
       const art = calcular().find((a) => a.clave === an.closest('tr').dataset.k);
       editor.desdeTarifa(art, precioTarifa(art, manuales(), ajuste()));
-      toast(art.unidad === 'm²' ? 'Añadido. Escribe ancho y alto: el precio se calcula con la tarifa.' : 'Añadido al presupuesto');
+      toast(art.unidad === 'm²' ? 'Añadido. Escribe ancho y alto: el precio se calcula con la tarifa.' : 'Añadido al albarán');
       go('nuevo');
       return;
     }
