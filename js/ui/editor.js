@@ -6,7 +6,7 @@ import { resultCard, statsHtml, mountFiltros, ordenarResultados, toast } from '.
 import { verPresupuesto } from './presview.js';
 import { imprimir } from './print.js';
 import { firmarAhora, enviarParaFirmar } from './firmas.js';
-import { onShow } from './nav.js';
+import { onShow, go } from './nav.js';
 
 const CAMPOS_TEXTO = ['articulo', 'categoria', 'material', 'descripcion', 'acabados', 'montaje', 'observaciones'];
 const CAMPOS_NUM = ['ancho', 'alto', 'cantidad', 'precioUnitario'];
@@ -15,6 +15,9 @@ let draft = null;   // datos del documento (albarán, presupuesto o factura)
 let lines = [];     // partidas
 let active = 0;     // partida activa (la que alimenta el buscador de referencias)
 let dirty = false;
+// Al volver a «Nuevo albarán»: si lo último ya está guardado se empieza en blanco, salvo que se acabe de abrir
+// o duplicar un documento (o añadir una referencia) para seguir con él.
+let mantener = false;
 let readFiltros;
 
 const emptyLine = () => ({ articulo: '', categoria: '', material: '', descripcion: '', acabados: '', montaje: '', observaciones: '', ancho: null, alto: null, cantidad: 1, precioUnitario: null });
@@ -75,6 +78,7 @@ export const editor = {
     if (!lines.length) lines = [emptyLine()];
     active = 0; dirty = false;
     render();
+    mantener = true;
     return true;
   },
   duplicar(id) {
@@ -82,6 +86,7 @@ export const editor = {
     const p = getPresupuesto(id);
     nuevo({ clienteNombre: p.clienteNombre, iva: p.iva, notas: p.notas, lines: partidasDe(id).map(copiaPartida) });
     dirty = true;
+    mantener = true;
     toast(`Copia del ${TIPOS[tipoDe(p)].nombre.toLowerCase()} ${p.numero || ''} como albarán nuevo. Revisa y guarda.`);
     return true;
   },
@@ -95,6 +100,7 @@ export const editor = {
     if (lines[active] && !(lines[active].precioUnitario > 0)) lines[active] = l;
     else { lines.push(l); active = lines.length - 1; }
     dirty = true;
+    mantener = true;
     renderLines();
     toast('Partida añadida. Ajusta el texto, la cantidad y el precio.');
     const card = $(`#edLineas .line[data-i="${active}"]`);
@@ -114,6 +120,7 @@ export const editor = {
     if (lines[active] && isEmpty(lines[active])) lines[active] = l;
     else { lines.push(l); active = lines.length - 1; }
     dirty = true;
+    mantener = true;
     renderLines();
     // Cursor al final del artículo (para escribir las medidas) o en la cantidad, cuando ya se ve la pantalla.
     setTimeout(() => {
@@ -256,7 +263,12 @@ const autoRefsSoon = debounce(autoRefs, 250);
 export function initEditor() {
   readFiltros = mountFiltros($('#refFiltros'), runRefsSoon);
   onChange(() => { readFiltros.refresh(); if (!$('#s-nuevo').classList.contains('hidden')) runRefsSoon(); });
-  onShow('nuevo', () => { readFiltros.refresh(); numeroAuto(); runRefs(); $('#edLineas').querySelectorAll('textarea.art').forEach(ajustarAlto); });
+  onShow('nuevo', () => {
+    if (!mantener && !dirty && draft.id) nuevo(); // lo último ya está guardado: se empieza uno nuevo en blanco
+    else if (!mantener && dirty) $('#edMsg').textContent = `Sigues con el ${TIPOS[tipoDe(draft)].nombre.toLowerCase()} que estabas haciendo (sin guardar). Pulsa «Cancelar» para descartarlo.`;
+    mantener = false;
+    readFiltros.refresh(); numeroAuto(); runRefs(); $('#edLineas').querySelectorAll('textarea.art').forEach(ajustarAlto);
+  });
 
   $('#edLineas').addEventListener('focusin', (e) => {
     const card = e.target.closest('.line');
@@ -351,6 +363,16 @@ export function initEditor() {
   $('#edIva').addEventListener('input', (e) => { draft.iva = numOrNull(e.target.value) ?? 0; dirty = true; renderTotals(); });
 
   $('#edNuevo').addEventListener('click', () => editor.nuevo());
+  // Cancelar: descarta lo que se está haciendo (pregunta si hay cambios) y deja uno nuevo en blanco.
+  $('#edCancelar').addEventListener('click', () => {
+    const t = TIPOS[tipoDe(draft)].nombre.toLowerCase();
+    if (dirty && !confirm(draft.id ? `¿Descartar los cambios sin guardar del ${t}? Se queda como estaba guardado.` : `¿Descartar este ${t}? No se ha guardado.`)) return;
+    const eraGuardado = !!draft.id;
+    dirty = false;
+    nuevo();
+    toast(eraGuardado ? 'Cambios descartados' : 'Descartado');
+    if (eraGuardado) go('presupuestos');
+  });
   $('#edDuplicar').addEventListener('click', () => {
     const base = { clienteNombre: draft.clienteNombre, iva: draft.iva, notas: draft.notas, lines: lines.map(copiaPartida) };
     nuevo(base);
