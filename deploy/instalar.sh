@@ -153,12 +153,11 @@ fi
 
 echo "--- 4/7 Servidor web (nginx)…"
 LISTEN6=""; [ -s /proc/net/if_inet6 ] && LISTEN6="listen [::]:80;"
-# Límite de intentos de entrada (además del de la aplicación) y sin decir la versión de nginx.
+# Límite de intentos de entrada (además del de la aplicación).
 cat > /etc/nginx/conf.d/presupuestos-seguridad.conf <<NGINX
 limit_req_zone \$binary_remote_addr zone=presupuestos_entrar:10m rate=10r/m;
 limit_req_zone \$binary_remote_addr zone=presupuestos_api:10m rate=20r/s;
 limit_req_status 429;
-server_tokens off;
 NGINX
 cat > /etc/nginx/sites-available/presupuestos <<NGINX
 server {
@@ -168,6 +167,7 @@ server {
     root $APP;
     index index.html;
     client_max_body_size 60m;
+    server_tokens off; # no decir la versión de nginx (aquí y no en conf.d: Ubuntu ya lo pone en nginx.conf)
 
     # Archivos internos que no se publican.
     location ~ (^|/)\. { deny all; }
