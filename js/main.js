@@ -10,8 +10,19 @@ import { initEditor } from './ui/editor.js';
 import { initBuscador, initArticulos, initPresupuestos, initClientes, initFacturas } from './ui/screens.js';
 import { initImportar } from './ui/importar.js';
 import { initTarifa } from './ui/tarifa.js';
-import { show, current, initMenu } from './ui/nav.js';
+import { show, current, initMenu, limitarPantallas } from './ui/nav.js';
 import { initAyuda } from './ui/ayuda.js';
+
+// Permisos del usuario: se ocultan los botones y pantallas que no puede usar (el servidor, además, lo impide).
+const TODOS_PERMISOS = ['editar', 'borrar', 'importar', 'facturas', 'tarifa', 'ajustes', 'copias'];
+function aplicarPermisos(permisos) {
+  for (const p of TODOS_PERMISOS) document.body.classList.toggle('sin-' + p, !permisos.includes(p));
+  const sin = [];
+  if (!permisos.includes('editar')) sin.push('nuevo');
+  if (!permisos.includes('facturas')) sin.push('facturas');
+  if (!permisos.includes('importar') && !permisos.includes('copias')) { sin.push('importar'); document.body.classList.add('sin-importar-ni-copias'); }
+  limitarPantallas(sin, permisos.includes('editar') ? 'nuevo' : 'buscar');
+}
 
 // Ir a un apartado de Ajustes (y resaltarlo un momento).
 function irAjuste(id) {
@@ -170,6 +181,7 @@ async function start() {
     $('#menuSalir').addEventListener('click', salir);
     $('#menuUsuario').textContent = 'Usuario: ' + yo.usuario;
     // El nombre de usuario lleva a la gestión de usuarios (administradores) o a «Mi cuenta».
+    aplicarPermisos(yo.permisos || TODOS_PERMISOS);
     for (const id of ['#sesionUsuario', '#menuUsuario']) $(id).addEventListener('click', () => irAjuste(yo.rol === 'admin' ? 'usuarios' : 'miCuenta'));
     $('#menuSesion').classList.remove('hidden');
     // Al volver a la pestaña, traer lo que hayan guardado otros ordenadores.

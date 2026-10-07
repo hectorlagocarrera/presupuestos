@@ -132,3 +132,41 @@ test('usuarios de antes de los roles pasan a administradores', async () => {
   db.close();
   rmSync(dir, { recursive: true });
 });
+
+test('permisos: escrituras y facturas según lo que puede hacer cada usuario', () => {
+  const db = DB.abrir(':memory:');
+  DB.escribir(db, { put: {
+    presupuestos: [{ id: 'a1', tipo: 'albaran', numero: '1', fecha: '2026-01-01' }, { id: 'f1', tipo: 'factura', numero: 'F1', fecha: '2026-01-02', archivoId: 'arch-f' }],
+    partidas: [{ id: 'la', presupuestoId: 'a1', articulo: 'Lona' }, { id: 'lf', presupuestoId: 'f1', articulo: 'Vinilo' }],
+    ajustes: [{ nombre: 'Empresa', tarifa: { x: 1 } }],
+  } });
+  const ok = (permisos, ops) => !DB.comprobarEscritura(db, permisos, ops).error;
+  // Solo consulta: nada
+  assert.equal(ok([], { put: { presupuestos: [{ id: 'n1', tipo: 'albaran', origen: 'app' }] } }), false);
+  assert.equal(ok([], { put: { partidas: [{ id: 'la', presupuestoId: 'a1' }] } }), false);
+  // Editar: crea y modifica, pero no borra documentos ni toca facturas
+  assert.equal(ok(['editar'], { put: { presupuestos: [{ id: 'n1', tipo: 'albaran', origen: 'app' }], partidas: [{ id: 'n1l', presupuestoId: 'n1' }] } }), true);
+  assert.equal(ok(['editar'], { put: { presupuestos: [{ id: 'a1', tipo: 'albaran' }] }, del: { partidas: ['la'] } }), true);
+  assert.equal(ok(['editar'], { del: { presupuestos: ['a1'], partidas: ['la'] } }), false);
+  assert.equal(ok(['editar'], { put: { presupuestos: [{ id: 'f1', tipo: 'albaran' }] } }), false, 'no puede pisar una factura');
+  assert.equal(ok(['editar'], { put: { presupuestos: [{ id: 'n2', tipo: 'factura', origen: 'app' }] } }), false);
+  assert.equal(ok(['editar', 'facturas'], { put: { presupuestos: [{ id: 'n2', tipo: 'factura', origen: 'app' }] } }), true);
+  // Borrar
+  assert.equal(ok(['borrar'], { del: { presupuestos: ['a1'], partidas: ['la'] } }), true);
+  assert.equal(ok(['borrar'], { del: { presupuestos: ['f1'], partidas: ['lf'] } }), false, 'borrar una factura pide además el permiso de facturas');
+  // Importar: documentos nuevos importados, no modificar existentes
+  assert.equal(ok(['importar'], { put: { presupuestos: [{ id: 'i1', tipo: 'albaran', origen: 'importado' }], partidas: [{ id: 'i1l', presupuestoId: 'i1' }], clientes: [{ id: 'c' }] } }), true);
+  assert.equal(ok(['importar'], { put: { presupuestos: [{ id: 'a1', tipo: 'albaran', origen: 'importado' }] } }), false);
+  // Ajustes: cada clave con su permiso; lo no permitido se conserva
+  const r = DB.comprobarEscritura(db, ['tarifa'], { put: { ajustes: [{ nombre: 'Otra', tarifa: { x: 2 } }] } });
+  assert.deepEqual(r.ops.put.ajustes[0], { nombre: 'Empresa', tarifa: { x: 2 } });
+  // Sin permiso de facturas no se envían
+  const d = DB.leerTodo(db, { sinFacturas: true });
+  assert.deepEqual(d.presupuestos.map((p) => p.id), ['a1']);
+  assert.deepEqual(d.partidas.map((p) => p.id), ['la']);
+  assert.equal(DB.tipoDocDeArchivo(db, 'arch-f'), 'factura');
+  // Permisos efectivos
+  assert.equal(DB.permisosDe({ rol: 'admin', permisos: '[]' }).length, DB.PERMISOS.length);
+  assert.equal(DB.permisosDe({ rol: 'usuario', permisos: null }).length, DB.PERMISOS.length, 'los de antes conservan todo');
+  assert.deepEqual(DB.permisosDe({ rol: 'usuario', permisos: '["borrar","inventado"]' }), ['borrar']);
+});

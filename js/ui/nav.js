@@ -6,7 +6,11 @@ export function go(tab) {
   if (location.hash !== '#' + tab) history.pushState(null, '', '#' + tab);
   show(tab);
 }
-export function current() { return (location.hash || '#nuevo').slice(1); }
+// Pantalla de inicio y pantallas sin permiso (p. ej. sin permiso de crear albaranes se empieza en el buscador).
+let inicio = 'nuevo';
+const bloqueadas = new Set();
+export function limitarPantallas(sinPermiso, nuevaInicio) { sinPermiso.forEach((t) => bloqueadas.add(t)); inicio = nuevaInicio; }
+export function current() { return (location.hash || '#' + inicio).slice(1); }
 
 const menu = () => document.getElementById('menuMovil');
 export function cerrarMenu() {
@@ -24,7 +28,7 @@ function abrirMenu() {
 }
 
 export function show(tab) {
-  if (!document.getElementById('s-' + tab)) tab = 'nuevo';
+  if (!document.getElementById('s-' + tab) || bloqueadas.has(tab)) tab = inicio;
   document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('hidden', s.id !== 's-' + tab));
   let nombre = '';
   document.querySelectorAll('a[data-tab]').forEach((a) => {
@@ -54,5 +58,5 @@ export function initMenu() {
   medir();
   window.addEventListener('resize', medir);
   // El logo siempre lleva al inicio, aunque ya se esté en esa pantalla.
-  document.querySelector('.brand').addEventListener('click', (e) => { e.preventDefault(); go('nuevo'); });
+  document.querySelector('.brand').addEventListener('click', (e) => { e.preventDefault(); go(inicio); });
 }

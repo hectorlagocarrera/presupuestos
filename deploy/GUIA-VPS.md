@@ -79,8 +79,13 @@ Se gestionan desde la aplicación: **Ajustes → Usuarios** (solo la ven los **a
 - **Editar**: cambiar nombre y permisos, **desactivar** (no puede entrar, pero se conserva; se le echa al
   momento), poner una contraseña nueva, quitar la verificación en dos pasos (móvil perdido), cerrar sus sesiones o
   borrarlo. Los albaranes y demás datos nunca se borran al borrar un usuario.
-- **Permisos**: *Usuario* trabaja con todo (albaranes, tarifa, importar…). *Administrador* además gestiona
-  usuarios y decide si la verificación en dos pasos es obligatoria.
+- **Permisos**: todos pueden consultar el histórico, los albaranes y la tarifa. Además, a cada usuario se le
+  marca qué puede hacer: crear y editar albaranes · borrar documentos · importar · ver facturas · cambiar la
+  tarifa · cambiar los ajustes de la empresa · copias de seguridad. Hay plantillas para ir rápido (Solo consulta,
+  Comercial, Oficina, Todo). El *Administrador* lo puede todo y además gestiona usuarios.
+  Los permisos los comprueba el servidor: lo que no se puede hacer no se ve, y aunque se intentara por otra vía,
+  se rechaza (y queda en el registro). Sin el permiso de facturas, las facturas ni siquiera se envían a su
+  navegador.
 - Antes de cualquier cambio se vuelve a pedir **tu contraseña** (vale 10 minutos), y todo queda en el registro.
 - Siempre queda al menos un administrador activo, y nadie puede desactivarse ni borrarse a sí mismo.
 - Cada uno puede cambiar su contraseña en **Ajustes → Mi cuenta**.

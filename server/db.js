@@ -42,7 +42,7 @@ const MIGRACIONES = {
   presupuestos: { tipo: 'TEXT' },
   partidas: { tipo: 'TEXT' },
   usuarios: { mfa_secreto: 'TEXT', mfa_pendiente: 'TEXT', mfa_ultimo_paso: 'INTEGER', mfa_recuperacion: 'TEXT',
-    rol: 'TEXT', activo: 'INTEGER', nombre: 'TEXT', ultimo_acceso: 'TEXT', cambiar_clave: 'INTEGER' },
+    rol: 'TEXT', activo: 'INTEGER', nombre: 'TEXT', ultimo_acceso: 'TEXT', cambiar_clave: 'INTEGER', permisos: 'TEXT' },
 };
 
 export function abrir(ruta) {
@@ -84,9 +84,15 @@ function valor(col, v) {
 }
 
 // Todos los datos de la aplicación (se cargan enteros en el navegador para buscar al instante).
-export function leerTodo(db) {
+// sinFacturas: para quien no tiene permiso de ver facturas, ni siquiera se envían.
+export function leerTodo(db, { sinFacturas = false } = {}) {
   const out = {};
   for (const t of Object.keys(COLUMNAS)) out[t] = db.prepare(`SELECT * FROM ${t}`).all();
+  if (sinFacturas) {
+    const facturas = new Set(out.presupuestos.filter((p) => p.tipo === 'factura').map((p) => p.id));
+    out.presupuestos = out.presupuestos.filter((p) => !facturas.has(p.id));
+    out.partidas = out.partidas.filter((p) => !facturas.has(p.presupuestoId));
+  }
   for (const p of out.partidas) p.revisar = !!p.revisar;
   const aj = db.prepare("SELECT valor FROM ajustes WHERE id = 'ajustes'").get();
   out.ajustes = aj ? JSON.parse(aj.valor) : {};
@@ -123,6 +129,69 @@ export function escribir(db, { put = {}, del = {} }) {
   }
 }
 
+// ---------- Permisos de escritura ----------
+
+// Ajustes que se cambian con cada permiso (el resto de claves son de «ajustes»: empresa, logotipo, sinónimos…).
+const CLAVES_AJUSTES = { tarifa: ['tarifa', 'tarifaAjuste', 'tarifaOcultos'], copias: ['ultimaCopia'] };
+const permisoDeClave = (k) => Object.keys(CLAVES_AJUSTES).find((p) => CLAVES_AJUSTES[p].includes(k)) || 'ajustes';
+
+// Comprueba que el usuario puede hacer los cambios. Devuelve { error } o { ops } (los ajustes, ya combinados:
+// lo que no puede cambiar se queda como estaba).
+export function comprobarEscritura(db, permisos, { put = {}, del = {} }) {
+  const tiene = (p) => permisos.includes(p);
+  const doc = db.prepare('SELECT tipo FROM presupuestos WHERE id = ?');
+  const partida = db.prepare('SELECT presupuestoId FROM partidas WHERE id = ?');
+  const enLote = new Map((put.presupuestos || []).map((p) => [String(p?.id), p]));
+  const borrados = new Set((del.presupuestos || []).map(String));
+  const sinPermiso = (que) => ({ error: `No tienes permiso para ${que}. Pídeselo a un administrador.` });
+  const esFactura = (id) => enLote.get(id)?.tipo === 'factura' || doc.get(id)?.tipo === 'factura';
+
+  for (const p of put.presupuestos || []) {
+    const id = String(p?.id);
+    const existe = doc.get(id);
+    if ((p?.tipo === 'factura' || existe?.tipo === 'factura') && !tiene('facturas')) return sinPermiso('trabajar con facturas');
+    if (existe ? !tiene('editar') : !tiene(p?.origen === 'importado' ? 'importar' : 'editar')) {
+      return sinPermiso(existe ? 'modificar documentos' : p?.origen === 'importado' ? 'importar documentos' : 'crear documentos');
+    }
+  }
+  for (const l of put.partidas || []) {
+    const pid = String(l?.presupuestoId);
+    if (enLote.has(pid)) continue; // ya comprobado con su documento
+    if (!tiene('editar')) return sinPermiso('modificar documentos');
+    if (esFactura(pid) && !tiene('facturas')) return sinPermiso('trabajar con facturas');
+  }
+  if ((put.clientes || []).length && !tiene('editar') && !tiene('importar')) return sinPermiso('modificar clientes');
+  for (const id of del.presupuestos || []) {
+    if (!tiene('borrar')) return sinPermiso('borrar documentos');
+    if (esFactura(String(id)) && !tiene('facturas')) return sinPermiso('trabajar con facturas');
+  }
+  for (const id of del.partidas || []) {
+    const pid = partida.get(String(id))?.presupuestoId;
+    if (pid && borrados.has(pid)) continue; // se borran con su documento
+    if (!tiene('editar')) return sinPermiso('modificar documentos');
+  }
+  if ((del.clientes || []).length && !tiene('borrar')) return sinPermiso('borrar clientes');
+  if ((del.archivos || []).length && !tiene('borrar')) return sinPermiso('borrar archivos');
+
+  // Ajustes: cada clave según su permiso; lo que no se puede cambiar se conserva.
+  let ajustes = put.ajustes;
+  if (ajustes) {
+    const guardado = JSON.parse(db.prepare("SELECT valor FROM ajustes WHERE id = 'ajustes'").get()?.valor || '{}');
+    ajustes = ajustes.map((nuevo) => {
+      const out = { ...guardado };
+      for (const k of new Set([...Object.keys(guardado), ...Object.keys(nuevo || {})])) {
+        if (JSON.stringify(guardado[k]) === JSON.stringify(nuevo?.[k])) continue;
+        if (tiene(permisoDeClave(k))) { if (nuevo && k in nuevo) out[k] = nuevo[k]; else delete out[k]; }
+      }
+      return out;
+    });
+  }
+  return { ops: { put: { ...put, ...(ajustes ? { ajustes } : {}) }, del } };
+}
+
+// Documento al que pertenece un archivo original (para no dar facturas a quien no puede verlas).
+export const tipoDocDeArchivo = (db, archivoId) => db.prepare('SELECT tipo FROM presupuestos WHERE archivoId = ? ORDER BY tipo = \'factura\' DESC LIMIT 1').get(String(archivoId))?.tipo || null;
+
 // ---------- Archivos originales (PDF, Excel…) ----------
 
 export function guardarArchivo(db, { id, nombre, tipo, datos }) {
@@ -141,6 +210,15 @@ function hashClave(clave, sal = randomBytes(16).toString('hex')) {
 }
 
 export const ROLES = ['admin', 'usuario'];
+// Permisos que se pueden dar a un usuario (un administrador los tiene todos). Consultar lo tiene todo el mundo.
+export const PERMISOS = ['editar', 'borrar', 'importar', 'facturas', 'tarifa', 'ajustes', 'copias'];
+const limpiarPermisos = (lista) => (Array.isArray(lista) ? PERMISOS.filter((p) => lista.includes(p)) : []);
+// Permisos efectivos: el administrador, todos; los usuarios de antes de existir los permisos (NULL), también todos.
+export function permisosDe(u) {
+  if (!u) return [];
+  if (u.rol === 'admin' || u.permisos == null) return [...PERMISOS];
+  try { return limpiarPermisos(JSON.parse(u.permisos)); } catch { return []; }
+}
 
 function validarClave(usuario, clave) {
   if (String(clave).length < MIN_CLAVE) throw new Error(`La contraseña debe tener al menos ${MIN_CLAVE} caracteres.`);
@@ -150,13 +228,13 @@ function validarClave(usuario, clave) {
 
 export const existeUsuario = (db, usuario) => !!db.prepare('SELECT 1 FROM usuarios WHERE usuario = ?').get(String(usuario));
 
-export function crearUsuario(db, usuario, clave, { rol = 'usuario', nombre = '', cambiarAlEntrar = false } = {}) {
+export function crearUsuario(db, usuario, clave, { rol = 'usuario', nombre = '', cambiarAlEntrar = false, permisos = [] } = {}) {
   if (!/^[\w.@-]{2,40}$/.test(usuario)) throw new Error('Usuario no válido: de 2 a 40 letras sin acentos, números, . - _ @ (sin espacios).');
   if (existeUsuario(db, usuario)) throw new Error(`Ya existe el usuario «${usuario}».`);
   if (!ROLES.includes(rol)) throw new Error('Rol no válido.');
   validarClave(usuario, clave);
-  db.prepare('INSERT INTO usuarios (usuario, hash, creado, rol, activo, nombre, cambiar_clave) VALUES (?, ?, ?, ?, 1, ?, ?)')
-    .run(usuario, hashClave(clave), new Date().toISOString(), rol, String(nombre || '').slice(0, 80), cambiarAlEntrar ? 1 : 0);
+  db.prepare('INSERT INTO usuarios (usuario, hash, creado, rol, activo, nombre, cambiar_clave, permisos) VALUES (?, ?, ?, ?, 1, ?, ?, ?)')
+    .run(usuario, hashClave(clave), new Date().toISOString(), rol, String(nombre || '').slice(0, 80), cambiarAlEntrar ? 1 : 0, JSON.stringify(limpiarPermisos(permisos)));
 }
 
 // Nueva contraseña: conserva el resto (rol, verificación en dos pasos) y cierra las sesiones abiertas.
@@ -169,8 +247,9 @@ export function cambiarClave(db, usuario, clave, { cambiarAlEntrar = false } = {
   db.prepare('DELETE FROM sesiones WHERE usuario = ?').run(String(usuario));
 }
 
-export function editarUsuario(db, usuario, { rol, activo, nombre } = {}) {
+export function editarUsuario(db, usuario, { rol, activo, nombre, permisos } = {}) {
   if (!existeUsuario(db, usuario)) throw new Error('Ese usuario no existe.');
+  if (permisos !== undefined) db.prepare('UPDATE usuarios SET permisos = ? WHERE usuario = ?').run(JSON.stringify(limpiarPermisos(permisos)), String(usuario));
   if (rol !== undefined) {
     if (!ROLES.includes(rol)) throw new Error('Rol no válido.');
     db.prepare('UPDATE usuarios SET rol = ? WHERE usuario = ?').run(rol, String(usuario));
@@ -187,10 +266,10 @@ export const borrarUsuario = (db, usuario) => {
   return db.prepare('DELETE FROM usuarios WHERE usuario = ?').run(String(usuario)).changes > 0;
 };
 export const listaUsuarios = (db) => db.prepare(`
-  SELECT u.usuario, u.nombre, u.rol, u.activo, u.creado, u.ultimo_acceso, u.mfa_secreto IS NOT NULL AS mfa, u.cambiar_clave,
+  SELECT u.usuario, u.nombre, u.rol, u.activo, u.creado, u.ultimo_acceso, u.mfa_secreto IS NOT NULL AS mfa, u.cambiar_clave, u.permisos,
     (SELECT COUNT(*) FROM sesiones s WHERE s.usuario = u.usuario AND s.expira > ?) AS sesiones
   FROM usuarios u ORDER BY u.usuario`).all(Date.now())
-  .map((u) => ({ ...u, activo: !!u.activo, mfa: !!u.mfa, cambiar_clave: !!u.cambiar_clave }));
+  .map((u) => ({ ...u, activo: !!u.activo, mfa: !!u.mfa, cambiar_clave: !!u.cambiar_clave, permisos: permisosDe(u) }));
 export const datosUsuario = (db, usuario) => listaUsuarios(db).find((u) => u.usuario === usuario) || null;
 // Administradores activos (siempre tiene que quedar al menos uno).
 export const adminsActivos = (db) => db.prepare("SELECT usuario FROM usuarios WHERE rol = 'admin' AND activo = 1").all().map((r) => r.usuario);

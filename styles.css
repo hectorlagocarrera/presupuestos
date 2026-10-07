@@ -462,6 +462,26 @@ body:not(.modo-servidor) .solo-servidor, body.modo-servidor .solo-navegador { di
 .sim-barra i { display: block; height: 100%; background: var(--accent); }
 .tabla-hist .acciones .btn { padding: 4px 10px; }
 
+/* ---- Permisos: lo que el usuario no puede usar no se ve ---- */
+body.sin-editar a[data-tab="nuevo"], body.sin-editar [data-use], body.sin-editar [data-anadir], body.sin-editar [data-abrir],
+body.sin-editar [data-dup], body.sin-editar [data-edit], body.sin-editar [data-nuevo], body.sin-editar #aRecalcular,
+body.sin-editar #cNuevo,
+body.sin-borrar [data-del],
+body.sin-importar #iInicio, body.sin-importar #iRevision,
+body.sin-copias #iCopia,
+body.sin-importar-ni-copias a[data-tab="importar"],
+body.sin-facturas a[data-tab="facturas"], body.sin-facturas #pTipos [data-t="factura"], body.sin-facturas [data-f="tipo"],
+body.sin-facturas option[value="factura"],
+body.sin-tarifa [data-auto], body.sin-tarifa [data-ocultar], body.sin-tarifa label:has(#tAjuste), body.sin-tarifa label:has(#tOcultos),
+body.sin-ajustes #ajEmpresa, body.sin-ajustes #ajSinonimos, body.sin-ajustes [data-ir="ajEmpresa"], body.sin-ajustes [data-ir="ajSinonimos"] { display: none !important; }
+/* Sin permiso de tarifa, el precio se ve pero no se puede cambiar. */
+body.sin-tarifa [data-precio] { pointer-events: none; border-color: transparent; background: transparent; }
+.permisos { border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px 10px; margin: 4px 0 8px; }
+.permisos legend { font-weight: 600; padding: 0 4px; }
+.lista-permisos { display: grid; gap: 6px; }
+.lista-permisos .admin-permiso { border-top: 1px dashed var(--border); padding-top: 6px; margin-top: 2px; }
+.plantillas { margin-bottom: 4px; }
+
 /* ---- Usuarios ---- */
 .indice-ajustes { margin: 0 0 12px; }
 .enlace-usuario { background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 2px 4px; border-radius: 6px; text-decoration: underline dotted; text-underline-offset: 3px; }

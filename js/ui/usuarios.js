@@ -5,6 +5,64 @@ import { cuentas } from '../backend.js';
 import { toast } from './common.js';
 
 const MIN_CLAVE = 12;
+
+// Permisos que se pueden dar (consultar el histórico, la tarifa y los albaranes lo puede hacer todo el mundo).
+export const PERMISOS = {
+  editar: 'Crear y editar albaranes, presupuestos y clientes',
+  borrar: 'Borrar documentos y clientes',
+  importar: 'Importar PDF y Excel',
+  facturas: 'Ver las facturas y lo facturado',
+  tarifa: 'Cambiar la tarifa (precios fijados, ajuste general)',
+  ajustes: 'Cambiar datos de la empresa, logotipo y sinónimos',
+  copias: 'Descargar y cargar copias de seguridad',
+};
+const CORTO = { editar: 'editar', borrar: 'borrar', importar: 'importar', facturas: 'facturas', tarifa: 'tarifa', ajustes: 'ajustes', copias: 'copias' };
+// Plantillas: marcan las casillas de golpe (luego se pueden ajustar).
+const PLANTILLAS = {
+  consulta: { nombre: 'Solo consulta', permisos: [] },
+  comercial: { nombre: 'Comercial', permisos: ['editar'] },
+  oficina: { nombre: 'Oficina', permisos: ['editar', 'borrar', 'importar', 'facturas', 'tarifa'] },
+  todo: { nombre: 'Todo (sin gestionar usuarios)', permisos: Object.keys(PERMISOS) },
+};
+
+// Casillas de permisos + plantillas + «Administrador». Devuelve el HTML; leerPermisos() lee lo marcado.
+function bloquePermisos(rol, permisos) {
+  return `
+    <fieldset class="permisos s2">
+      <legend>Permisos</legend>
+      <div class="chips plantillas">
+        ${Object.entries(PLANTILLAS).map(([k, t]) => `<button type="button" class="chip" data-plantilla="${k}">${t.nombre}</button>`).join('')}
+        <button type="button" class="chip" data-plantilla="admin">Administrador</button>
+      </div>
+      <p class="muted small">Todos pueden consultar el histórico, los albaranes y la tarifa. Marca lo que además puede hacer:</p>
+      <div class="lista-permisos">
+        ${Object.entries(PERMISOS).map(([k, txt]) => `<label class="check"><input type="checkbox" data-permiso="${k}" ${permisos.includes(k) ? 'checked' : ''}> ${txt}</label>`).join('')}
+        <label class="check admin-permiso" data-ayuda="Además de todo lo anterior, puede crear, cambiar y borrar usuarios y exigir la verificación en dos pasos."><input type="checkbox" id="pmAdmin" ${rol === 'admin' ? 'checked' : ''}> <strong>Administrador</strong>: todo, y gestionar usuarios</label>
+      </div>
+    </fieldset>`;
+}
+function prepararPermisos(raiz) {
+  const casillas = () => [...raiz.querySelectorAll('input[data-permiso]')];
+  const admin = raiz.querySelector('#pmAdmin');
+  const pintar = () => casillas().forEach((c) => { c.disabled = admin.checked; if (admin.checked) c.checked = true; });
+  admin.addEventListener('change', pintar);
+  raiz.querySelector('.plantillas').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-plantilla]');
+    if (!b) return;
+    admin.checked = b.dataset.plantilla === 'admin';
+    if (!admin.checked) casillas().forEach((c) => { c.checked = PLANTILLAS[b.dataset.plantilla].permisos.includes(c.dataset.permiso); });
+    pintar();
+  });
+  pintar();
+}
+function leerPermisos(raiz) {
+  const admin = raiz.querySelector('#pmAdmin').checked;
+  return { rol: admin ? 'admin' : 'usuario', permisos: admin ? Object.keys(PERMISOS) : [...raiz.querySelectorAll('input[data-permiso]:checked')].map((c) => c.dataset.permiso) };
+}
+const resumenPermisos = (u) => (u.rol === 'admin' ? '<span class="tag">Administrador</span>'
+  : u.permisos.length === 0 ? 'Solo consulta'
+    : u.permisos.length === Object.keys(PERMISOS).length ? 'Todo menos usuarios'
+      : u.permisos.map((p) => CORTO[p]).join(', '));
 let yo = { usuario: '', rol: 'usuario' };
 let usuarios = [];
 
@@ -109,7 +167,7 @@ function pintar() {
   $('#usuTabla').innerHTML = usuarios.map((u) => `
     <tr class="${u.activo ? '' : 'apagado'}">
       <td><strong>${esc(u.usuario)}</strong>${u.usuario === yo.usuario ? ' <span class="tag soft">tú</span>' : ''}${u.nombre ? `<div class="muted small">${esc(u.nombre)}</div>` : ''}</td>
-      <td>${u.rol === 'admin' ? '<span class="tag">Administrador</span>' : 'Usuario'}</td>
+      <td class="small">${resumenPermisos(u)}</td>
       <td>${u.activo ? 'Activo' : '<span class="tag warn">Desactivado</span>'}${u.cambiar_clave ? '<div class="muted small">debe cambiar la contraseña</div>' : ''}</td>
       <td>${u.mfa ? '✅ Sí' : '<span class="muted">No</span>'}</td>
       <td class="small">${fechaHora(u.ultimo_acceso)}</td>
@@ -164,14 +222,14 @@ function nuevoUsuario() {
     <form id="fNuevo" class="grid g2">
       <label>Usuario (para entrar) <input id="nuUsuario" autocomplete="off" required pattern="[A-Za-z0-9_.@\\-]{2,40}" placeholder="p. ej. maria"></label>
       <label>Nombre (opcional) <input id="nuNombre" autocomplete="off" placeholder="María López"></label>
-      <label data-ayuda="Usuario: trabaja con albaranes, presupuestos, tarifa… Administrador: además puede crear, cambiar y borrar usuarios.">Permisos
-        <select id="nuRol"><option value="usuario">Usuario</option><option value="admin">Administrador</option></select></label>
       ${campoClave('nuClave')}
+      ${bloquePermisos('usuario', PLANTILLAS.comercial.permisos)}
       <label class="check s2"><input type="checkbox" id="nuCambiar" checked> Pedirle que ponga su propia contraseña al entrar</label>
       <p id="nuMsg" class="warn hidden s2"></p>
       <div class="btns actions s2"><button class="btn" type="submit">Crear usuario</button><button class="btn ghost" type="button" data-cancelar>Cancelar</button></div>
     </form>`);
   $('#nuClave').value = generarClave();
+  prepararPermisos($('#fNuevo'));
   $('#nuUsuario').focus();
   dlg.onclick = (e) => {
     if (e.target.closest('[data-cancelar]')) dlg.close();
@@ -183,7 +241,7 @@ function nuevoUsuario() {
     const usuario = $('#nuUsuario').value.trim();
     const clave = $('#nuClave').value;
     try {
-      const r = await hacer('crear', { usuario, nombre: $('#nuNombre').value.trim(), rol: $('#nuRol').value, clave, cambiarAlEntrar: $('#nuCambiar').checked });
+      const r = await hacer('crear', { usuario, nombre: $('#nuNombre').value.trim(), ...leerPermisos($('#fNuevo')), clave, cambiarAlEntrar: $('#nuCambiar').checked });
       if (!r) return;
       actualizar(r);
       mostrarDatosAcceso(usuario, clave);
@@ -202,8 +260,7 @@ function editar(nombreUsuario) {
     <p class="muted small">Creado el ${fmtDate(String(u.creado).slice(0, 10))} · último acceso: ${fechaHora(u.ultimo_acceso)} · ${u.sesiones} ${u.sesiones === 1 ? 'sesión abierta' : 'sesiones abiertas'}</p>
     <form id="fEditar" class="grid g2">
       <label>Nombre <input id="edUNombre" value="${esc(u.nombre || '')}" autocomplete="off"></label>
-      <label data-ayuda="Usuario: trabaja con albaranes, presupuestos, tarifa… Administrador: además puede gestionar usuarios.">Permisos
-        <select id="edURol"><option value="usuario">Usuario</option><option value="admin">Administrador</option></select></label>
+      ${bloquePermisos(u.rol, u.permisos)}
       <label class="check s2" data-ayuda="Un usuario desactivado no puede entrar, pero se conserva por si vuelve. Al desactivarlo se cierran sus sesiones al momento.">
         <input type="checkbox" id="edUActivo" ${u.activo ? 'checked' : ''} ${soyYo ? 'disabled' : ''}> Puede entrar (activo)</label>
       <p id="edUMsg" class="warn hidden s2"></p>
@@ -217,12 +274,12 @@ function editar(nombreUsuario) {
     </div>
     ${soyYo ? '' : '<h3>Zona peligrosa</h3><div class="btns"><button class="btn ghost peligro" data-borrar>Borrar usuario</button></div>'}
     <div class="btns actions"><button class="btn ghost" data-cerrar>Cerrar</button></div>`);
-  $('#edURol').value = u.rol;
+  prepararPermisos($('#fEditar'));
   const tras = (r, msg) => { if (!r) return; actualizar(r); dlg.close(); toast(msg); };
   $('#fEditar').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
-      tras(await hacer('editar', { usuario: u.usuario, nombre: $('#edUNombre').value.trim(), rol: $('#edURol').value, activo: $('#edUActivo').checked }), 'Usuario guardado');
+      tras(await hacer('editar', { usuario: u.usuario, nombre: $('#edUNombre').value.trim(), ...leerPermisos($('#fEditar')), activo: $('#edUActivo').checked }), 'Usuario guardado');
     } catch (err) { if ($('#edUMsg')) errorEn($('#edUMsg'), err.message); else toast(err.message); }
   });
   dlg.onclick = async (e) => {

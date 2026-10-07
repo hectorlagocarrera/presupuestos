@@ -165,6 +165,8 @@ async function api(req, res, ruta) {
   const yo = DB.datosUsuario(db, usuario);
   const mfaActivo = yo.mfa;
   const esAdmin = yo.rol === 'admin';
+  const permisos = yo.permisos;
+  const puede = (p) => permisos.includes(p);
   const obligatorio = DB.leerConfig(db, 'mfa_obligatorio') === '1';
   // Si la verificación en dos pasos es obligatoria, sin activarla solo se puede configurar.
   if (obligatorio && !mfaActivo && !['yo', 'salir', 'yo/clave'].includes(ruta) && !ruta.startsWith('mfa/')) {
@@ -176,7 +178,7 @@ async function api(req, res, ruta) {
   }
 
   if (ruta === 'yo' && req.method === 'GET') {
-    return json(res, 200, { usuario, nombre: yo.nombre || '', rol: yo.rol, mfa: mfaActivo, mfaObligatorio: obligatorio, cambiarClave: yo.cambiar_clave });
+    return json(res, 200, { usuario, nombre: yo.nombre || '', rol: yo.rol, permisos, mfa: mfaActivo, mfaObligatorio: obligatorio, cambiarClave: yo.cambiar_clave });
   }
 
   // Cambiar la propia contraseña (pide la actual). Cierra las demás sesiones y abre una nueva.
@@ -222,13 +224,14 @@ async function api(req, res, ruta) {
     const quitaUltimoAdmin = (sigueAdmin) => objetivo?.rol === 'admin' && objetivo.activo && !sigueAdmin && DB.adminsActivos(db).length <= 1;
     try {
       if (accion === 'crear') {
-        DB.crearUsuario(db, quien, String(datos.clave || ''), { rol: datos.rol, nombre: datos.nombre, cambiarAlEntrar: datos.cambiarAlEntrar !== false });
-        aviso(req, `«${usuario}» ha creado el usuario «${quien}» (${datos.rol})`);
+        DB.crearUsuario(db, quien, String(datos.clave || ''), { rol: datos.rol, nombre: datos.nombre, permisos: datos.permisos, cambiarAlEntrar: datos.cambiarAlEntrar !== false });
+        aviso(req, `«${usuario}» ha creado el usuario «${quien}» (${datos.rol}${datos.rol === 'admin' ? '' : ': ' + DB.permisosDe(DB.datosUsuario(db, quien)).join(', ')})`);
       } else if (accion === 'editar') {
         const cambios = {};
         if (datos.nombre !== undefined) cambios.nombre = datos.nombre;
         if (datos.rol !== undefined) cambios.rol = datos.rol;
         if (datos.activo !== undefined) cambios.activo = !!datos.activo;
+        if (datos.permisos !== undefined) cambios.permisos = datos.permisos;
         if (quien === usuario && cambios.activo === false) return json(res, 400, { error: 'No puedes desactivarte a ti mismo.' });
         const sigueAdmin = (cambios.rol ?? objetivo.rol) === 'admin' && (cambios.activo ?? objetivo.activo);
         if (quitaUltimoAdmin(sigueAdmin)) return json(res, 400, { error: 'Tiene que quedar al menos un administrador activo.' });
@@ -307,24 +310,32 @@ async function api(req, res, ruta) {
     confirmaciones.delete(DB.huella(token));
     return json(res, 200, { ok: true }, { 'Set-Cookie': 'sid=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0' });
   }
-  if (ruta === 'datos' && req.method === 'GET') return json(res, 200, DB.leerTodo(db));
+  if (ruta === 'datos' && req.method === 'GET') return json(res, 200, DB.leerTodo(db, { sinFacturas: !puede('facturas') }));
   if (ruta === 'escribir' && req.method === 'POST') {
     let ops;
     try { ops = JSON.parse((await cuerpo(req, MAX_JSON)).toString()); } catch { return json(res, 400, { error: 'Datos no válidos' }); }
-    DB.escribir(db, ops);
+    if (!ops || typeof ops !== 'object') return json(res, 400, { error: 'Datos no válidos' });
+    const r = DB.comprobarEscritura(db, permisos, ops);
+    if (r.error) { aviso(req, `«${usuario}» sin permiso: ${r.error}`); return json(res, 403, { error: r.error }); }
+    DB.escribir(db, r.ops);
     return json(res, 200, { ok: true });
   }
-  if (ruta === 'archivos' && req.method === 'GET') return json(res, 200, DB.listaArchivos(db));
+  // La lista de todos los originales solo sirve para la copia de seguridad completa.
+  if (ruta === 'archivos' && req.method === 'GET') {
+    if (!puede('copias')) return json(res, 403, { error: 'No tienes permiso para hacer copias de seguridad.' });
+    return json(res, 200, DB.listaArchivos(db));
+  }
 
   const m = ruta.match(/^archivos\/([\w-]{1,64})$/);
   if (m && req.method === 'PUT') {
+    if (!puede('importar')) return json(res, 403, { error: 'No tienes permiso para importar documentos.' });
     const u = new URL(req.url, 'http://x');
     DB.guardarArchivo(db, { id: m[1], nombre: String(u.searchParams.get('nombre') || '').slice(0, 200), tipo: String(u.searchParams.get('tipo') || '').slice(0, 100), datos: await cuerpo(req, MAX_ARCHIVO) });
     return json(res, 200, { ok: true });
   }
   if (m && req.method === 'GET') {
     const a = DB.leerArchivo(db, m[1]);
-    if (!a) return json(res, 404, { error: 'No existe' });
+    if (!a || (!puede('facturas') && DB.tipoDocDeArchivo(db, m[1]) === 'factura')) return json(res, 404, { error: 'No existe' });
     // Solo se muestran en el navegador los tipos conocidos (PDF, imágenes); el resto se descarga.
     // «sandbox» impide que un archivo subido ejecute código en la aplicación aunque fuera una página web.
     const tipo = TIPOS_ARCHIVO.has(a.tipo) ? a.tipo : 'application/octet-stream';

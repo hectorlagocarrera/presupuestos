@@ -52,8 +52,10 @@ function notaPrecio(a) {
 }
 function celdaPrecio(a) {
   const fijado = manuales()[a.clave] != null;
+  // Sin permiso de cambiar la tarifa, el precio se ve pero no se puede escribir.
+  const soloVer = document.body.classList.contains('sin-tarifa') ? ' readonly tabindex="-1"' : '';
   return `<input data-precio inputmode="decimal" class="${fijado ? 'fijado' : ''}" value="${dos.format(precioTarifa(a, manuales(), ajuste()))}"
-    aria-label="Precio de tarifa">${notaPrecio(a)}`;
+    aria-label="Precio de tarifa"${soloVer}>${notaPrecio(a)}`;
 }
 
 function render() {
