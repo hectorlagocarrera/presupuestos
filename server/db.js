@@ -7,7 +7,7 @@ import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'node:crypt
 // Columnas de cada tabla (el resto de campos que lleguen se ignoran).
 export const COLUMNAS = {
   presupuestos: ['id', 'tipo', 'numero', 'fecha', 'clienteId', 'clienteNombre', 'iva', 'notas', 'origen', 'archivoId',
-    'archivoNombre', 'paginas', 'base', 'total', 'creado', 'modificado'],
+    'archivoNombre', 'paginas', 'base', 'total', 'creado', 'modificado', 'estadoFirma', 'firmaId', 'firmaFecha', 'firmaNombre'],
   partidas: ['id', 'presupuestoId', 'orden', 'articulo', 'categoria', 'descripcion', 'material', 'acabados', 'montaje',
     'observaciones', 'ancho', 'alto', 'm2', 'cantidad', 'precioUnitario', 'precioTotal', 'precioM2', 'revisar',
     'fecha', 'cliente', 'numero', 'tipo'],
@@ -35,11 +35,24 @@ CREATE TABLE IF NOT EXISTS archivos (id TEXT PRIMARY KEY, nombre TEXT, tipo TEXT
 CREATE TABLE IF NOT EXISTS usuarios (usuario TEXT PRIMARY KEY, hash TEXT NOT NULL, creado TEXT);
 CREATE TABLE IF NOT EXISTS sesiones (token TEXT PRIMARY KEY, usuario TEXT NOT NULL, expira INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS config (clave TEXT PRIMARY KEY, valor TEXT);
+-- Firmas de albaranes (partes de trabajo) y presupuestos. No se borran: una firma anulada queda como historial.
+CREATE TABLE IF NOT EXISTS firmas (
+  id TEXT PRIMARY KEY, presupuestoId TEXT NOT NULL, estado TEXT NOT NULL, nombre TEXT, dni TEXT, email TEXT,
+  observaciones TEXT, motivo TEXT, imagen BLOB, fecha TEXT NOT NULL, ip TEXT, agente TEXT, modo TEXT, recogidaPor TEXT,
+  geo TEXT, huella TEXT, contenido TEXT, mostrarImportes INTEGER, copia TEXT,
+  anulada INTEGER DEFAULT 0, anuladaPor TEXT, anuladaFecha TEXT, anuladaMotivo TEXT
+);
+CREATE INDEX IF NOT EXISTS firmas_presupuesto ON firmas(presupuestoId);
+-- Enlaces para firmar a distancia (y ver la copia firmada). Solo se guarda la huella del token.
+CREATE TABLE IF NOT EXISTS enlaces_firma (
+  token TEXT PRIMARY KEY, presupuestoId TEXT NOT NULL, creado TEXT, creadoPor TEXT, email TEXT,
+  expira INTEGER NOT NULL, usado INTEGER DEFAULT 0, firmaId TEXT, mostrarImportes INTEGER, solover INTEGER DEFAULT 0
+);
 `;
 
 // Columnas añadidas después (bases de datos ya creadas se actualizan solas).
 const MIGRACIONES = {
-  presupuestos: { tipo: 'TEXT', paginas: 'TEXT' },
+  presupuestos: { tipo: 'TEXT', paginas: 'TEXT', estadoFirma: 'TEXT', firmaId: 'TEXT', firmaFecha: 'TEXT', firmaNombre: 'TEXT' },
   partidas: { tipo: 'TEXT' },
   usuarios: { mfa_secreto: 'TEXT', mfa_pendiente: 'TEXT', mfa_ultimo_paso: 'INTEGER', mfa_recuperacion: 'TEXT',
     rol: 'TEXT', activo: 'INTEGER', nombre: 'TEXT', ultimo_acceso: 'TEXT', cambiar_clave: 'INTEGER', permisos: 'TEXT' },
@@ -85,9 +98,22 @@ function valor(col, v) {
 
 // Todos los datos de la aplicación (se cargan enteros en el navegador para buscar al instante).
 // sinFacturas: para quien no tiene permiso de ver facturas, ni siquiera se envían.
-export function leerTodo(db, { sinFacturas = false } = {}) {
+export function leerTodo(db, { sinFacturas = false, operario = false } = {}) {
   const out = {};
   for (const t of Object.keys(COLUMNAS)) out[t] = db.prepare(`SELECT * FROM ${t}`).all();
+  if (operario) {
+    // Operario: solo los albaranes (partes de trabajo), los clientes y los datos de la empresa para enseñarlos.
+    const albaranes = new Set(out.presupuestos.filter((p) => p.tipo === 'albaran').map((p) => p.id));
+    out.presupuestos = out.presupuestos.filter((p) => albaranes.has(p.id));
+    out.partidas = out.partidas.filter((p) => albaranes.has(p.presupuestoId));
+    const aj = JSON.parse(db.prepare("SELECT valor FROM ajustes WHERE id = 'ajustes'").get()?.valor || '{}');
+    if (!aj.partesImportes) {
+      for (const p of out.presupuestos) { p.base = null; p.total = null; }
+      for (const l of out.partidas) { l.precioUnitario = null; l.precioTotal = null; l.precioM2 = null; }
+    }
+    out.ajustes = Object.fromEntries(['nombre', 'cif', 'direccion', 'contacto', 'logo', 'iva', 'partesImportes'].filter((k) => k in aj).map((k) => [k, aj[k]]));
+    return out;
+  }
   if (sinFacturas) {
     const facturas = new Set(out.presupuestos.filter((p) => p.tipo === 'factura').map((p) => p.id));
     out.presupuestos = out.presupuestos.filter((p) => !facturas.has(p.id));
@@ -139,16 +165,24 @@ const permisoDeClave = (k) => Object.keys(CLAVES_AJUSTES).find((p) => CLAVES_AJU
 // lo que no puede cambiar se queda como estaba).
 export function comprobarEscritura(db, permisos, { put = {}, del = {} }) {
   const tiene = (p) => permisos.includes(p);
-  const doc = db.prepare('SELECT tipo FROM presupuestos WHERE id = ?');
+  const doc = db.prepare('SELECT * FROM presupuestos WHERE id = ?');
   const partida = db.prepare('SELECT presupuestoId FROM partidas WHERE id = ?');
   const enLote = new Map((put.presupuestos || []).map((p) => [String(p?.id), p]));
   const borrados = new Set((del.presupuestos || []).map(String));
   const sinPermiso = (que) => ({ error: `No tienes permiso para ${que}. Pídeselo a un administrador.` });
   const esFactura = (id) => enLote.get(id)?.tipo === 'factura' || doc.get(id)?.tipo === 'factura';
 
+  // Documentos firmados: no se pueden cambiar (antes hay que anular la firma).
+  const firmado = (id) => doc.get(String(id))?.estadoFirma === 'firmado';
+  const BLOQUEADO = { error: 'Este documento está firmado y no se puede modificar. Para cambiarlo, anula antes la firma.' };
+  const mismoContenido = (a, b) => ['tipo', 'numero', 'fecha', 'clienteNombre'].every((k) => String(a?.[k] ?? '') === String(b?.[k] ?? ''))
+    && ['iva', 'base', 'total'].every((k) => Math.abs((Number(a?.[k]) || 0) - (Number(b?.[k]) || 0)) < 0.005);
   for (const p of put.presupuestos || []) {
     const id = String(p?.id);
     const existe = doc.get(id);
+    if (existe?.estadoFirma === 'firmado' && !mismoContenido(p, existe)) return BLOQUEADO;
+    // El estado de la firma solo lo cambia el servidor al firmar o anular.
+    if (p) for (const k of ['estadoFirma', 'firmaId', 'firmaFecha', 'firmaNombre']) p[k] = existe?.[k] ?? null;
     if ((p?.tipo === 'factura' || existe?.tipo === 'factura') && !tiene('facturas')) return sinPermiso('trabajar con facturas');
     if (existe ? !tiene('editar') : !tiene(p?.origen === 'importado' ? 'importar' : 'editar')) {
       return sinPermiso(existe ? 'modificar documentos' : p?.origen === 'importado' ? 'importar documentos' : 'crear documentos');
@@ -156,17 +190,20 @@ export function comprobarEscritura(db, permisos, { put = {}, del = {} }) {
   }
   for (const l of put.partidas || []) {
     const pid = String(l?.presupuestoId);
+    if (firmado(pid)) return BLOQUEADO;
     if (enLote.has(pid)) continue; // ya comprobado con su documento
     if (!tiene('editar')) return sinPermiso('modificar documentos');
     if (esFactura(pid) && !tiene('facturas')) return sinPermiso('trabajar con facturas');
   }
   if ((put.clientes || []).length && !tiene('editar') && !tiene('importar')) return sinPermiso('modificar clientes');
   for (const id of del.presupuestos || []) {
+    if (firmado(id)) return BLOQUEADO;
     if (!tiene('borrar')) return sinPermiso('borrar documentos');
     if (esFactura(String(id)) && !tiene('facturas')) return sinPermiso('trabajar con facturas');
   }
   for (const id of del.partidas || []) {
     const pid = partida.get(String(id))?.presupuestoId;
+    if (pid && firmado(pid)) return BLOQUEADO;
     if (pid && borrados.has(pid)) continue; // se borran con su documento
     if (!tiene('editar')) return sinPermiso('modificar documentos');
   }
@@ -209,13 +246,15 @@ function hashClave(clave, sal = randomBytes(16).toString('hex')) {
   return `scrypt:${sal}:${scryptSync(clave, sal, 64).toString('hex')}`;
 }
 
-export const ROLES = ['admin', 'usuario'];
+// operario: solo partes de trabajo (albaranes), recoger firmas y enviarlos para firmar.
+export const ROLES = ['admin', 'usuario', 'operario'];
 // Permisos que se pueden dar a un usuario (un administrador los tiene todos). Consultar lo tiene todo el mundo.
-export const PERMISOS = ['editar', 'borrar', 'importar', 'facturas', 'tarifa', 'ajustes', 'copias'];
+export const PERMISOS = ['editar', 'borrar', 'importar', 'facturas', 'tarifa', 'ajustes', 'copias', 'firmas'];
 const limpiarPermisos = (lista) => (Array.isArray(lista) ? PERMISOS.filter((p) => lista.includes(p)) : []);
 // Permisos efectivos: el administrador, todos; los usuarios de antes de existir los permisos (NULL), también todos.
 export function permisosDe(u) {
   if (!u) return [];
+  if (u.rol === 'operario') return ['firmas'];
   if (u.rol === 'admin' || u.permisos == null) return [...PERMISOS];
   try { return limpiarPermisos(JSON.parse(u.permisos)); } catch { return []; }
 }

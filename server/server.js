@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import * as DB from './db.js';
 import * as MFA from './mfa.js';
+import * as Correo from './correo.js';
+import * as Firmas from './firmas.js';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const RUTA_DB = process.env.PRESUPUESTOS_DB || join(RAIZ, 'datos', 'datos.db');
@@ -99,6 +101,42 @@ function emisor() {
   } catch { return 'Albaranes'; }
 }
 
+// ---------- Correo ----------
+
+const CLAVES_CORREO = ['host', 'puerto', 'seguridad', 'usuario', 'clave', 'remitente', 'nombre', 'copia'];
+const configCorreo = () => Object.fromEntries(CLAVES_CORREO.map((k) => [k, DB.leerConfig(db, 'smtp_' + k) || '']));
+const correoListo = () => { const c = configCorreo(); return !!(c.host && c.remitente); };
+async function mandarCorreo({ para, cc = [], asunto, html, texto, adjuntos }) {
+  const c = configCorreo();
+  if (!c.host || !c.remitente) throw new Error('El correo no está configurado (Ajustes → Correo).');
+  return Correo.enviar(c, { de: c.remitente, nombreDe: c.nombre || undefined, para, cc, responderA: c.copia || undefined, asunto, html, texto, adjuntos });
+}
+
+// Dirección pública de la aplicación (para los enlaces de los emails).
+const urlPublica = (req) => (DB.leerConfig(db, 'url_publica') || `${esHttps(req) ? 'https' : 'http'}://${req.headers.host}`).replace(/\/+$/, '');
+
+// Manda la copia firmada al cliente (si dejó email) y a la oficina, y apunta cómo fue.
+async function enviarCopiaFirma(req, presupuestoId, firmaId, emailCliente) {
+  const c = configCorreo();
+  const para = [emailCliente, c.copia].filter((e) => e && Correo.emailValido(e));
+  if (!para.length) return 'sin destinatario';
+  if (!correoListo()) { db.prepare('UPDATE firmas SET copia = ? WHERE id = ?').run('correo sin configurar', firmaId); return 'correo sin configurar'; }
+  const f = db.prepare('SELECT * FROM firmas WHERE id = ?').get(firmaId);
+  const ver = Firmas.crearEnlace(db, presupuestoId, { creadoPor: 'copia', dias: 90, mostrarImportes: !!f.mostrarImportes, solover: true });
+  const v = Firmas.vistaDoc(db, presupuestoId, { importes: !!f.mostrarImportes });
+  const m = Firmas.emailCopia(v, f, f.imagen, `${urlPublica(req)}/firmar.html?t=${ver}`);
+  try {
+    await mandarCorreo({ para: para[0], cc: para.slice(1), ...m });
+    const txt = `enviada a ${para.join(', ')} el ${new Date().toISOString()}`;
+    db.prepare('UPDATE firmas SET copia = ? WHERE id = ?').run(txt, firmaId);
+    return txt;
+  } catch (err) {
+    console.error(new Date().toISOString(), 'Correo de copia firmada', err.message);
+    db.prepare('UPDATE firmas SET copia = ? WHERE id = ?').run('error: ' + err.message.slice(0, 200), firmaId);
+    return 'error: ' + err.message;
+  }
+}
+
 // ---------- API ----------
 
 async function api(req, res, ruta) {
@@ -156,6 +194,37 @@ async function api(req, res, ruta) {
     fallos.delete(claveFallo('mfa', r.usuario));
     if (v.recuperacion) aviso(req, `entrada con código de recuperación de «${r.usuario}»`);
     return abrirSesion(r.usuario, v.recuperacion ? { recuperacionRestantes: v.restantes } : {});
+  }
+
+  // ---------- Firma a distancia (pública: basta el enlace) ----------
+  if (ruta === 'publico/firma' || ruta === 'publico/firma/imagen') {
+    const dir = ip(req);
+    if (bloqueado('ip', dir)) return json(res, 429, DEMASIADOS);
+    const t = new URL(req.url, 'http://x').searchParams.get('t');
+    const datosPost = req.method === 'POST' ? await (async () => { try { return JSON.parse((await cuerpo(req, 800000)).toString()); } catch { return null; } })() : null;
+    const e = Firmas.leerEnlace(db, req.method === 'POST' ? datosPost?.t : t);
+    if (!e) { fallo('ip', dir); return json(res, 404, { error: 'El enlace no es válido o ha caducado. Pide uno nuevo a la empresa.' }); }
+    const d = Firmas.leerDoc(db, e.presupuestoId);
+    if (!d) return json(res, 404, { error: 'El documento ya no existe.' });
+    if (ruta === 'publico/firma/imagen') {
+      const img = d.firmaId ? Firmas.imagenFirma(db, d.firmaId) : null;
+      if (!img) return json(res, 404, { error: 'No existe' });
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' });
+      return res.end(Buffer.from(img));
+    }
+    const yaFirmado = d.estadoFirma === 'firmado' || d.estadoFirma === 'rechazado';
+    if (req.method === 'GET') {
+      const v = Firmas.vistaDoc(db, e.presupuestoId, { importes: !!e.mostrarImportes });
+      return json(res, 200, { ...v, modo: e.solover || e.usado || yaFirmado ? 'ver' : 'firmar', caduca: e.expira, emailSugerido: e.email || v.doc.clienteEmail });
+    }
+    if (req.method !== 'POST') return json(res, 405, { error: 'No permitido' });
+    if (e.solover || e.usado || yaFirmado) return json(res, 409, { error: 'Este documento ya está firmado.' });
+    const datos = Firmas.validarFirma(datosPost || {});
+    if (datos.error) return json(res, 400, { error: datos.error });
+    const f = Firmas.registrarFirma(db, e.presupuestoId, datos, { ip: dir, agente: req.headers['user-agent'], modo: 'enlace', recogidaPor: null, mostrarImportes: !!e.mostrarImportes });
+    aviso(req, `${Firmas.NOMBRE_TIPO[d.tipo] || 'documento'} ${d.numero} ${datos.estado} a distancia por «${datos.nombre}»`);
+    enviarCopiaFirma(req, e.presupuestoId, f.id, datos.email).catch(() => {});
+    return json(res, 200, { ok: true, estado: datos.estado });
   }
 
   const token = cookies(req).sid;
@@ -310,7 +379,102 @@ async function api(req, res, ruta) {
     confirmaciones.delete(DB.huella(token));
     return json(res, 200, { ok: true }, { 'Set-Cookie': 'sid=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0' });
   }
-  if (ruta === 'datos' && req.method === 'GET') return json(res, 200, DB.leerTodo(db, { sinFacturas: !puede('facturas') }));
+  if (ruta === 'datos' && req.method === 'GET') return json(res, 200, DB.leerTodo(db, { sinFacturas: !puede('facturas'), operario: yo.rol === 'operario' }));
+
+  // ---------- Correo (configuración: administradores) ----------
+  if (ruta === 'correo' || ruta.startsWith('correo/')) {
+    if (ruta === 'correo' && req.method === 'GET') {
+      const c = configCorreo();
+      return json(res, 200, { ...c, clave: c.clave ? '********' : '', urlPublica: DB.leerConfig(db, 'url_publica') || '', listo: correoListo(), puedeCambiar: esAdmin });
+    }
+    if (!esAdmin) return json(res, 403, { error: 'Solo un administrador puede configurar el correo.' });
+    const datos = (await leerJson(20000)) || {};
+    if (ruta === 'correo' && req.method === 'POST') {
+      for (const k of CLAVES_CORREO) {
+        if (!(k in datos) || (k === 'clave' && datos.clave === '********')) continue;
+        DB.guardarConfig(db, 'smtp_' + k, String(datos[k] ?? '').trim().slice(0, 300));
+      }
+      if ('urlPublica' in datos) DB.guardarConfig(db, 'url_publica', String(datos.urlPublica || '').trim().slice(0, 300));
+      aviso(req, `«${usuario}» ha cambiado la configuración del correo`);
+      return json(res, 200, { ok: true, listo: correoListo() });
+    }
+    if (ruta === 'correo/prueba' && req.method === 'POST') {
+      if (!Correo.emailValido(datos.para)) return json(res, 400, { error: 'Escribe un email válido.' });
+      try {
+        await mandarCorreo({ para: datos.para, asunto: 'Prueba de correo · Albaranes', texto: 'Si recibes este mensaje, el correo de la aplicación funciona.', html: '<p>Si recibes este mensaje, el correo de la aplicación <strong>funciona</strong>.</p>' });
+        return json(res, 200, { ok: true });
+      } catch (err) { return json(res, 400, { error: err.message }); }
+    }
+    return json(res, 404, { error: 'No existe' });
+  }
+
+  // ---------- Firmas ----------
+  if (ruta === 'firmas' || ruta.startsWith('firmas/')) {
+    if (!puede('firmas')) return json(res, 403, { error: 'No tienes permiso para recoger firmas.' });
+    const mImg = ruta.match(/^firmas\/imagen\/([a-f0-9]{24})$/);
+    if (mImg && req.method === 'GET') {
+      const f = db.prepare('SELECT presupuestoId, imagen FROM firmas WHERE id = ?').get(mImg[1]);
+      const d = f && Firmas.leerDoc(db, f.presupuestoId);
+      if (!f?.imagen || !d || (yo.rol === 'operario' && d.tipo !== 'albaran') || (d.tipo === 'factura' && !puede('facturas'))) return json(res, 404, { error: 'No existe' });
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' });
+      return res.end(Buffer.from(f.imagen));
+    }
+    const datos = req.method === 'POST' ? (await (async () => { try { return JSON.parse((await cuerpo(req, 800000)).toString()); } catch { return null; } })()) || {} : {};
+    const id = req.method === 'GET' ? ruta.split('/')[1] : String(datos.presupuestoId || '');
+    const d = Firmas.leerDoc(db, id);
+    if (!d) return json(res, 404, { error: 'El documento no existe.' });
+    if (!Firmas.TIPOS_FIRMABLES.includes(d.tipo || 'presupuesto') || (yo.rol === 'operario' && d.tipo !== 'albaran')) {
+      return json(res, 403, { error: 'Este tipo de documento no se firma aquí.' });
+    }
+    const accion = req.method === 'GET' ? 'ver' : ruta.slice('firmas/'.length);
+    const nombreDoc = `${Firmas.NOMBRE_TIPO[d.tipo] || 'documento'} ${d.numero || ''}`.trim();
+    const estado = () => ({ estado: Firmas.leerDoc(db, id).estadoFirma || '', firma: Firmas.leerDoc(db, id).firmaId ? Firmas.resumenFirma(db, Firmas.leerDoc(db, id).firmaId) : null,
+      pendiente: Firmas.enlacePendiente(db, id), historial: Firmas.historialFirmas(db, id), modificado: Firmas.modificadoTrasFirma(db, id), correoListo: correoListo() });
+    if (accion === 'ver') return json(res, 200, estado());
+    if (accion === 'presencial') {
+      if (d.estadoFirma === 'firmado') return json(res, 409, { error: 'Ya está firmado.' });
+      const f = Firmas.validarFirma(datos);
+      if (f.error) return json(res, 400, { error: f.error });
+      const r = Firmas.registrarFirma(db, id, f, { ip: ip(req), agente: req.headers['user-agent'], modo: 'presencial', recogidaPor: usuario, mostrarImportes: datos.mostrarImportes !== false });
+      aviso(req, `${nombreDoc} ${f.estado} en persona por «${f.nombre}» (recogida por «${usuario}»)`);
+      const copia = await enviarCopiaFirma(req, id, r.id, f.email);
+      return json(res, 200, { ...estado(), copia });
+    }
+    if (accion === 'enlace') {
+      if (d.estadoFirma === 'firmado') return json(res, 409, { error: 'Ya está firmado.' });
+      const email = String(datos.email || '').trim();
+      if (email && !Correo.emailValido(email)) return json(res, 400, { error: 'El email no es válido.' });
+      const dias = Math.min(30, Math.max(1, Number(datos.dias) || 7));
+      Firmas.cancelarPendiente(db, id); // un enlace nuevo sustituye al anterior
+      const t = Firmas.crearEnlace(db, id, { creadoPor: usuario, email, dias, mostrarImportes: datos.mostrarImportes !== false });
+      const url = `${urlPublica(req)}/firmar.html?t=${t}`;
+      let enviado = null;
+      if (datos.enviar && email) {
+        const m = Firmas.emailSolicitud(Firmas.vistaDoc(db, id, { importes: datos.mostrarImportes !== false }), url, dias);
+        try { await mandarCorreo({ para: email, ...m }); enviado = email; } catch (err) { return json(res, 400, { error: 'No se pudo enviar el email: ' + err.message, url, ...estado() }); }
+      }
+      aviso(req, `«${usuario}» ha enviado ${nombreDoc} para firmar${enviado ? ' a ' + enviado : ' (enlace copiado)'}`);
+      return json(res, 200, { url, enviado, ...estado() });
+    }
+    if (accion === 'cancelar') { Firmas.cancelarPendiente(db, id); return json(res, 200, estado()); }
+    if (accion === 'reenviar') {
+      if (!d.firmaId) return json(res, 400, { error: 'No está firmado.' });
+      const email = String(datos.email || '').trim();
+      if (!Correo.emailValido(email)) return json(res, 400, { error: 'Escribe un email válido.' });
+      const r = await enviarCopiaFirma(req, id, d.firmaId, email);
+      if (r.startsWith('error') || r === 'correo sin configurar') return json(res, 400, { error: r });
+      return json(res, 200, { ...estado(), copia: r });
+    }
+    if (accion === 'anular') {
+      if (!esAdmin && !puede('editar')) return json(res, 403, { error: 'Solo la oficina o un administrador pueden anular una firma.' });
+      const motivo = String(datos.motivo || '').trim();
+      if (motivo.length < 3) return json(res, 400, { error: 'Indica el motivo para anular la firma.' });
+      Firmas.anularFirma(db, id, { usuario, motivo });
+      aviso(req, `«${usuario}» ha anulado la firma de ${nombreDoc}: ${motivo}`);
+      return json(res, 200, estado());
+    }
+    return json(res, 404, { error: 'No existe' });
+  }
   if (ruta === 'escribir' && req.method === 'POST') {
     let ops;
     try { ops = JSON.parse((await cuerpo(req, MAX_JSON)).toString()); } catch { return json(res, 400, { error: 'Datos no válidos' }); }
@@ -335,7 +499,8 @@ async function api(req, res, ruta) {
   }
   if (m && req.method === 'GET') {
     const a = DB.leerArchivo(db, m[1]);
-    if (!a || (!puede('facturas') && DB.tipoDocDeArchivo(db, m[1]) === 'factura')) return json(res, 404, { error: 'No existe' });
+    const tipoArch = a ? DB.tipoDocDeArchivo(db, m[1]) : null;
+    if (!a || (!puede('facturas') && tipoArch === 'factura') || (yo.rol === 'operario' && tipoArch !== 'albaran')) return json(res, 404, { error: 'No existe' });
     // Solo se muestran en el navegador los tipos conocidos (PDF, imágenes); el resto se descarga.
     // «sandbox» impide que un archivo subido ejecute código en la aplicación aunque fuera una página web.
     const tipo = TIPOS_ARCHIVO.has(a.tipo) ? a.tipo : 'application/octet-stream';
