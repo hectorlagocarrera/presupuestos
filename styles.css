@@ -82,7 +82,7 @@ h2 { font-size: 1.05rem; margin: 0 0 10px; }
 .brand img { max-width: 150px; object-fit: contain; }
 .brand span { color: var(--muted); font-weight: 600; border-left: 1px solid var(--border); padding-left: 10px; }
 .brand img, .logo-row img { background: var(--logo-bg); border-radius: 6px; padding: 2px 6px; }
-.logo-row { display: flex; gap: 16px; align-items: center; margin-bottom: 6px; }
+.logo-row { display: flex; gap: 10px 16px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
 .logo-row img { max-height: 70px; max-width: 220px; border: 1px solid var(--border); border-radius: 8px; padding: 6px; background: #fff; }
 .brand { text-decoration: none; color: inherit; }
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.05rem; }
@@ -255,8 +255,9 @@ pre { white-space: pre-wrap; font-size: 0.8rem; max-height: 320px; overflow: aut
 /* ---- Modal y avisos ---- */
 dialog {
   border: 1px solid var(--border); border-radius: 12px; padding: 18px; background: var(--card); color: var(--text);
-  width: min(860px, 94vw); max-height: 90vh; overflow: auto;
+  width: min(860px, 94vw); max-height: 90vh; overflow: auto; box-sizing: border-box;
 }
+@media (max-width: 700px) { dialog { padding: 14px; } dialog .pane-head { flex-wrap: wrap; } }
 dialog::backdrop { background: rgba(10, 15, 25, 0.45); }
 dialog.visor { width: min(1000px, 96vw); }
 .visor-paginas { display: flex; flex-direction: column; gap: 12px; align-items: center; max-height: 72vh; overflow: auto; background: var(--bg); padding: 12px; border-radius: 8px; }
@@ -543,7 +544,7 @@ dialog.firma-dlg { width: min(760px, 96vw); }
 .parte .btns { margin-top: 4px; }
 @media (max-width: 700px) {
   dialog.firma-dlg { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; border: none; padding: 14px; }
-  .firma-pad { height: 42vh; min-height: 180px; }
+  .firma-pad { height: 34vh; min-height: 170px; }
   .firma-form .btns .btn { flex: 1 1 auto; }
   .partes { grid-template-columns: 1fr; }
   .parte .btns .btn { flex: 1 1 auto; padding: 10px; }

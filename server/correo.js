@@ -48,7 +48,9 @@ export function construir({ de, nombreDe, para, cc = [], asunto, texto, html, ad
 
 // Conversación SMTP. config: { host, puerto, usuario, clave, seguridad: 'ssl' | 'starttls' | 'ninguna' }.
 export async function enviar(config, mensaje) {
-  const { host, usuario, clave } = config;
+  const { host, usuario } = config;
+  // Gmail da las contraseñas de aplicación con espacios («abcd efgh ijkl mnop»): se quitan.
+  const clave = /gmail\.com|googlemail\.com/i.test(host || '') ? String(config.clave || '').replace(/\s+/g, '') : config.clave;
   const puerto = Number(config.puerto) || 465;
   const seguridad = config.seguridad || (puerto === 465 ? 'ssl' : 'starttls');
   const de = direccion(mensaje.de);
@@ -85,7 +87,13 @@ export async function enviar(config, mensaje) {
     const r = await respuesta();
     if (!codigos.includes(r.slice(0, 3))) {
       const visible = linea && /^(AUTH|[A-Za-z0-9+/=]{8,}$)/.test(linea) ? '(autenticación)' : linea;
-      throw new Error(`El servidor de correo rechazó ${visible || 'la conexión'}: ${r.split('\n').pop()}`);
+      let ayuda = '';
+      if (/^53[45]/.test(r)) {
+        ayuda = /gmail|google/i.test(`${host} ${usuario}`)
+          ? ' → Gmail no acepta la contraseña normal de la cuenta: crea una «contraseña de aplicación» en myaccount.google.com/apppasswords (hace falta tener activada la verificación en dos pasos) y ponla aquí.'
+          : ' → Usuario o contraseña del buzón incorrectos (con Microsoft 365/Outlook puede que haya que activar «SMTP autenticado» o usar una contraseña de aplicación).';
+      }
+      throw new Error(`El servidor de correo rechazó ${visible || 'la conexión'}: ${r.split('\n').pop()}${ayuda}`);
     }
     return r;
   };

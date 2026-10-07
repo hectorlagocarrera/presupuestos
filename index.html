@@ -423,8 +423,10 @@
       </section>
 
       <section class="pane solo-servidor solo-admin" id="ajCorreo">
-        <h2 data-ayuda="Con este buzón la aplicación manda a los clientes los enlaces para firmar y las copias firmadas. Usa el email de la empresa (por ejemplo, el de OVH: servidor ssl0.ovh.net, puerto 465).">Correo y firmas</h2>
-        <p class="muted small">Buzón desde el que se envían los enlaces para firmar y las copias firmadas. La contraseña se guarda en el servidor y no se vuelve a mostrar.</p>
+        <h2 data-ayuda="Con este buzón la aplicación manda a los clientes los enlaces para firmar y las copias firmadas. OVH: servidor ssl0.ovh.net, puerto 465. Gmail: smtp.gmail.com, puerto 465, usuario = la dirección de Gmail y, como contraseña, una «contraseña de aplicación» (myaccount.google.com/apppasswords), no la normal.">Correo y firmas</h2>
+        <p class="muted small">Buzón desde el que se envían los enlaces para firmar y las copias firmadas. La contraseña se guarda en el servidor y no se vuelve a mostrar.
+          <strong>Gmail:</strong> servidor <code>smtp.gmail.com</code>, puerto 465, y como contraseña una
+          <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">contraseña de aplicación</a> (no la de entrar en Gmail).</p>
         <form id="coForm" class="grid g2">
           <label>Servidor de correo (SMTP) <input id="coHost" placeholder="ssl0.ovh.net" autocomplete="off"></label>
           <div class="grid g2 sin-margen">

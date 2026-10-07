@@ -108,10 +108,10 @@ export function verPresupuesto(id) {
   $('#modalBody').innerHTML = `
     <div class="pane-head"><h2>${TIPOS[tipoDe(p)].nombre} ${esc(p.numero || '')}</h2><button class="btn ghost small" data-cerrar>Cerrar</button></div>
     <p>${fmtDate(p.fecha)} · <strong>${esc(p.clienteNombre || 'sin cliente')}</strong>${p.archivoNombre ? ` · original: ${esc(p.archivoNombre)}` : ''}</p>
-    <div class="table-wrap"><table class="data">
+    <div class="table-wrap"><table class="data cards">
       <thead><tr><th>Artículo</th><th>Medidas</th><th class="num">Cant.</th><th class="num">Precio</th><th class="num">Total</th></tr></thead>
-      <tbody>${partidas.map((l) => `<tr><td><strong>${esc(l.articulo)}</strong>${l.descripcion ? `<div class="muted small">${esc(l.descripcion)}</div>` : ''}</td>
-        <td>${medidasTxt(l)}</td><td class="num">${fmtNum(l.cantidad)}</td><td class="num">${fmtEur(l.precioUnitario)}</td><td class="num">${fmtEur(l.precioTotal)}</td></tr>`).join('')}</tbody>
+      <tbody>${partidas.map((l) => `<tr><td data-l="Artículo"><strong>${esc(l.articulo)}</strong>${l.descripcion ? `<div class="muted small">${esc(l.descripcion)}</div>` : ''}</td>
+        <td data-l="Medidas">${medidasTxt(l)}</td><td class="num" data-l="Cant.">${fmtNum(l.cantidad)}</td><td class="num" data-l="Precio">${l.precioUnitario != null ? fmtEur(l.precioUnitario) : ''}</td><td class="num" data-l="Total">${l.precioTotal != null ? fmtEur(l.precioTotal) : ''}</td></tr>`).join('')}</tbody>
     </table></div>
     ${p.total != null ? `<p class="right-text">Base ${fmtEur(p.base)} · <strong>Total ${fmtEur(p.total)}</strong> (IVA ${fmtNum(p.iva)} %)</p>` : ''}
     <div id="pvFirma"></div>
