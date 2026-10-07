@@ -70,13 +70,34 @@ Como ya estarán en el servidor, puedes desactivar GitHub Pages (en GitHub: **Se
 
 ---
 
+## Usuarios
+
+Se gestionan desde la aplicación: **Ajustes → Usuarios** (solo la ven los **administradores**).
+
+- **Nuevo usuario**: pon el usuario, el nombre y los permisos. La aplicación genera una contraseña provisional:
+  pásasela en persona o por teléfono. Al entrar por primera vez tendrá que poner la suya.
+- **Editar**: cambiar nombre y permisos, **desactivar** (no puede entrar, pero se conserva; se le echa al
+  momento), poner una contraseña nueva, quitar la verificación en dos pasos (móvil perdido), cerrar sus sesiones o
+  borrarlo. Los albaranes y demás datos nunca se borran al borrar un usuario.
+- **Permisos**: *Usuario* trabaja con todo (albaranes, tarifa, importar…). *Administrador* además gestiona
+  usuarios y decide si la verificación en dos pasos es obligatoria.
+- Antes de cualquier cambio se vuelve a pedir **tu contraseña** (vale 10 minutos), y todo queda en el registro.
+- Siempre queda al menos un administrador activo, y nadie puede desactivarse ni borrarse a sí mismo.
+- Cada uno puede cambiar su contraseña en **Ajustes → Mi cuenta**.
+
+Los usuarios que ya existían antes de esta versión pasan a ser administradores: revisa la lista y deja como
+*Usuario* a quien no necesite gestionar usuarios.
+
 ## Uso diario y mantenimiento
 
-Todo esto se hace conectado al VPS como en el paso 2.
+Todo esto se hace conectado al VPS como en el paso 2. (Lo de los usuarios también se puede hacer desde la
+aplicación, como se explica arriba; los comandos sirven, por ejemplo, si nadie puede entrar.)
 
 | Para… | Comando |
 |---|---|
-| Crear otro usuario (o cambiar una contraseña) | `sudo presupuestos-usuario nuevo maria` |
+| Crear otro usuario (o cambiar una contraseña) | `sudo presupuestos-usuario nuevo maria` (añade `admin` para que sea administrador) |
+| Hacer administrador / quitárselo | `sudo presupuestos-usuario admin maria` · `sudo presupuestos-usuario normal maria` |
+| Impedir que entre / volver a dejarle | `sudo presupuestos-usuario desactivar maria` · `sudo presupuestos-usuario activar maria` |
 | Ver los usuarios | `sudo presupuestos-usuario lista` |
 | Borrar un usuario | `sudo presupuestos-usuario borrar maria` |
 | Quitar la verificación en dos pasos (móvil perdido y sin códigos) | `sudo presupuestos-usuario mfa-quitar maria` |

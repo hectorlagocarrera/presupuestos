@@ -66,6 +66,14 @@ setInterval(() => { const t = Date.now(); for (const [k, f] of fallos) if (t - f
 const aviso = (req, texto) => console.warn(new Date().toISOString(), 'SEGURIDAD', texto, 'ip=' + ip(req));
 const DEMASIADOS = { error: 'Demasiados intentos. Espera 15 minutos.' };
 
+// ---------- Confirmación para gestionar usuarios ----------
+
+// Sesión → hasta cuándo puede gestionar usuarios sin volver a escribir la contraseña.
+const MINUTOS_CONFIRMACION = 10;
+const confirmaciones = new Map();
+const confirmado = (token) => (confirmaciones.get(DB.huella(token)) || 0) > Date.now();
+setInterval(() => { const t = Date.now(); for (const [k, v] of confirmaciones) if (v < t) confirmaciones.delete(k); }, 60000).unref();
+
 // ---------- Verificación en dos pasos ----------
 
 const retos = new Map(); // reto del paso 2 del inicio de sesión → { usuario, expira, intentos }
@@ -154,14 +162,99 @@ async function api(req, res, ruta) {
   const usuario = DB.usuarioDeSesion(db, token);
   if (!usuario) return json(res, 401, { error: 'Hay que entrar con usuario y contraseña' });
 
-  const mfaActivo = !!DB.datosMfa(db, usuario)?.mfa_secreto;
+  const yo = DB.datosUsuario(db, usuario);
+  const mfaActivo = yo.mfa;
+  const esAdmin = yo.rol === 'admin';
   const obligatorio = DB.leerConfig(db, 'mfa_obligatorio') === '1';
   // Si la verificación en dos pasos es obligatoria, sin activarla solo se puede configurar.
-  if (obligatorio && !mfaActivo && !['yo', 'salir'].includes(ruta) && !ruta.startsWith('mfa/')) {
+  if (obligatorio && !mfaActivo && !['yo', 'salir', 'yo/clave'].includes(ruta) && !ruta.startsWith('mfa/')) {
     return json(res, 403, { error: 'Tienes que activar la verificación en dos pasos', configurarMfa: true });
   }
+  // Contraseña puesta por un administrador: hay que cambiarla antes de seguir.
+  if (yo.cambiar_clave && !['yo', 'salir', 'yo/clave'].includes(ruta) && !ruta.startsWith('mfa/')) {
+    return json(res, 403, { error: 'Tienes que cambiar tu contraseña', cambiarClave: true });
+  }
 
-  if (ruta === 'yo' && req.method === 'GET') return json(res, 200, { usuario, mfa: mfaActivo, mfaObligatorio: obligatorio });
+  if (ruta === 'yo' && req.method === 'GET') {
+    return json(res, 200, { usuario, nombre: yo.nombre || '', rol: yo.rol, mfa: mfaActivo, mfaObligatorio: obligatorio, cambiarClave: yo.cambiar_clave });
+  }
+
+  // Cambiar la propia contraseña (pide la actual). Cierra las demás sesiones y abre una nueva.
+  if (ruta === 'yo/clave' && req.method === 'POST') {
+    const dir = ip(req);
+    if (bloqueado('ip', dir) || bloqueado('usuario', usuario)) return json(res, 429, DEMASIADOS);
+    const datos = (await leerJson()) || {};
+    if (!DB.comprobarClave(db, usuario, String(datos.actual || '').slice(0, 200))) {
+      fallo('ip', dir); fallo('usuario', usuario);
+      aviso(req, `contraseña actual incorrecta al cambiarla («${usuario}»)`);
+      return json(res, 400, { error: 'La contraseña actual no es correcta' });
+    }
+    try { DB.cambiarClave(db, usuario, String(datos.nueva || '')); } catch (err) { return json(res, 400, { error: err.message }); }
+    aviso(req, `«${usuario}» ha cambiado su contraseña`);
+    return abrirSesion(usuario);
+  }
+
+  // ---------- Gestión de usuarios (solo administradores) ----------
+  if (ruta === 'mfa/politica' && !esAdmin) return json(res, 403, { error: 'Solo un administrador puede cambiar esto.' });
+  if (ruta === 'usuarios' || ruta.startsWith('usuarios/')) {
+    if (!esAdmin) { aviso(req, `«${usuario}» sin permiso intentó gestionar usuarios`); return json(res, 403, { error: 'Solo los administradores pueden gestionar usuarios.' }); }
+    if (ruta === 'usuarios' && req.method === 'GET') return json(res, 200, { usuarios: DB.listaUsuarios(db), confirmado: confirmado(token) });
+    if (req.method !== 'POST') return json(res, 404, { error: 'No existe' });
+    const datos = (await leerJson()) || {};
+    const dir = ip(req);
+    const accion = ruta.slice('usuarios/'.length);
+    // Antes de cambiar usuarios hay que volver a escribir la contraseña (vale 10 minutos).
+    if (accion === 'confirmar') {
+      if (bloqueado('ip', dir) || bloqueado('usuario', usuario)) return json(res, 429, DEMASIADOS);
+      if (!DB.comprobarClave(db, usuario, String(datos.clave || '').slice(0, 200))) {
+        fallo('ip', dir); fallo('usuario', usuario);
+        aviso(req, `contraseña incorrecta al confirmar la gestión de usuarios («${usuario}»)`);
+        return json(res, 400, { error: 'Contraseña incorrecta' });
+      }
+      confirmaciones.set(DB.huella(token), Date.now() + MINUTOS_CONFIRMACION * 60000);
+      return json(res, 200, { ok: true, minutos: MINUTOS_CONFIRMACION });
+    }
+    if (!confirmado(token)) return json(res, 403, { error: 'Confirma tu contraseña para continuar.', confirmar: true });
+    const quien = String(datos.usuario || '');
+    if (accion !== 'crear' && !DB.existeUsuario(db, quien)) return json(res, 404, { error: 'Ese usuario no existe.' });
+    const objetivo = accion !== 'crear' ? DB.datosUsuario(db, quien) : null;
+    // Siempre tiene que quedar al menos un administrador activo.
+    const quitaUltimoAdmin = (sigueAdmin) => objetivo?.rol === 'admin' && objetivo.activo && !sigueAdmin && DB.adminsActivos(db).length <= 1;
+    try {
+      if (accion === 'crear') {
+        DB.crearUsuario(db, quien, String(datos.clave || ''), { rol: datos.rol, nombre: datos.nombre, cambiarAlEntrar: datos.cambiarAlEntrar !== false });
+        aviso(req, `«${usuario}» ha creado el usuario «${quien}» (${datos.rol})`);
+      } else if (accion === 'editar') {
+        const cambios = {};
+        if (datos.nombre !== undefined) cambios.nombre = datos.nombre;
+        if (datos.rol !== undefined) cambios.rol = datos.rol;
+        if (datos.activo !== undefined) cambios.activo = !!datos.activo;
+        if (quien === usuario && cambios.activo === false) return json(res, 400, { error: 'No puedes desactivarte a ti mismo.' });
+        const sigueAdmin = (cambios.rol ?? objetivo.rol) === 'admin' && (cambios.activo ?? objetivo.activo);
+        if (quitaUltimoAdmin(sigueAdmin)) return json(res, 400, { error: 'Tiene que quedar al menos un administrador activo.' });
+        DB.editarUsuario(db, quien, cambios);
+        aviso(req, `«${usuario}» ha cambiado el usuario «${quien}»: ${JSON.stringify(cambios)}`);
+      } else if (accion === 'clave') {
+        DB.cambiarClave(db, quien, String(datos.clave || ''), { cambiarAlEntrar: quien !== usuario && datos.cambiarAlEntrar !== false });
+        aviso(req, `«${usuario}» ha puesto una contraseña nueva a «${quien}»`);
+      } else if (accion === 'mfa-quitar') {
+        DB.quitarMfa(db, quien);
+        DB.cerrarSesionesDe(db, quien);
+        aviso(req, `«${usuario}» ha quitado la verificación en dos pasos a «${quien}»`);
+      } else if (accion === 'cerrar-sesiones') {
+        if (quien === usuario) DB.cerrarOtrasSesiones(db, usuario, token); else DB.cerrarSesionesDe(db, quien);
+        aviso(req, `«${usuario}» ha cerrado las sesiones de «${quien}»`);
+      } else if (accion === 'borrar') {
+        if (quien === usuario) return json(res, 400, { error: 'No puedes borrarte a ti mismo.' });
+        if (quitaUltimoAdmin(false)) return json(res, 400, { error: 'Tiene que quedar al menos un administrador activo.' });
+        DB.borrarUsuario(db, quien);
+        aviso(req, `«${usuario}» ha borrado el usuario «${quien}»`);
+      } else return json(res, 404, { error: 'No existe' });
+    } catch (err) { return json(res, 400, { error: err.message }); }
+    // Si se ha cambiado la propia contraseña, las sesiones se han cerrado: se abre una nueva.
+    if (accion === 'clave' && quien === usuario) return abrirSesion(usuario, { usuarios: DB.listaUsuarios(db) });
+    return json(res, 200, { ok: true, usuarios: DB.listaUsuarios(db) });
+  }
 
   if (ruta.startsWith('mfa/') && req.method === 'POST') {
     const datos = (await leerJson()) || {};
@@ -211,6 +304,7 @@ async function api(req, res, ruta) {
   }
   if (ruta === 'salir' && req.method === 'POST') {
     DB.cerrarSesion(db, token);
+    confirmaciones.delete(DB.huella(token));
     return json(res, 200, { ok: true }, { 'Set-Cookie': 'sid=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0' });
   }
   if (ruta === 'datos' && req.method === 'GET') return json(res, 200, DB.leerTodo(db));

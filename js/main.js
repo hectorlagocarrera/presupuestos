@@ -4,6 +4,7 @@ import { DEFAULT_SINONIMOS } from './search.js';
 import { open, data, saveAjustes, onChange, modo, recargar } from './store.js';
 import { servidor, navegador, detectarServidor, entrar, entrarMfa, NoAutorizado } from './backend.js';
 import { initSeguridad, configurarMfa } from './ui/seguridad.js';
+import { initUsuarios, cambiarMiClave } from './ui/usuarios.js';
 import { refreshDatalists, toast, etiquetarTablas } from './ui/common.js';
 import { initEditor } from './ui/editor.js';
 import { initBuscador, initArticulos, initPresupuestos, initClientes, initFacturas } from './ui/screens.js';
@@ -124,6 +125,8 @@ async function start() {
     yo = await servidor.usuario();
     // Verificación en dos pasos obligatoria y aún sin configurar: primero hay que configurarla.
     if (yo.mfaObligatorio && !yo.mfa) { configurarMfa({ obligatoria: true, alTerminar: () => location.reload() }); return; }
+    // Contraseña provisional puesta por un administrador: primero hay que cambiarla.
+    if (yo.cambiarClave) { await cambiarMiClave({ obligatoria: true }); location.reload(); return; }
   }
   try {
     await open(srv === 'si' ? servidor : navegador);
@@ -135,6 +138,9 @@ async function start() {
   if (srv === 'si') {
     $('#sesionUsuario').textContent = yo.usuario;
     initSeguridad(yo);
+    initUsuarios(yo);
+    $('#miUsuario').textContent = yo.nombre ? `${yo.usuario} (${yo.nombre})` : yo.usuario;
+    $('#miRol').textContent = yo.rol === 'admin' ? ' · administrador' : '';
     $('#sesion').classList.remove('hidden');
     const salir = async () => { await servidor.salir(); location.reload(); };
     $('#btnSalir').addEventListener('click', salir);

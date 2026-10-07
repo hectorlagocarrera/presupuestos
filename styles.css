@@ -437,6 +437,14 @@ body:not(.modo-servidor) .solo-servidor, body.modo-servidor .solo-navegador { di
 @media (min-width: 861px) { .menu-movil { display: none !important; } }
 .pane, .line { scroll-margin-top: calc(var(--alto-cabecera, 56px) + 10px); }
 
+/* ---- Usuarios ---- */
+body:not(.es-admin) .solo-admin { display: none !important; }
+#usuTabla tr.apagado td { opacity: 0.6; }
+.fila-clave { display: flex; gap: 6px; align-items: center; }
+.fila-clave input { font-family: ui-monospace, monospace; }
+.btn.peligro { color: var(--bad); border-color: var(--bad); }
+pre.secreto { white-space: pre-wrap; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 0.95rem; }
+
 /* ---- Ordenar tablas ---- */
 th[data-orden] { cursor: pointer; user-select: none; }
 th[data-orden]:hover, th[data-orden]:focus-visible { color: var(--text); outline: none; }

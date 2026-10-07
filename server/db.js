@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS config (clave TEXT PRIMARY KEY, valor TEXT);
 const MIGRACIONES = {
   presupuestos: { tipo: 'TEXT' },
   partidas: { tipo: 'TEXT' },
-  usuarios: { mfa_secreto: 'TEXT', mfa_pendiente: 'TEXT', mfa_ultimo_paso: 'INTEGER', mfa_recuperacion: 'TEXT' },
+  usuarios: { mfa_secreto: 'TEXT', mfa_pendiente: 'TEXT', mfa_ultimo_paso: 'INTEGER', mfa_recuperacion: 'TEXT',
+    rol: 'TEXT', activo: 'INTEGER', nombre: 'TEXT', ultimo_acceso: 'TEXT', cambiar_clave: 'INTEGER' },
 };
 
 export function abrir(ruta) {
@@ -53,6 +54,9 @@ export function abrir(ruta) {
     const hay = new Set(db.prepare(`PRAGMA table_info(${tabla})`).all().map((c) => c.name));
     for (const [c, tipo] of Object.entries(cols)) if (!hay.has(c)) db.exec(`ALTER TABLE ${tabla} ADD COLUMN ${c} ${tipo}`);
   }
+  // Roles: los usuarios de antes de existir los roles podían hacerlo todo, así que pasan a ser administradores.
+  db.exec("UPDATE usuarios SET rol = 'admin' WHERE rol IS NULL");
+  db.exec('UPDATE usuarios SET activo = 1 WHERE activo IS NULL');
   // Las sesiones se guardan ahora como huella (hash): las antiguas se borran una vez (hay que volver a entrar).
   if (leerConfig(db, 'sesiones_hash') !== '1') { db.exec('DELETE FROM sesiones'); guardarConfig(db, 'sesiones_hash', '1'); }
   return db;
@@ -136,22 +140,65 @@ function hashClave(clave, sal = randomBytes(16).toString('hex')) {
   return `scrypt:${sal}:${scryptSync(clave, sal, 64).toString('hex')}`;
 }
 
-export function crearUsuario(db, usuario, clave) {
-  if (!/^[\w.@-]{2,40}$/.test(usuario)) throw new Error('Usuario no válido (letras, números, . - _ @).');
+export const ROLES = ['admin', 'usuario'];
+
+function validarClave(usuario, clave) {
   if (String(clave).length < MIN_CLAVE) throw new Error(`La contraseña debe tener al menos ${MIN_CLAVE} caracteres.`);
   if (String(clave).length > 200) throw new Error('La contraseña es demasiado larga.');
-  if (String(clave).toLowerCase().includes(usuario.toLowerCase())) throw new Error('La contraseña no puede contener el nombre de usuario.');
-  db.prepare('INSERT OR REPLACE INTO usuarios (usuario, hash, creado) VALUES (?, ?, ?)').run(usuario, hashClave(clave), new Date().toISOString());
-  db.prepare('DELETE FROM sesiones WHERE usuario = ?').run(usuario); // cierra sesiones con la contraseña anterior
+  if (String(clave).toLowerCase().includes(String(usuario).toLowerCase())) throw new Error('La contraseña no puede contener el nombre de usuario.');
 }
-export const borrarUsuario = (db, usuario) => {
-  db.prepare('DELETE FROM sesiones WHERE usuario = ?').run(usuario);
-  return db.prepare('DELETE FROM usuarios WHERE usuario = ?').run(usuario).changes > 0;
-};
-export const listaUsuarios = (db) => db.prepare('SELECT usuario, creado, mfa_secreto IS NOT NULL AS mfa FROM usuarios ORDER BY usuario').all();
 
+export const existeUsuario = (db, usuario) => !!db.prepare('SELECT 1 FROM usuarios WHERE usuario = ?').get(String(usuario));
+
+export function crearUsuario(db, usuario, clave, { rol = 'usuario', nombre = '', cambiarAlEntrar = false } = {}) {
+  if (!/^[\w.@-]{2,40}$/.test(usuario)) throw new Error('Usuario no válido: de 2 a 40 letras sin acentos, números, . - _ @ (sin espacios).');
+  if (existeUsuario(db, usuario)) throw new Error(`Ya existe el usuario «${usuario}».`);
+  if (!ROLES.includes(rol)) throw new Error('Rol no válido.');
+  validarClave(usuario, clave);
+  db.prepare('INSERT INTO usuarios (usuario, hash, creado, rol, activo, nombre, cambiar_clave) VALUES (?, ?, ?, ?, 1, ?, ?)')
+    .run(usuario, hashClave(clave), new Date().toISOString(), rol, String(nombre || '').slice(0, 80), cambiarAlEntrar ? 1 : 0);
+}
+
+// Nueva contraseña: conserva el resto (rol, verificación en dos pasos) y cierra las sesiones abiertas.
+// cambiarAlEntrar: la puso otra persona (un administrador), así que el usuario tendrá que cambiarla al entrar.
+export function cambiarClave(db, usuario, clave, { cambiarAlEntrar = false } = {}) {
+  if (!existeUsuario(db, usuario)) throw new Error('Ese usuario no existe.');
+  validarClave(usuario, clave);
+  if (comprobarClave(db, usuario, clave)) throw new Error('La contraseña nueva tiene que ser distinta de la actual.');
+  db.prepare('UPDATE usuarios SET hash = ?, cambiar_clave = ? WHERE usuario = ?').run(hashClave(clave), cambiarAlEntrar ? 1 : 0, String(usuario));
+  db.prepare('DELETE FROM sesiones WHERE usuario = ?').run(String(usuario));
+}
+
+export function editarUsuario(db, usuario, { rol, activo, nombre } = {}) {
+  if (!existeUsuario(db, usuario)) throw new Error('Ese usuario no existe.');
+  if (rol !== undefined) {
+    if (!ROLES.includes(rol)) throw new Error('Rol no válido.');
+    db.prepare('UPDATE usuarios SET rol = ? WHERE usuario = ?').run(rol, String(usuario));
+  }
+  if (nombre !== undefined) db.prepare('UPDATE usuarios SET nombre = ? WHERE usuario = ?').run(String(nombre || '').slice(0, 80), String(usuario));
+  if (activo !== undefined) {
+    db.prepare('UPDATE usuarios SET activo = ? WHERE usuario = ?').run(activo ? 1 : 0, String(usuario));
+    if (!activo) cerrarSesionesDe(db, usuario); // desactivar lo echa al momento
+  }
+}
+
+export const borrarUsuario = (db, usuario) => {
+  db.prepare('DELETE FROM sesiones WHERE usuario = ?').run(String(usuario));
+  return db.prepare('DELETE FROM usuarios WHERE usuario = ?').run(String(usuario)).changes > 0;
+};
+export const listaUsuarios = (db) => db.prepare(`
+  SELECT u.usuario, u.nombre, u.rol, u.activo, u.creado, u.ultimo_acceso, u.mfa_secreto IS NOT NULL AS mfa, u.cambiar_clave,
+    (SELECT COUNT(*) FROM sesiones s WHERE s.usuario = u.usuario AND s.expira > ?) AS sesiones
+  FROM usuarios u ORDER BY u.usuario`).all(Date.now())
+  .map((u) => ({ ...u, activo: !!u.activo, mfa: !!u.mfa, cambiar_clave: !!u.cambiar_clave }));
+export const datosUsuario = (db, usuario) => listaUsuarios(db).find((u) => u.usuario === usuario) || null;
+// Administradores activos (siempre tiene que quedar al menos uno).
+export const adminsActivos = (db) => db.prepare("SELECT usuario FROM usuarios WHERE rol = 'admin' AND activo = 1").all().map((r) => r.usuario);
+export const cerrarSesionesDe = (db, usuario) => db.prepare('DELETE FROM sesiones WHERE usuario = ?').run(String(usuario)).changes;
+
+// Solo valen los usuarios activos (un usuario desactivado no puede entrar aunque sepa su contraseña).
 export function comprobarClave(db, usuario, clave) {
-  const u = db.prepare('SELECT hash FROM usuarios WHERE usuario = ?').get(String(usuario));
+  const u = db.prepare('SELECT hash FROM usuarios WHERE usuario = ? AND activo = 1').get(String(usuario));
   // Se calcula el hash aunque el usuario no exista, para no dar pistas por el tiempo de respuesta.
   const [, sal, h] = (u?.hash || `scrypt:${'0'.repeat(32)}:${'0'.repeat(128)}`).split(':');
   const calc = scryptSync(String(clave), sal, 64);
@@ -160,18 +207,19 @@ export function comprobarClave(db, usuario, clave) {
 
 // En la base de datos solo se guarda la huella del token: quien viera una copia de la base de datos
 // no podría usarla para entrar.
-const huella = (token) => createHash('sha256').update(String(token || '')).digest('hex');
+export const huella = (token) => createHash('sha256').update(String(token || '')).digest('hex');
 const DIAS_SESION = 7;
 export function crearSesion(db, usuario) {
   const token = randomBytes(32).toString('hex');
   db.prepare('INSERT INTO sesiones (token, usuario, expira) VALUES (?, ?, ?)').run(huella(token), usuario, Date.now() + DIAS_SESION * 86400000);
   db.prepare('DELETE FROM sesiones WHERE expira < ?').run(Date.now());
+  db.prepare('UPDATE usuarios SET ultimo_acceso = ? WHERE usuario = ?').run(new Date().toISOString(), usuario);
   return { token, maxAge: DIAS_SESION * 86400 };
 }
 export function usuarioDeSesion(db, token) {
   if (!token) return null;
   if (!/^[0-9a-f]{64}$/.test(token)) return null;
-  const s = db.prepare('SELECT usuario, expira FROM sesiones WHERE token = ?').get(huella(token));
+  const s = db.prepare('SELECT s.usuario, s.expira FROM sesiones s JOIN usuarios u ON u.usuario = s.usuario WHERE s.token = ? AND u.activo = 1').get(huella(token));
   return s && s.expira > Date.now() ? s.usuario : null;
 }
 export const cerrarOtrasSesiones = (db, usuario, token) => db.prepare('DELETE FROM sesiones WHERE usuario = ? AND token <> ?').run(String(usuario), huella(token));

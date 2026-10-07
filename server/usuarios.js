@@ -1,5 +1,8 @@
 // Gestión de usuarios de la aplicación.
-//   node server/usuarios.js nuevo <usuario>      crea o cambia la contraseña (la pide por teclado)
+//   node server/usuarios.js nuevo <usuario> [admin]  crea un usuario o le cambia la contraseña (la pide por teclado)
+//   node server/usuarios.js admin <usuario>          lo hace administrador (puede gestionar usuarios)
+//   node server/usuarios.js normal <usuario>         le quita el permiso de administrador
+//   node server/usuarios.js activar|desactivar <usuario>
 //   node server/usuarios.js borrar <usuario>
 //   node server/usuarios.js lista
 //   node server/usuarios.js mfa-quitar <usuario>  quita la verificación en dos pasos (móvil perdido)
@@ -11,7 +14,7 @@ import * as DB from './db.js';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const db = DB.abrir(process.env.PRESUPUESTOS_DB || join(RAIZ, 'datos', 'datos.db'));
-const [orden, usuario] = process.argv.slice(2);
+const [orden, usuario, extra] = process.argv.slice(2);
 
 // Lee una contraseña sin mostrarla en pantalla (o de la entrada estándar si no es un terminal).
 function leerClave(texto) {
@@ -48,13 +51,28 @@ try {
       const c2 = await leerClave('Repite la contraseña: ');
       if (c1 !== c2) throw new Error('Las contraseñas no coinciden.');
     }
-    DB.crearUsuario(db, usuario, c1);
-    console.log(`Usuario «${usuario}» guardado.`);
+    if (DB.existeUsuario(db, usuario)) {
+      DB.cambiarClave(db, usuario, c1);
+      console.log(`Contraseña de «${usuario}» cambiada.`);
+    } else {
+      // El primer usuario siempre es administrador.
+      const rol = extra === 'admin' || !DB.adminsActivos(db).length ? 'admin' : 'usuario';
+      DB.crearUsuario(db, usuario, c1, { rol });
+      console.log(`Usuario «${usuario}» creado${rol === 'admin' ? ' como administrador' : ''}.`);
+    }
+  } else if ((orden === 'admin' || orden === 'normal') && usuario) {
+    if (orden === 'normal' && DB.adminsActivos(db).filter((u) => u !== usuario).length === 0) throw new Error('Tiene que quedar al menos un administrador activo.');
+    DB.editarUsuario(db, usuario, { rol: orden === 'admin' ? 'admin' : 'usuario' });
+    console.log(orden === 'admin' ? `«${usuario}» ahora es administrador.` : `«${usuario}» ya no es administrador.`);
+  } else if ((orden === 'activar' || orden === 'desactivar') && usuario) {
+    if (orden === 'desactivar' && DB.adminsActivos(db).filter((u) => u !== usuario).length === 0) throw new Error('Tiene que quedar al menos un administrador activo.');
+    DB.editarUsuario(db, usuario, { activo: orden === 'activar' });
+    console.log(`«${usuario}» ${orden === 'activar' ? 'activado' : 'desactivado: ya no puede entrar'}.`);
   } else if (orden === 'borrar' && usuario) {
     console.log(DB.borrarUsuario(db, usuario) ? `Usuario «${usuario}» borrado.` : 'Ese usuario no existe.');
   } else if (orden === 'lista') {
     const us = DB.listaUsuarios(db);
-    console.log(us.length ? us.map((u) => `${u.usuario}  (desde ${String(u.creado).slice(0, 10)})${u.mfa ? '  · verificación en dos pasos' : ''}`).join('\n') : 'No hay usuarios.');
+    console.log(us.length ? us.map((u) => `${u.usuario}${u.rol === 'admin' ? '  [administrador]' : ''}${u.activo ? '' : '  [DESACTIVADO]'}  (desde ${String(u.creado).slice(0, 10)})${u.mfa ? '  · verificación en dos pasos' : ''}`).join('\n') : 'No hay usuarios.');
     console.log(`Verificación en dos pasos obligatoria: ${DB.leerConfig(db, 'mfa_obligatorio') === '1' ? 'sí' : 'no'}`);
   } else if (orden === 'mfa-quitar' && usuario) {
     console.log(DB.quitarMfa(db, usuario) ? `Verificación en dos pasos quitada a «${usuario}». La próxima vez entrará solo con la contraseña${DB.leerConfig(db, 'mfa_obligatorio') === '1' ? ' y tendrá que configurarla de nuevo' : ''}.` : 'Ese usuario no existe.');
@@ -62,7 +80,7 @@ try {
     DB.guardarConfig(db, 'mfa_obligatorio', usuario === 'no' ? '0' : '1');
     console.log(usuario === 'no' ? 'La verificación en dos pasos ya no es obligatoria.' : 'Ahora todos los usuarios tendrán que usar verificación en dos pasos.');
   } else {
-    console.log('Uso:\n  nuevo <usuario>\n  borrar <usuario>\n  lista\n  mfa-quitar <usuario>\n  mfa-obligatoria si|no');
+    console.log('Uso:\n  nuevo <usuario> [admin]\n  admin <usuario>\n  normal <usuario>\n  activar <usuario>\n  desactivar <usuario>\n  borrar <usuario>\n  lista\n  mfa-quitar <usuario>\n  mfa-obligatoria si|no');
   }
 } catch (err) {
   console.error('Error: ' + err.message);

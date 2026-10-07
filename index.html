@@ -342,6 +342,11 @@
         </div>
         <p class="muted small">Sale en la cabecera de la aplicación y en los documentos impresos.</p>
       </section>
+      <section class="pane solo-servidor" id="miCuenta">
+        <h2>Mi cuenta</h2>
+        <p class="muted small">Has entrado como <strong id="miUsuario"></strong><span id="miRol"></span>.</p>
+        <div class="btns"><button class="btn ghost" id="miClave">Cambiar mi contraseña</button></div>
+      </section>
       <section class="pane solo-servidor" id="seguridad">
         <h2>Seguridad · verificación en dos pasos</h2>
         <p class="muted small">Además de la contraseña, al entrar se pide un código de 6 cifras de una app del móvil
@@ -352,8 +357,22 @@
           <button class="btn ghost" id="mfaCodigos">Nuevos códigos de recuperación</button>
           <button class="btn ghost" id="mfaDesactivar">Desactivar o cambiar de móvil</button>
         </div>
-        <label class="check mfa-politica" data-ayuda="Quien todavía no la tenga tendrá que configurarla la próxima vez que entre y, hasta hacerlo, no podrá ver ningún dato. Solo se puede marcar si ya la tienes activada tú."><input type="checkbox" id="mfaObligatoria"> Exigirla a todos los usuarios
+        <label class="check mfa-politica solo-admin" data-ayuda="Quien todavía no la tenga tendrá que configurarla la próxima vez que entre y, hasta hacerlo, no podrá ver ningún dato. Solo se puede marcar si ya la tienes activada tú."><input type="checkbox" id="mfaObligatoria"> Exigirla a todos los usuarios
           (quien no la tenga deberá configurarla al entrar)</label>
+      </section>
+
+      <section class="pane solo-servidor solo-admin" id="usuarios">
+        <div class="pane-head">
+          <h2 data-ayuda="Solo lo ven los administradores. Para cualquier cambio se pide tu contraseña otra vez (vale 10 minutos). Todo queda apuntado en el registro del servidor.">Usuarios</h2>
+          <button class="btn" id="usuNuevo">+ Nuevo usuario</button>
+        </div>
+        <p id="usuInfo" class="muted small"></p>
+        <div class="table-wrap">
+          <table class="data cards">
+            <thead><tr><th>Usuario</th><th data-ayuda="Usuario: trabaja con albaranes, presupuestos, tarifa… Administrador: además puede gestionar usuarios.">Permisos</th><th>Estado</th><th data-ayuda="Si tiene activada la verificación en dos pasos (código del móvil al entrar).">Verificación</th><th>Último acceso</th><th class="num" data-ayuda="Ordenadores o móviles donde tiene la sesión abierta ahora.">Sesiones</th><th></th></tr></thead>
+            <tbody id="usuTabla"></tbody>
+          </table>
+        </div>
       </section>
 
       <section class="pane">

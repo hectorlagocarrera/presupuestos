@@ -81,6 +81,14 @@ export const mfa = {
   politica: (obligatorio) => post('mfa/politica', { obligatorio }),
 };
 
+// Cuenta propia y gestión de usuarios (esta última, solo administradores).
+export const cuentas = {
+  cambiarMiClave: (actual, nueva) => post('yo/clave', { actual, nueva }),
+  async lista() { return (await api('usuarios')).json(); },
+  confirmar: (clave) => post('usuarios/confirmar', { clave }),
+  accion: (accion, datos) => post('usuarios/' + accion, datos),
+};
+
 // ---------- Navegador (IndexedDB) ----------
 
 let idb = null;

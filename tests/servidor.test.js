@@ -34,7 +34,7 @@ test('usuarios y sesiones', () => {
   assert.equal(DB.comprobarClave(db, 'nadie', 'una-clave-larguisima'), false);
   const { token } = DB.crearSesion(db, 'ana');
   assert.equal(DB.usuarioDeSesion(db, token), 'ana');
-  DB.crearUsuario(db, 'ana', 'clave-nueva-larguisima');
+  DB.cambiarClave(db, 'ana', 'clave-nueva-larguisima');
   assert.equal(DB.usuarioDeSesion(db, token), null, 'cambiar la contraseña cierra las sesiones');
   assert.ok(!DB.listaUsuarios(db)[0].hash, 'la lista no muestra los hashes');
   const s2 = DB.crearSesion(db, 'ana');
@@ -72,8 +72,63 @@ test('base de datos: columnas de MFA se añaden a bases antiguas', () => {
   DB.crearUsuario(db, 'ana', 'una-clave-larguisima');
   DB.guardarMfa(db, 'ana', { mfa_secreto: 'ABC' });
   assert.equal(DB.datosMfa(db, 'ana').mfa_secreto, 'ABC');
-  assert.equal(DB.listaUsuarios(db)[0].mfa, 1);
+  assert.equal(DB.listaUsuarios(db)[0].mfa, true);
   assert.ok(DB.quitarMfa(db, 'ana'));
   DB.guardarConfig(db, 'mfa_obligatorio', '1');
   assert.equal(DB.leerConfig(db, 'mfa_obligatorio'), '1');
+});
+
+test('roles, desactivar y cambiar contraseña sin perder la verificación', () => {
+  const db = DB.abrir(':memory:');
+  DB.crearUsuario(db, 'jefa', 'clave-de-la-oficina-1', { rol: 'admin' });
+  DB.crearUsuario(db, 'pepe', 'clave-provisional-1', { cambiarAlEntrar: true });
+  assert.throws(() => DB.crearUsuario(db, 'pepe', 'otra-clave-larga-1'), /Ya existe/);
+  assert.throws(() => DB.crearUsuario(db, 'con espacio', 'otra-clave-larga-1'), /no válido/);
+  assert.throws(() => DB.crearUsuario(db, 'eva', 'otra-clave-larga-1', { rol: 'superjefe' }), /Rol/);
+  const pepe = () => DB.datosUsuario(db, 'pepe');
+  assert.equal(pepe().rol, 'usuario');
+  assert.equal(pepe().cambiar_clave, true);
+  assert.deepEqual(DB.adminsActivos(db), ['jefa']);
+
+  // Cambiar la contraseña conserva la verificación en dos pasos y quita «debe cambiarla».
+  DB.guardarMfa(db, 'pepe', { mfa_secreto: 'ABCDEFGH' });
+  const { token } = DB.crearSesion(db, 'pepe');
+  assert.throws(() => DB.cambiarClave(db, 'pepe', 'clave-provisional-1'), /distinta/);
+  DB.cambiarClave(db, 'pepe', 'clave-propia-segura');
+  assert.equal(pepe().mfa, true, 'la verificación se mantiene');
+  assert.equal(pepe().cambiar_clave, false);
+  assert.equal(DB.usuarioDeSesion(db, token), null, 'cambiar la contraseña cierra sus sesiones');
+  assert.ok(pepe().ultimo_acceso, 'se apunta el último acceso');
+
+  // Desactivado: no entra y sus sesiones dejan de valer.
+  const s2 = DB.crearSesion(db, 'pepe');
+  DB.editarUsuario(db, 'pepe', { activo: false });
+  assert.equal(DB.comprobarClave(db, 'pepe', 'clave-propia-segura'), false);
+  assert.equal(DB.usuarioDeSesion(db, s2.token), null);
+  DB.editarUsuario(db, 'pepe', { activo: true, rol: 'admin', nombre: 'Pepe Pérez' });
+  assert.equal(DB.comprobarClave(db, 'pepe', 'clave-propia-segura'), true);
+  assert.equal(pepe().nombre, 'Pepe Pérez');
+  assert.deepEqual(DB.adminsActivos(db).sort(), ['jefa', 'pepe']);
+});
+
+test('usuarios de antes de los roles pasan a administradores', async () => {
+  const { mkdtempSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { DatabaseSync } = await import('node:sqlite');
+  const dir = mkdtempSync(join(tmpdir(), 'alb-'));
+  const ruta = join(dir, 'antigua.db');
+  // Base de datos como las de antes: sin roles ni sesiones con huella.
+  const vieja = new DatabaseSync(ruta);
+  vieja.exec('CREATE TABLE usuarios (usuario TEXT PRIMARY KEY, hash TEXT NOT NULL, creado TEXT); CREATE TABLE sesiones (token TEXT PRIMARY KEY, usuario TEXT NOT NULL, expira INTEGER NOT NULL);');
+  vieja.prepare("INSERT INTO usuarios VALUES ('antiguo', 'x', '2026-01-01')").run();
+  vieja.prepare("INSERT INTO sesiones VALUES ('tokenviejo', 'antiguo', ?)").run(Date.now() + 1e9);
+  vieja.close();
+  const db = DB.abrir(ruta);
+  const u = DB.datosUsuario(db, 'antiguo');
+  assert.equal(u.rol, 'admin');
+  assert.equal(u.activo, true);
+  assert.equal(u.sesiones, 0, 'las sesiones antiguas (sin huella) se cierran');
+  db.close();
+  rmSync(dir, { recursive: true });
 });

@@ -147,7 +147,7 @@ if [ "$AUTO_ACTUALIZAR" = "s" ]; then
 fi
 
 if [ "$CREAR_USUARIO" = 1 ]; then
-  printf '%s\n' "$P1" | sudo -u presupuestos env PRESUPUESTOS_DB="$DATOS/datos.db" node --disable-warning=ExperimentalWarning "$APP/server/usuarios.js" nuevo "$USUARIO"
+  printf '%s\n' "$P1" | sudo -u presupuestos env PRESUPUESTOS_DB="$DATOS/datos.db" node --disable-warning=ExperimentalWarning "$APP/server/usuarios.js" nuevo "$USUARIO" admin
   unset P1 P2
 fi
 
@@ -248,7 +248,8 @@ else
 fi
 echo
 echo " Comandos útiles:"
-echo "   sudo presupuestos-usuario nuevo maria   → crear usuario o cambiar contraseña"
+echo "   sudo presupuestos-usuario nuevo maria   → crear usuario o cambiar contraseña (también desde Ajustes → Usuarios)"
+echo "   sudo presupuestos-usuario admin maria   → hacer administrador"
 echo "   sudo presupuestos-usuario lista         → ver usuarios"
 echo "   sudo presupuestos-usuario mfa-quitar maria → quitar la verificación en dos pasos (móvil perdido)"
 echo "   sudo presupuestos-copia                 → copia de seguridad ahora (en $COPIAS)"
