@@ -359,7 +359,8 @@ async function estatico(req, res, ruta) {
   try {
     if ((await stat(f)).isDirectory()) f = join(f, 'index.html');
     const datos = await readFile(f);
-    res.writeHead(200, { 'Content-Type': TIPOS[extname(f)] || 'application/octet-stream', 'X-Content-Type-Options': 'nosniff' });
+    // no-cache: el navegador comprueba siempre si hay versión nueva (evita mezclar archivos tras actualizar).
+    res.writeHead(200, { 'Content-Type': TIPOS[extname(f)] || 'application/octet-stream', 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-cache' });
     res.end(datos);
   } catch {
     res.writeHead(404); res.end();

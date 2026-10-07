@@ -196,7 +196,12 @@ server {
         proxy_request_buffering off;
     }
 
-    location / { try_files \$uri \$uri/ =404; }
+    # Archivos de la aplicación: el navegador comprueba siempre si hay versión nueva (respuesta 304 si no ha
+    # cambiado). Así, tras actualizar, nunca mezcla archivos nuevos con otros antiguos de su caché.
+    location / {
+        try_files \$uri \$uri/ =404;
+        expires -1;
+    }
 
     # Cabeceras de seguridad: solo HTTPS, sin incrustar la app en otras webs, solo código propio.
     add_header Strict-Transport-Security "max-age=31536000" always;

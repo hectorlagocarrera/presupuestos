@@ -114,10 +114,21 @@ function initLogin() {
   });
 }
 
+// Arranca una parte de la aplicación sin que un fallo en ella deje sin funcionar todo lo demás.
+function parte(nombre, fn) {
+  try { fn(); } catch (err) {
+    console.error(`Error al preparar «${nombre}»`, err);
+    toast(`Algo ha fallado en «${nombre}». Si se repite, pulsa Ctrl+F5.`);
+  }
+}
+
 async function start() {
+  window.__arrancando = true; // los módulos se han cargado bien (el vigilante de arranque.js ya no espera)
   initLogin();
   initMenu();
   initAyuda();
+  // La navegación entre pestañas, lo primero: funciona aunque luego falle otra parte.
+  window.addEventListener('hashchange', () => show(current()));
   const srv = await detectarServidor();
   if (srv === 'login') { mostrarLogin(); return; }
   let yo = null;
@@ -137,8 +148,8 @@ async function start() {
   }
   if (srv === 'si') {
     $('#sesionUsuario').textContent = yo.usuario;
-    initSeguridad(yo);
-    initUsuarios(yo);
+    parte('Seguridad', () => initSeguridad(yo));
+    parte('Usuarios', () => initUsuarios(yo));
     $('#miUsuario').textContent = yo.nombre ? `${yo.usuario} (${yo.nombre})` : yo.usuario;
     $('#miRol').textContent = yo.rol === 'admin' ? ' · administrador' : '';
     $('#sesion').classList.remove('hidden');
@@ -154,21 +165,20 @@ async function start() {
     });
     document.body.classList.add('modo-servidor');
   } else document.body.classList.add('modo-navegador');
-  initEditor();
-  initBuscador();
-  initArticulos();
-  initPresupuestos();
-  initFacturas();
-  initClientes();
-  initImportar();
-  initTarifa();
-  initAjustes();
-  initLogo();
-  refreshDatalists();
-  etiquetarTablas();
-  avisoCopia();
+  parte('Nuevo albarán', initEditor);
+  parte('Buscador histórico', initBuscador);
+  parte('Artículos', initArticulos);
+  parte('Albaranes', initPresupuestos);
+  parte('Facturas', initFacturas);
+  parte('Clientes', initClientes);
+  parte('Importar', initImportar);
+  parte('Tarifa', initTarifa);
+  parte('Ajustes', initAjustes);
+  parte('Logotipo', initLogo);
+  parte('Listas', () => { refreshDatalists(); etiquetarTablas(); avisoCopia(); });
   onChange(() => { refreshDatalists(); avisoCopia(); });
-  window.addEventListener('hashchange', () => show(current()));
+  window.__appLista = true;
+  document.querySelector('.aviso-arranque')?.remove();
   show(current());
   if (!data.partidas.length && current() === 'nuevo') toast('Empieza importando tus presupuestos, albaranes o facturas en «Importar».');
 }
