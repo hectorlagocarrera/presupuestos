@@ -435,8 +435,10 @@
             <label>Puerto <input id="coPuerto" inputmode="numeric" placeholder="465"></label>
             <label>Seguridad <select id="coSeguridad"><option value="ssl">SSL/TLS (465)</option><option value="starttls">STARTTLS (587)</option></select></label>
           </div>
-          <label>Usuario <input id="coUsuario" autocomplete="off" placeholder="info@tuempresa.com"></label>
-          <label>Contraseña <input id="coClave" type="password" autocomplete="new-password"></label>
+          <label class="check s2" data-ayuda="Para el relé SMTP de Google Workspace (o de Microsoft 365) cuando en su consola se autoriza la IP del VPS: no se envía usuario ni contraseña."><input type="checkbox" id="coSinAuth"> Sin usuario ni contraseña (relé autorizado por la IP del servidor)</label>
+          <label class="co-auth">Usuario <input id="coUsuario" name="smtp-usuario" autocomplete="off" data-lpignore="true" placeholder="info@tuempresa.com"></label>
+          <label class="co-auth">Contraseña <span class="fila-clave"><input id="coClave" name="smtp-clave" type="text" class="oculta" autocomplete="off" data-lpignore="true" spellcheck="false">
+            <button class="btn ghost small" type="button" id="coVer">Ver</button></span></label>
           <label>Remitente (email) <input id="coRemitente" type="email" placeholder="info@tuempresa.com"></label>
           <label>Nombre del remitente <input id="coNombre" placeholder="Nombre de la empresa"></label>
           <label data-ayuda="A este email llega una copia de cada documento firmado, y es al que contestan los clientes.">Copia para la oficina <input id="coCopia" type="email" placeholder="oficina@tuempresa.com"></label>

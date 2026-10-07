@@ -19,8 +19,16 @@ async function logoParaPdf() {
 export async function initCorreo() {
   logoParaPdf().catch(() => {});
   const msg = (t) => { $('#coMsg').textContent = t; };
+  const sinAuth = () => {
+    const s = $('#coSinAuth').checked;
+    for (const id of ['coUsuario', 'coClave']) { $('#' + id).disabled = s; $('#' + id).closest('label').classList.toggle('desactivado', s); }
+  };
+  $('#coSinAuth').addEventListener('change', sinAuth);
+  $('#coVer').addEventListener('click', () => { $('#coClave').classList.toggle('oculta'); $('#coVer').textContent = $('#coClave').classList.contains('oculta') ? 'Ver' : 'Ocultar'; });
   const pintar = (c) => {
     for (const [id, k] of Object.entries(CAMPOS)) $('#' + id).value = c[k] || (k === 'seguridad' ? 'ssl' : '');
+    $('#coSinAuth').checked = !c.usuario && !c.clave && !!c.host;
+    sinAuth();
     msg(c.listo ? '✓ Correo configurado.' : 'Aún no está configurado: sin él, los enlaces para firmar se pueden copiar y enviar por WhatsApp, pero no llegan copias por email.');
   };
   $('#coImportes').checked = !!data.ajustes.partesImportes;
@@ -30,6 +38,7 @@ export async function initCorreo() {
   $('#coForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const datos = Object.fromEntries(Object.entries(CAMPOS).map(([id, k]) => [k, $('#' + id).value.trim()]));
+    if ($('#coSinAuth').checked) { datos.usuario = ''; datos.clave = ''; }
     try {
       const r = await correoApi.guardar(datos);
       pintar({ ...datos, urlPublica: r.urlPublica, clave: datos.clave ? '********' : '', listo: r.listo });

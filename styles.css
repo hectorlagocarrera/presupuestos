@@ -569,6 +569,9 @@ dialog.firma-dlg { width: min(760px, 96vw); }
 body:not(.es-admin) .solo-admin { display: none !important; }
 #usuTabla tr.apagado td { opacity: 0.6; }
 .fila-clave { display: flex; gap: 6px; align-items: center; }
+/* Campo de contraseña que el navegador no autocompleta (no es type=password) pero no se lee de reojo. */
+input.oculta { -webkit-text-security: disc; text-security: disc; }
+.co-auth.desactivado { opacity: 0.45; }
 .fila-clave input { font-family: ui-monospace, monospace; }
 .btn.peligro { color: var(--bad); border-color: var(--bad); }
 pre.secreto { white-space: pre-wrap; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 0.95rem; }
