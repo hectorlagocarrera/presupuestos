@@ -92,7 +92,7 @@ function dupCheck() {
   const f = $('#iFecha').value;
   const dup = esDuplicado(n, f, $('#iTipo').value);
   $('#iDup').classList.toggle('hidden', !dup);
-  if (dup) $('#iDup').textContent = `Ya hay un ${TIPOS[$('#iTipo').value].nombre.toLowerCase()} nº ${n}${dup.fecha ? ' con fecha ' + dup.fecha.split('-').reverse().join('/') : ''}. ¿Quizá ya lo importaste?`;
+  if (dup) $('#iDup').textContent = `Ya hay un ${TIPOS[$('#iTipo').value].nombre.toLowerCase()} número ${n}${dup.fecha ? ' con fecha ' + dup.fecha.split('-').reverse().join('/') : ''}. ¿Quizá ya lo importaste?`;
 }
 
 function renderTabla() {

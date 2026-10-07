@@ -75,7 +75,7 @@
             </label>
             <label data-ayuda="Albarán, presupuesto o factura. Cambia el título del documento impreso y cada tipo lleva su propia numeración.">Tipo
               <select id="edTipo"><option value="albaran">Albarán</option><option value="presupuesto">Presupuesto</option><option value="factura">Factura</option></select></label>
-            <label data-ayuda="Se pone solo: el siguiente al último de este año para este tipo de documento. Puedes cambiarlo a mano.">Nº <input id="edNumero"></label>
+            <label data-ayuda="Se pone solo: el siguiente al último de este año para este tipo de documento. Puedes cambiarlo a mano.">Número <input id="edNumero"></label>
             <label>Fecha <input id="edFecha" type="date"></label>
           </div>
           <div id="edLineas" class="lines"></div>
@@ -137,7 +137,7 @@
         </div>
         <div class="table-wrap">
           <table class="data cards">
-            <thead><tr><th>Fecha</th><th>Artículo</th><th>Categoría</th><th>Material</th><th>Medidas</th><th class="num">Cant.</th><th class="num">Precio ud.</th><th class="num">€/m²</th><th class="num">Total</th><th>Nº / cliente</th><th></th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Artículo</th><th>Categoría</th><th>Material</th><th>Medidas</th><th class="num">Cant.</th><th class="num">Precio ud.</th><th class="num">€/m²</th><th class="num">Total</th><th>Número / cliente</th><th></th></tr></thead>
             <tbody id="aTabla"></tbody>
           </table>
         </div>
@@ -149,13 +149,13 @@
       <section class="pane">
         <div class="pane-head">
           <h2>Albaranes</h2>
-          <input id="pQ" placeholder="Filtrar por nº, cliente o concepto" autocomplete="off" class="narrow">
+          <input id="pQ" placeholder="Filtrar por número, cliente o concepto" autocomplete="off" class="narrow">
         </div>
         <div class="chips" id="pTipos"></div>
         <div class="chips" id="pAnios"></div>
         <div class="table-wrap">
           <table class="data cards">
-            <thead><tr><th>Fecha</th><th>Nº</th><th>Tipo</th><th>Cliente</th><th class="num">Partidas</th><th class="num">Base</th><th class="num">Total</th><th data-ayuda="«Importado»: viene de un PDF o Excel antiguo (pulsa «original» para verlo). «Creado aquí»: hecho en esta aplicación.">Origen</th><th></th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Número</th><th>Tipo</th><th>Cliente</th><th class="num">Partidas</th><th class="num">Base</th><th class="num">Total</th><th data-ayuda="«Importado»: viene de un PDF o Excel antiguo (pulsa «original» para verlo). «Creado aquí»: hecho en esta aplicación.">Origen</th><th></th></tr></thead>
             <tbody id="pTabla"></tbody>
           </table>
         </div>
@@ -276,7 +276,7 @@
           <label data-ayuda="Se detecta por el título del PDF (PRESUPUESTO, FACTURA o ALBARÁN). Las facturas van a la pestaña Facturas y sus precios salen como «facturado».">Tipo
             <select id="iTipo"><option value="presupuesto">Presupuesto</option><option value="albaran">Albarán</option><option value="factura">Factura</option></select>
             <button type="button" class="btn small ghost hidden" id="iTipoTodos">Aplicar a todos</button></label>
-          <label>Nº <input id="iNumero"></label>
+          <label>Número <input id="iNumero"></label>
           <label>Fecha <input id="iFecha" type="date"></label>
         </div>
         <p id="iDup" class="warn hidden"></p>

@@ -101,7 +101,7 @@ function render() {
       </tr>`;
     if (abiertos.has(a.clave)) {
       html += a.ejemplos.map((p) => `
-        <tr class="ej"><td colspan="5">${p.tipo === 'factura' ? '<span class="tag fact">facturado</span> ' : ''}${fmtDate(p.fecha)} · <a href="#" data-ver="${esc(p.presupuestoId)}">${p.tipo === 'factura' ? 'factura' : p.tipo === 'albaran' ? 'albarán' : 'nº'} ${esc(p.numero || '—')}</a> · ${esc(p.cliente || '')} — ${esc(p.articulo)}</td>
+        <tr class="ej"><td colspan="5">${p.tipo === 'factura' ? '<span class="tag fact">facturado</span> ' : ''}${fmtDate(p.fecha)} · <a href="#" data-ver="${esc(p.presupuestoId)}">${p.tipo === 'factura' ? 'factura' : p.tipo === 'albaran' ? 'albarán' : 'núm.'} ${esc(p.numero || '—')}</a> · ${esc(p.cliente || '')} — ${esc(p.articulo)}</td>
         <td class="num">${fmtNum(p.cantidad)} × ${fmtEur(p.precioUnitario)}</td><td class="num">${p.precioM2 ? fmtEur(p.precioM2) + '/m²' : ''}</td><td></td></tr>`).join('');
     }
   }

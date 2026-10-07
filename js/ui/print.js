@@ -34,7 +34,7 @@ export function imprimir(pres, partidas) {
   const html = `
     <header class="p-head">
       <div><img class="p-logo" src="${esc(a.logo || 'logo.png')}" alt=""><h1>${esc(a.nombre || '')}</h1><p>${[a.cif && 'NIF ' + a.cif, a.direccion, a.contacto].filter(Boolean).map(esc).join('<br>')}</p></div>
-      <div class="p-meta"><h2>${tipo.titulo}</h2><p>Nº <strong>${esc(pres.numero || '')}</strong><br>Fecha: ${fmtDate(pres.fecha)}</p></div>
+      <div class="p-meta"><h2>${tipo.titulo}</h2><p>Número: <strong>${esc(pres.numero || '')}</strong><br>Fecha: ${fmtDate(pres.fecha)}</p></div>
     </header>
     <div class="p-client"><span>Cliente</span><strong>${esc(pres.clienteNombre || '')}</strong>
       ${[c.cif, c.direccion, c.telefono, c.email].filter(Boolean).map(esc).join(' · ')}</div>

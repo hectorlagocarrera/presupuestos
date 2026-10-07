@@ -155,7 +155,7 @@ function lineHtml(l, i) {
       </div>
     </details>
     ${l.ref?.tarifa ? `<div class="refnote">De la tarifa: ${fmtEur(l.ref.precio)}${l.ref.unidad === 'm²' ? '/m² · escribe ancho y alto y el precio se calcula solo' : ' por unidad'}</div>` : ''}
-    ${l.ref && !l.ref.tarifa ? `<div class="refnote">Referencia: ${fmtEur(l.ref.precio)} · ${fmtDate(l.ref.fecha)}${l.ref.numero ? ' · nº ' + esc(l.ref.numero) : ''}${l.ref.cliente ? ' · ' + esc(l.ref.cliente) : ''}</div>` : ''}
+    ${l.ref && !l.ref.tarifa ? `<div class="refnote">Referencia: ${fmtEur(l.ref.precio)} · ${fmtDate(l.ref.fecha)}${l.ref.numero ? ' · núm. ' + esc(l.ref.numero) : ''}${l.ref.cliente ? ' · ' + esc(l.ref.cliente) : ''}</div>` : ''}
   </div>`;
 }
 

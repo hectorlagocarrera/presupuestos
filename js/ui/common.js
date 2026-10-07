@@ -38,7 +38,7 @@ export function resultCard({ doc, score }, opts = {}) {
           ${med ? `<span class="tag soft">${esc(med)}${m2 ? ' · ' + fmtM2(m2) : ''}</span>` : ''}
           ${p.revisar ? '<span class="tag warn">revisar</span>' : ''}
         </div>
-        <div class="res-meta">${p.tipo === 'factura' ? '<span class="tag fact">facturado</span> ' : ''}${fmtDate(p.fecha)}${p.numero ? ` · ${p.tipo === 'factura' ? 'factura' : p.tipo === 'albaran' ? 'albarán' : 'nº'} ${esc(p.numero)}` : ''}${p.cliente ? ' · ' + esc(p.cliente) : ''}</div>
+        <div class="res-meta">${p.tipo === 'factura' ? '<span class="tag fact">facturado</span> ' : ''}${fmtDate(p.fecha)}${p.numero ? ` · ${p.tipo === 'factura' ? 'factura' : p.tipo === 'albaran' ? 'albarán' : 'núm.'} ${esc(p.numero)}` : ''}${p.cliente ? ' · ' + esc(p.cliente) : ''}</div>
       </div>
       <div class="res-side">
         <div class="price">${fmtEur(p.precioUnitario)}</div>
