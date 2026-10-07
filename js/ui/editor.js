@@ -148,7 +148,7 @@ function lineHtml(l, i) {
   <div class="line ${i === active ? 'active' : ''}" data-i="${i}">
     <div class="line-head">
       <span class="n">${i + 1}</span>
-      <input data-f="articulo" class="art" value="${esc(l.articulo)}" placeholder="Artículo o trabajo (p. ej. Cartel Alupanel 3 mm)">
+      <textarea data-f="articulo" class="art" rows="1" placeholder="Artículo o trabajo (p. ej. Cartel Alupanel 3 mm)">${esc(l.articulo)}</textarea>
       <input data-f="categoria" class="cat" list="dlCategorias" value="${esc(l.categoria)}" placeholder="Categoría">
       <span class="tools">
         <button class="icon" data-act="up" title="Subir">↑</button>
@@ -179,7 +179,15 @@ function lineHtml(l, i) {
 
 function renderLines() {
   $('#edLineas').innerHTML = lines.map(lineHtml).join('');
+  $('#edLineas').querySelectorAll('textarea.art').forEach(ajustarAlto);
   renderTotals();
+}
+
+// El artículo crece hacia abajo para que se vea entero.
+function ajustarAlto(t) {
+  if (!t.offsetParent) return; // pantalla oculta: se ajusta al mostrarla
+  t.style.height = 'auto';
+  t.style.height = t.scrollHeight + 2 + 'px';
 }
 
 function renderTotals() {
@@ -240,7 +248,7 @@ const autoRefsSoon = debounce(autoRefs, 250);
 export function initEditor() {
   readFiltros = mountFiltros($('#refFiltros'), runRefsSoon);
   onChange(() => { readFiltros.refresh(); if (!$('#s-nuevo').classList.contains('hidden')) runRefsSoon(); });
-  onShow('nuevo', () => { readFiltros.refresh(); numeroAuto(); runRefs(); });
+  onShow('nuevo', () => { readFiltros.refresh(); numeroAuto(); runRefs(); $('#edLineas').querySelectorAll('textarea.art').forEach(ajustarAlto); });
 
   $('#edLineas').addEventListener('focusin', (e) => {
     const card = e.target.closest('.line');
@@ -253,9 +261,16 @@ export function initEditor() {
     }
   });
 
+  // El artículo es una sola línea de texto: Intro no salta de línea y los saltos pegados pasan a espacios.
+  $('#edLineas').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('textarea.art')) e.preventDefault(); });
+  window.addEventListener('resize', debounce(() => $('#edLineas').querySelectorAll('textarea.art').forEach(ajustarAlto), 150));
   $('#edLineas').addEventListener('input', (e) => {
     const f = e.target.dataset.f;
     if (!f) return;
+    if (e.target.matches('textarea.art')) {
+      if (/\n/.test(e.target.value)) e.target.value = e.target.value.replace(/\s*\n\s*/g, ' ');
+      ajustarAlto(e.target);
+    }
     const card = e.target.closest('.line');
     const l = lines[+card.dataset.i];
     dirty = true;

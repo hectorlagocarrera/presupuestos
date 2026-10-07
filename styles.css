@@ -160,10 +160,11 @@ output { display: block; padding: 7px 0; font-weight: 600; color: var(--text); f
 .lines { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
 .line { border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: var(--card); }
 .line.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-.line-head { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.line-head { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 8px; }
+.line-head .n, .line-head .tools { margin-top: 7px; } /* a la altura de la primera línea del artículo */
 .line-head .n { font-weight: 700; color: var(--muted); width: 1.4em; text-align: center; }
-.line-head .art { flex: 3; font-weight: 600; }
-.line-head .cat { flex: 1.2; }
+.line-head .art { flex: 4; font-weight: 600; resize: none; overflow: hidden; line-height: 1.35; min-height: 0; }
+.line-head .cat { flex: 1; }
 .tools { display: flex; }
 .line-grid { display: grid; grid-template-columns: 2fr repeat(3, minmax(0, 1fr)); gap: 0 8px; }
 .line-grid .w2 { grid-column: span 1; }
