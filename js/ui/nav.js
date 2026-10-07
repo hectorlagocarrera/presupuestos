@@ -2,7 +2,9 @@
 const handlers = {};
 export const onShow = (tab, fn) => { handlers[tab] = fn; };
 export function go(tab) {
-  if (location.hash === '#' + tab) show(tab); else location.hash = tab;
+  // Al momento (sin esperar al evento hashchange), para que lo que venga después ya vea la pantalla.
+  if (location.hash !== '#' + tab) history.pushState(null, '', '#' + tab);
+  show(tab);
 }
 export function current() { return (location.hash || '#nuevo').slice(1); }
 

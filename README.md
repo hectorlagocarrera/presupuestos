@@ -26,7 +26,8 @@ los datos en el navegador.
 1. **Importar**: arrastra los PDF de presupuestos que saca el programa de gestión (uno por año, con todos los
    presupuestos dentro), revisa lo detectado y pulsa **Guardar todos**. También admite Excel, CSV y texto pegado.
    Los datos de la empresa se rellenan solos desde el PDF y el logotipo ya viene puesto.
-2. **Nuevo albarán**: elige el tipo (albarán, presupuesto o factura; cada uno con su numeración), escribe el trabajo en la partida (por ejemplo «Alupanel» y medidas 3 × 2). A la derecha
+2. **Nuevo albarán**: elige el tipo (albarán, presupuesto o factura; cada uno con su numeración), escribe el trabajo en la partida con las medidas en el mismo texto (por ejemplo «Alupanel 3x2»; no hay casillas de
+   ancho y alto). A la derecha
    salen los trabajos parecidos con último precio, medio, mínimo, máximo, €/m² habitual y evolución por año.
    Pulsa **Usar como referencia** o arrastra el resultado a la izquierda, ajusta y guarda. Lo guardado pasa al
    histórico. Al imprimir sale solo el documento, sin la fecha, el título ni la dirección web del navegador

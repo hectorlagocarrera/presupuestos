@@ -2,6 +2,7 @@
 import { $, esc, fmtEur, fmtNum, fmtDate, calcPartida, round, TIPOS, tipoDe } from '../util.js';
 import { data, clientePorNombre } from '../store.js';
 import { medidasTxt } from './common.js';
+import { parseMeasures } from '../search.js';
 
 // Imprime el HTML dado. La página se imprime sin margen del navegador (así no salen su fecha, título y
 // dirección arriba y abajo) y el margen lo pone el documento: la cabecera y el pie vacíos de la tabla se
@@ -26,7 +27,7 @@ export function imprimir(pres, partidas) {
   const c = clientePorNombre(pres.clienteNombre || '') || {};
   const detalle = (l) => [
     l.descripcion,
-    [l.material, medidasTxt(l)].filter(Boolean).join(' · '),
+    [l.material, parseMeasures(`${l.articulo} ${l.descripcion}`) ? '' : medidasTxt(l)].filter(Boolean).join(' · '),
     l.acabados && 'Acabados: ' + l.acabados,
     l.montaje && 'Montaje: ' + l.montaje,
     l.observaciones,

@@ -1,6 +1,6 @@
-// Pantalla «Nuevo presupuesto»: presupuesto a la izquierda, referencias del histórico a la derecha.
+// Pantalla «Nuevo albarán»: documento a la izquierda, referencias del histórico a la derecha.
 import { $, esc, fmtEur, fmtNum, fmtDate, numOrNull, today, debounce, calcPartida, round, piezasTexto, TIPOS, tipoDe } from '../util.js';
-import { search, similares, priceStats, parseQuery, classify, normalize } from '../search.js';
+import { search, similares, priceStats, parseQuery, classify, normalize, parseMeasures } from '../search.js';
 import { data, searchDocs, savePresupuesto, getPresupuesto, partidasDe, nextNumber, clientePorNombre, onChange } from '../store.js';
 import { resultCard, statsHtml, mountFiltros, toast } from './common.js';
 import { verPresupuesto } from './presview.js';
@@ -39,8 +39,24 @@ function confirmarSalida() {
 const copiaPartida = (p) => {
   const l = emptyLine();
   for (const k of [...CAMPOS_TEXTO, ...CAMPOS_NUM]) if (p[k] != null) l[k] = p[k];
-  return l;
+  return medidasAlTexto(l);
 };
+
+// Ya no hay casillas de ancho y alto: si las medidas guardadas no están escritas en el texto, se añaden al artículo.
+function medidasAlTexto(l) {
+  if (l.ancho > 0 && l.alto > 0 && !parseMeasures(l.articulo) && !parseMeasures(l.descripcion)) {
+    l.articulo = `${l.articulo || ''} ${fmtNum(l.ancho)}x${fmtNum(l.alto)} m`.trim();
+  }
+  medidasDelTexto(l);
+  return l;
+}
+
+// Las medidas (para m², €/m² y la búsqueda) se sacan de lo escrito en el artículo o la descripción.
+function medidasDelTexto(l) {
+  const m = parseMeasures(l.articulo) || parseMeasures(l.descripcion);
+  l.ancho = m ? m.ancho : null;
+  l.alto = m ? m.alto : null;
+}
 
 export const editor = {
   nuevo() { if (!confirmarSalida()) return false; nuevo(); return true; },
@@ -48,7 +64,7 @@ export const editor = {
     if (!confirmarSalida()) return false;
     const p = getPresupuesto(id);
     draft = { ...p };
-    lines = partidasDe(id).map((x) => ({ ...x }));
+    lines = partidasDe(id).map((x) => medidasAlTexto({ ...x }));
     if (!lines.length) lines = [emptyLine()];
     active = 0; dirty = false;
     render();
@@ -73,14 +89,14 @@ export const editor = {
     else { lines.push(l); active = lines.length - 1; }
     dirty = true;
     renderLines();
-    toast('Partida añadida. Ajusta medidas, cantidad y precio.');
+    toast('Partida añadida. Ajusta el texto, la cantidad y el precio.');
     const card = $(`#edLineas .line[data-i="${active}"]`);
     card?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   },
   // Añade un artículo de la tarifa. Si va por m², el precio se calcula al poner las medidas.
   desdeTarifa(art, precio) {
     const l = emptyLine();
-    // Sin las medidas del trabajo antiguo («MEDIDA: 300x100CM»): se ponen las nuevas en ancho y alto.
+    // Sin las medidas del trabajo antiguo («MEDIDA: 300x100CM»): las nuevas se escriben en el artículo.
     l.articulo = art.nombre
       .replace(/\s*(?:medidas?|tama[nñ]o|formato)?\s*:?\s*\d+(?:[.,]\d+)?\s*(?:mm|cm|mts?|m)?\s*[x×*]\s*\d+(?:[.,]\d+)?\s*(?:mm|cm|mts?|m)?\b/gi, ' ')
       .replace(/\s+([.,;:])/g, '$1').replace(/[\s:,-]+…?$/, '').replace(/\s+/g, ' ').trim() || art.nombre;
@@ -92,7 +108,13 @@ export const editor = {
     else { lines.push(l); active = lines.length - 1; }
     dirty = true;
     renderLines();
-    $(`#edLineas .line[data-i="${active}"] [data-f=${art.unidad === 'm²' ? 'ancho' : 'cantidad'}]`)?.focus();
+    // Cursor al final del artículo (para escribir las medidas) o en la cantidad, cuando ya se ve la pantalla.
+    setTimeout(() => {
+      const campo = $(`#edLineas .line[data-i="${active}"] [data-f=${art.unidad === 'm²' ? 'articulo' : 'cantidad'}]`);
+      if (!campo) return;
+      campo.focus();
+      if (art.unidad === 'm²') { campo.value = l.articulo += ' '; campo.setSelectionRange(campo.value.length, campo.value.length); }
+    });
   },
 };
 
@@ -136,12 +158,8 @@ function lineHtml(l, i) {
     </div>
     <div class="line-grid">
       <label class="w2">Material <input data-f="material" list="dlMateriales" value="${esc(l.material)}"></label>
-      <label data-ayuda="En metros: 1,5 = 150 cm.">Ancho m <input data-f="ancho" inputmode="decimal" value="${num(l.ancho)}"></label>
-      <label>Alto m <input data-f="alto" inputmode="decimal" value="${num(l.alto)}"></label>
-      <label data-ayuda="Superficie de una pieza: ancho × alto. Se calcula sola.">m² <output data-o="m2">${c.m2 ? fmtNum(round(c.m2, 2)) : '—'}</output></label>
       <label>Cantidad <input data-f="cantidad" inputmode="decimal" value="${num(l.cantidad)}"></label>
       <label data-ayuda="Precio de una unidad, sin IVA. El total de la línea es precio × cantidad.">Precio ud. <input data-f="precioUnitario" inputmode="decimal" value="${num(l.precioUnitario)}"></label>
-      <label data-ayuda="Precio por metro cuadrado. Si lo escribes, el precio por unidad se calcula solo (€/m² × m²). Sirve para comparar trabajos de medidas distintas.">€/m² <input data-f="precioM2" inputmode="decimal" value="${num(c.precioM2)}" ${c.m2 ? '' : 'disabled'} title="Si escribes el precio por m², se calcula el precio por unidad"></label>
       <label>Total <output data-o="total">${fmtEur(c.precioTotal)}</output></label>
     </div>
     <textarea data-f="descripcion" rows="2" placeholder="Descripción">${esc(l.descripcion)}</textarea>
@@ -154,7 +172,7 @@ function lineHtml(l, i) {
         <label>Observaciones <input data-f="observaciones" value="${esc(l.observaciones)}"></label>
       </div>
     </details>
-    ${l.ref?.tarifa ? `<div class="refnote">De la tarifa: ${fmtEur(l.ref.precio)}${l.ref.unidad === 'm²' ? '/m² · escribe ancho y alto y el precio se calcula solo' : ' por unidad'}</div>` : ''}
+    ${l.ref?.tarifa ? `<div class="refnote">De la tarifa: ${fmtEur(l.ref.precio)}${l.ref.unidad === 'm²' ? '/m² · escribe las medidas en el artículo (p. ej. «3x2» o «300x200 cm») y el precio se calcula solo' : ' por unidad'}</div>` : ''}
     ${l.ref && !l.ref.tarifa ? `<div class="refnote">Referencia: ${fmtEur(l.ref.precio)} · ${fmtDate(l.ref.fecha)}${l.ref.numero ? ' · núm. ' + esc(l.ref.numero) : ''}${l.ref.cliente ? ' · ' + esc(l.ref.cliente) : ''}</div>` : ''}
   </div>`;
 }
@@ -174,11 +192,7 @@ function renderTotals() {
 
 function updateOutputs(card, l, skip) {
   const c = calcPartida(l);
-  card.querySelector('[data-o=m2]').textContent = c.m2 ? fmtNum(round(c.m2, 2)) : '—';
   card.querySelector('[data-o=total]').textContent = fmtEur(c.precioTotal);
-  const pm2 = card.querySelector('[data-f=precioM2]');
-  pm2.disabled = !c.m2;
-  if (skip !== 'precioM2') pm2.value = num(c.precioM2);
   if (skip !== 'precioUnitario') card.querySelector('[data-f=precioUnitario]').value = num(l.precioUnitario);
 }
 
@@ -245,16 +259,12 @@ export function initEditor() {
     const card = e.target.closest('.line');
     const l = lines[+card.dataset.i];
     dirty = true;
-    if (f === 'precioM2') {
-      const c = calcPartida(l);
-      const v = numOrNull(e.target.value);
-      const piezas = l.cantidad === 1 || l.cantidad == null ? piezasTexto(l.articulo) : 1;
-      if (c.m2 && v != null) l.precioUnitario = round(v * c.m2 * piezas, 2);
-    } else if (CAMPOS_NUM.includes(f)) l[f] = numOrNull(e.target.value);
+    if (CAMPOS_NUM.includes(f)) l[f] = numOrNull(e.target.value);
     else l[f] = e.target.value;
+    if (f === 'articulo' || f === 'descripcion') medidasDelTexto(l);
     // Artículo de tarifa por m²: al cambiar las medidas se recalcula el precio (hasta que se escriba otro a mano).
-    if (f === 'precioUnitario' || f === 'precioM2') delete l.tarifaM2;
-    if (l.tarifaM2 && (f === 'ancho' || f === 'alto' || f === 'cantidad')) {
+    if (f === 'precioUnitario') delete l.tarifaM2;
+    if (l.tarifaM2 && (f === 'articulo' || f === 'descripcion' || f === 'cantidad')) {
       const c = calcPartida(l);
       const piezas = l.cantidad === 1 || l.cantidad == null ? piezasTexto(l.articulo) : 1;
       l.precioUnitario = c.m2 ? round(l.tarifaM2 * c.m2 * piezas, 2) : null;
@@ -272,7 +282,7 @@ export function initEditor() {
     }
     updateOutputs(card, l, f);
     renderTotals();
-    if (['articulo', 'material', 'ancho', 'alto'].includes(f)) autoRefsSoon();
+    if (['articulo', 'material', 'descripcion'].includes(f)) autoRefsSoon();
   });
 
   $('#edLineas').addEventListener('click', (e) => {

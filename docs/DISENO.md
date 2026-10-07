@@ -72,7 +72,8 @@ creado, modificado               m2             ancho × alto           id, nomb
   separar lo **facturado** (cobrado) de lo **presupuestado**.
 - Cada línea de un presupuesto (antiguo o nuevo) es una **partida**, y las búsquedas se hacen sobre ellas.
 - Cada partida lleva una copia de la fecha, el cliente y el número para mostrar los resultados sin más consultas.
-- La superficie y el precio por m² se recalculan siempre a partir de ancho, alto y precio.
+- La superficie y el precio por m² se recalculan siempre a partir de ancho, alto y precio. En el albarán no hay casillas
+  de ancho y alto: se sacan de las medidas escritas en el artículo o la descripción («Lona 3x2», «300x200 cm»).
 
 ## 3. Pantallas
 

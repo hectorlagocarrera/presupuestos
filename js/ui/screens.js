@@ -134,7 +134,7 @@ export function initPresupuestos() {
     $('#pTabla').innerHTML = rows.slice(0, 500).map((p) => `
       <tr>
         <td>${fmtDate(p.fecha)}</td>
-        <td><a href="#" data-ver="${esc(p.id)}">${esc(p.numero || '—')}</a></td>
+        <td><a href="#" data-ver="${esc(p.id)}">${p.numero ? esc(p.numero) : '<span class="muted">sin número</span>'}</a></td>
         <td><span class="tag ${tipoDe(p) === 'factura' ? 'fact' : 'soft'}">${TIPOS[tipoDe(p)].nombre}</span></td>
         <td>${esc(p.clienteNombre)}</td>
         <td class="num">${partidasDe(p.id).length}</td>
@@ -203,7 +203,7 @@ export function initFacturas() {
     $('#fTabla').innerHTML = rows.slice(0, 400).map((p) => `
       <tr>
         <td>${fmtDate(p.fecha)}</td>
-        <td><a href="#" data-ver="${esc(p.presupuestoId)}">${esc(p.numero || '—')}</a></td>
+        <td><a href="#" data-ver="${esc(p.presupuestoId)}">${p.numero ? esc(p.numero) : '<span class="muted">sin número</span>'}</a></td>
         <td>${esc(p.cliente || '')}</td>
         <td><strong>${esc(p.articulo)}</strong>${p.descripcion ? `<div class="muted small clamp">${esc(p.descripcion)}</div>` : ''}</td>
         <td class="nowrap">${medidasTxt(p)}</td>

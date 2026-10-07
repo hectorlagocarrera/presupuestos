@@ -199,7 +199,7 @@ export function initTarifa() {
     if (an) {
       const art = calcular().find((a) => a.clave === an.closest('tr').dataset.k);
       editor.desdeTarifa(art, precioTarifa(art, manuales(), ajuste()));
-      toast(art.unidad === 'm²' ? 'Añadido. Escribe ancho y alto: el precio se calcula con la tarifa.' : 'Añadido al albarán');
+      toast(art.unidad === 'm²' ? 'Añadido. Escribe las medidas en el artículo (p. ej. 3x2): el precio se calcula con la tarifa.' : 'Añadido al albarán');
       go('nuevo');
       return;
     }

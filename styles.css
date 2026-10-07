@@ -165,7 +165,7 @@ output { display: block; padding: 7px 0; font-weight: 600; color: var(--text); f
 .line-head .art { flex: 3; font-weight: 600; }
 .line-head .cat { flex: 1.2; }
 .tools { display: flex; }
-.line-grid { display: grid; grid-template-columns: 2fr repeat(7, minmax(0, 1fr)); gap: 0 8px; }
+.line-grid { display: grid; grid-template-columns: 2fr repeat(3, minmax(0, 1fr)); gap: 0 8px; }
 .line-grid .w2 { grid-column: span 1; }
 .line-grid.g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 6px; }
 .line-grid input { padding: 6px 7px; }
