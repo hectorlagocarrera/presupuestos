@@ -198,7 +198,7 @@ export function initPresupuestos() {
         <td class="num">${partidasDe(p.id).length}</td>
         <td class="num">${fmtEur(p.base)}</td>
         <td class="num"><strong>${fmtEur(p.total)}</strong></td>
-        <td class="small">${p.origen === 'importado' ? 'Importado' : 'Creado aquí'}${p.archivoId ? ` · <a href="#" data-orig="${esc(p.archivoId)}" title="${esc(p.archivoNombre)}">original</a>` : ''}</td>
+        <td class="small">${p.origen === 'importado' ? 'Importado' : 'Creado aquí'}${p.archivoId ? ` · <a href="#" data-orig="${esc(p.id)}" title="${esc(p.archivoNombre)}">original</a>` : ''}</td>
         <td class="nowrap acciones">
           <button class="btn small" data-abrir="${esc(p.id)}">Abrir</button>
           <button class="btn small ghost" data-dup="${esc(p.id)}">Duplicar</button>

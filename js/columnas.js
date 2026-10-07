@@ -235,26 +235,28 @@ function toPartida(it) {
 export function columnsToBudgets(pages, nombre = '') {
   const out = [];
   let cur = null;
-  for (const page of pages) {
+  for (const [i, page] of pages.entries()) {
     const info = pageInfo(page);
     const cab = cabecera(page);
     const sigue = cur && info.n > 1 && (!cab.numero || cab.numero === cur.numero);
     const { items, antes } = partidasPagina(page, sigue);
     if (!sigue) {
-      cur = { tipo: cab.tipo, numero: cab.numero, fecha: cab.fecha, cliente: cab.cliente, clienteDatos: cab.clienteDatos, empresa: cab.empresa, raw: [], nombre };
+      cur = { tipo: cab.tipo, numero: cab.numero, fecha: cab.fecha, cliente: cab.cliente, clienteDatos: cab.clienteDatos, empresa: cab.empresa, raw: [], nombre, desde: i + 1, hasta: i + 1 };
       out.push(cur);
     } else if (antes.length && cur.raw.length) {
       // Texto al principio de una página de continuación: sigue la partida anterior.
       const last = cur.raw[cur.raw.length - 1];
       (last.modo === 'desc' ? last.lineas : last.notas).push(...antes);
     }
+    cur.hasta = i + 1;
     cur.raw.push(...items);
     const t = pie(page);
     if (t) { cur.base = t.base; cur.total = t.total; }
   }
   // Filas sueltas sin texto ni precio (una cantidad perdida) no son partidas.
   const util = (it) => it.lineas.length || it.notas.length || it.precio != null;
-  return out.map(({ raw, ...b }) => ({ ...b, partidas: raw.filter(util).map(toPartida) }));
+  // paginas: dónde está cada documento dentro del PDF («12» o «12-13»), para enseñar solo esas páginas.
+  return out.map(({ raw, desde, hasta, ...b }) => ({ ...b, paginas: desde === hasta ? String(desde) : `${desde}-${hasta}`, partidas: raw.filter(util).map(toPartida) }));
 }
 
 // Items de texto de pdf.js de una página → filas con celdas.

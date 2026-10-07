@@ -7,7 +7,7 @@ import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'node:crypt
 // Columnas de cada tabla (el resto de campos que lleguen se ignoran).
 export const COLUMNAS = {
   presupuestos: ['id', 'tipo', 'numero', 'fecha', 'clienteId', 'clienteNombre', 'iva', 'notas', 'origen', 'archivoId',
-    'archivoNombre', 'base', 'total', 'creado', 'modificado'],
+    'archivoNombre', 'paginas', 'base', 'total', 'creado', 'modificado'],
   partidas: ['id', 'presupuestoId', 'orden', 'articulo', 'categoria', 'descripcion', 'material', 'acabados', 'montaje',
     'observaciones', 'ancho', 'alto', 'm2', 'cantidad', 'precioUnitario', 'precioTotal', 'precioM2', 'revisar',
     'fecha', 'cliente', 'numero', 'tipo'],
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS config (clave TEXT PRIMARY KEY, valor TEXT);
 
 // Columnas añadidas después (bases de datos ya creadas se actualizan solas).
 const MIGRACIONES = {
-  presupuestos: { tipo: 'TEXT' },
+  presupuestos: { tipo: 'TEXT', paginas: 'TEXT' },
   partidas: { tipo: 'TEXT' },
   usuarios: { mfa_secreto: 'TEXT', mfa_pendiente: 'TEXT', mfa_ultimo_paso: 'INTEGER', mfa_recuperacion: 'TEXT',
     rol: 'TEXT', activo: 'INTEGER', nombre: 'TEXT', ultimo_acceso: 'TEXT', cambiar_clave: 'INTEGER', permisos: 'TEXT' },

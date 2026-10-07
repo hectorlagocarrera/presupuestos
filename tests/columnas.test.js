@@ -57,6 +57,7 @@ test('presupuestos en columnas: partidas, descripción, notas y varias páginas'
   assert.equal(a.base, 220.8);
   assert.equal(a.total, 267.17);
   assert.equal(a.partidas.length, 1);
+  assert.deepEqual(bs.map((x) => x.paginas), ['1', '2-3', '4'], 'páginas de cada presupuesto dentro del PDF');
   assert.equal(a.partidas[0].articulo, 'ROTULACIÓN DE VALLA EN IMPRESIÓN DIGITAL LAMINADA MATE DE MEDIDA: 2400x1780mm');
   assert.equal(a.partidas[0].observaciones, 'PROYECTO INVENTADO');
   assert.equal(a.partidas[0].ancho, 2.4);
@@ -139,4 +140,6 @@ test('facturas: número «A/1», fecha, cliente sin colarse la referencia, total
   assert.equal(f2.numero, 'A/2');
   assert.equal(f2.base, 30, 'sin IVA la base está más abajo, y la retención no se confunde con la base');
   assert.equal(f2.total, 27.9);
+  assert.equal(f1.paginas, '1', 'página de cada documento dentro del PDF');
+  assert.equal(f2.paginas, '2');
 });

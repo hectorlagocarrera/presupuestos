@@ -7,8 +7,9 @@ import { parseMeasures } from '../search.js';
 // Imprime el HTML dado. La página se imprime sin margen del navegador (así no salen su fecha, título y
 // dirección arriba y abajo) y el margen lo pone el documento: la cabecera y el pie vacíos de la tabla se
 // repiten en cada página. titulo: nombre que se propone al guardar como PDF.
-export function imprimirHtml(html, titulo) {
-  $('#print').innerHTML = `<table class="p-pagina">
+// sinMargen: el contenido ya trae sus márgenes (p. ej. páginas de un PDF original, una por hoja).
+export function imprimirHtml(html, titulo, { sinMargen = false } = {}) {
+  $('#print').innerHTML = sinMargen ? `<div class="p-originales">${html}</div>` : `<table class="p-pagina">
     <thead><tr><td><div class="p-margen"></div></td></tr></thead>
     <tbody><tr><td>${html}</td></tr></tbody>
     <tfoot><tr><td><div class="p-margen"></div></td></tr></tfoot></table>`;

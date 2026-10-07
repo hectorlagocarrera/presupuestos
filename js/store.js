@@ -177,6 +177,7 @@ export async function savePresupuesto(pres, partidas, opts = {}) {
     origen: pres.origen || 'app',
     archivoId: pres.archivoId || null,
     archivoNombre: pres.archivoNombre || '',
+    paginas: pres.paginas || '',
     creado: pres.creado || now,
     modificado: now,
   };
@@ -251,6 +252,17 @@ export async function deletePresupuesto(id) {
 
 export const getArchivo = (id) => backend.leerArchivo(id);
 
+// Apunta en qué páginas del PDF original está cada documento ({ id: '12-13' }). Si el usuario no tiene permiso
+// para modificar documentos, solo se recuerda en esta sesión.
+export async function guardarPaginas(asignacion) {
+  const cambiados = data.presupuestos.filter((p) => asignacion[p.id] && p.paginas !== asignacion[p.id]);
+  for (const p of cambiados) p.paginas = asignacion[p.id];
+  if (!cambiados.length) return;
+  try {
+    for (let i = 0; i < cambiados.length; i += 1000) await escribir({ put: { presupuestos: cambiados.slice(i, i + 1000) } });
+  } catch { /* sin permiso: no pasa nada */ }
+}
+
 // Sustituye los documentos importados de un archivo por los que se acaban de volver a leer de él (el original
 // se conserva). Se salta los que ya existan por otro lado. Devuelve { borrados, guardados, saltados }.
 export async function sustituirDeArchivo(archivoId, archivoNombre, leidos) {
@@ -263,7 +275,7 @@ export async function sustituirDeArchivo(archivoId, archivoNombre, leidos) {
     data.partidas = data.partidas.filter((x) => !ids.has(x.presupuestoId));
     for (const b of leidos) {
       const doc = { tipo: tipoDe(b), numero: b.numero, fecha: b.fecha || '', clienteNombre: b.cliente, clienteDatos: b.clienteDatos,
-        origen: 'importado', archivoId, archivoNombre, notas: '', total: b.total };
+        origen: 'importado', archivoId, archivoNombre, paginas: b.paginas || '', notas: '', total: b.total };
       if (b.numero && buscarDuplicado({ ...doc, clienteNombre: b.cliente })) { saltados++; continue; }
       await savePresupuesto(doc, b.partidas, { silencioso: true, totalesPdf: b.base != null ? { base: b.base, total: b.total } : null });
       guardados++;

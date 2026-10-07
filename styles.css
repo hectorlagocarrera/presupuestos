@@ -258,6 +258,10 @@ dialog {
   width: min(860px, 94vw); max-height: 90vh; overflow: auto;
 }
 dialog::backdrop { background: rgba(10, 15, 25, 0.45); }
+dialog.visor { width: min(1000px, 96vw); }
+.visor-paginas { display: flex; flex-direction: column; gap: 12px; align-items: center; max-height: 72vh; overflow: auto; background: var(--bg); padding: 12px; border-radius: 8px; }
+.visor-paginas canvas { width: 100%; max-width: 860px; height: auto; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.18); }
+.visor-estado { min-height: 1.2em; }
 .toast {
   position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 50;
   background: var(--text); color: var(--card); padding: 10px 16px; border-radius: 10px; font-size: 0.9rem;
@@ -315,6 +319,8 @@ table.tarifa .nombre:hover { color: var(--accent); }
   .p-pagina { width: 100%; border-collapse: collapse; }
   .p-pagina > thead > tr > td, .p-pagina > tfoot > tr > td, .p-pagina > tbody > tr > td { padding: 0 15mm; border: none; }
   .p-margen { height: 14mm; }
+  .p-originales img { display: block; width: 210mm; height: 296mm; object-fit: contain; break-after: page; }
+  .p-originales img:last-child { break-after: auto; }
   body { background: #fff; color: #000; font-size: 10.5pt; }
   .app, dialog, .toast { display: none !important; }
   .print-only { display: block; }

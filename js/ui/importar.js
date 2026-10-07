@@ -1,30 +1,14 @@
 // Importación del histórico (PDF, Excel, ODS, CSV, texto) con revisión manual, y copias de seguridad.
 import { $, esc, fmtEur, fmtNum, numOrNull, today, calcPartida, round, tipoDe, TIPOS } from '../util.js';
 import { textToBudget, rowsToBudgets } from '../parse.js';
-import { itemsToRows, rowsToLines, looksLikeColumns, columnsToBudgets } from '../columnas.js';
+import { rowsToLines, looksLikeColumns, columnsToBudgets } from '../columnas.js';
 import { classify } from '../search.js';
 import { data, savePresupuesto, buscarDuplicado, exportar, importar, notify, saveAjustes, enBloque, recargar, getArchivo, sustituirDeArchivo, onChange } from '../store.js';
 import { toast, loadScript } from './common.js';
+import { pdfToPages } from '../pdf.js';
 import { onShow } from './nav.js';
 
 // ---------- Lectura de archivos (todo en este ordenador) ----------
-
-// PDF → páginas con filas y celdas (posición de cada texto).
-async function pdfToPages(buf, progreso) {
-  await loadScript('vendor/pdf.min.js');
-  const lib = window.pdfjsLib;
-  lib.GlobalWorkerOptions.workerSrc = 'vendor/pdf.worker.min.js';
-  const doc = await lib.getDocument({ data: buf, isEvalSupported: false }).promise;
-  const pages = [];
-  for (let n = 1; n <= doc.numPages; n++) {
-    const page = await doc.getPage(n);
-    pages.push({ rows: itemsToRows((await page.getTextContent()).items) });
-    page.cleanup();
-    if (n % 20 === 0 || n === doc.numPages) progreso?.(`página ${n} de ${doc.numPages}`);
-  }
-  await doc.destroy();
-  return pages;
-}
 
 // Archivo → [{ b (presupuesto detectado), texto, archivo }]
 async function leerArchivo(file, progreso) {
@@ -178,7 +162,7 @@ async function guardarActual(leer = true) {
   const b = it.b;
   const reuse = it.archivo ? archivosGuardados.get(it.archivo.blob) : null;
   const p = await savePresupuesto(
-    { tipo: tipoDe(b), numero: b.numero, fecha: b.fecha || today(), clienteNombre: b.cliente, clienteDatos: b.clienteDatos, origen: 'importado', archivoId: reuse || null, archivoNombre: it.archivo?.nombre || '', notas: '' },
+    { tipo: tipoDe(b), numero: b.numero, fecha: b.fecha || today(), clienteNombre: b.cliente, clienteDatos: b.clienteDatos, origen: 'importado', archivoId: reuse || null, archivoNombre: it.archivo?.nombre || '', paginas: b.paginas || '', notas: '' },
     b.partidas,
     { archivo: it.archivo && !reuse ? it.archivo : null, silencioso: cola.length > 1, totalesPdf: b.base != null ? { base: b.base, total: b.total } : null },
   );
