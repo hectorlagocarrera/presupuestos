@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS config (clave TEXT PRIMARY KEY, valor TEXT);
 CREATE TABLE IF NOT EXISTS firmas (
   id TEXT PRIMARY KEY, presupuestoId TEXT NOT NULL, estado TEXT NOT NULL, nombre TEXT, dni TEXT, email TEXT,
   observaciones TEXT, motivo TEXT, imagen BLOB, fecha TEXT NOT NULL, ip TEXT, agente TEXT, modo TEXT, recogidaPor TEXT,
-  geo TEXT, huella TEXT, contenido TEXT, mostrarImportes INTEGER, copia TEXT,
+  geo TEXT, huella TEXT, contenido TEXT, mostrarImportes INTEGER, copia TEXT, imagenJpeg BLOB,
   anulada INTEGER DEFAULT 0, anuladaPor TEXT, anuladaFecha TEXT, anuladaMotivo TEXT
 );
 CREATE INDEX IF NOT EXISTS firmas_presupuesto ON firmas(presupuestoId);
@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS enlaces_firma (
 // Columnas añadidas después (bases de datos ya creadas se actualizan solas).
 const MIGRACIONES = {
   presupuestos: { tipo: 'TEXT', paginas: 'TEXT', estadoFirma: 'TEXT', firmaId: 'TEXT', firmaFecha: 'TEXT', firmaNombre: 'TEXT' },
+  firmas: { imagenJpeg: 'BLOB' },
   partidas: { tipo: 'TEXT' },
   usuarios: { mfa_secreto: 'TEXT', mfa_pendiente: 'TEXT', mfa_ultimo_paso: 'INTEGER', mfa_recuperacion: 'TEXT',
     rol: 'TEXT', activo: 'INTEGER', nombre: 'TEXT', ultimo_acceso: 'TEXT', cambiar_clave: 'INTEGER', permisos: 'TEXT' },

@@ -4,6 +4,7 @@ import { search, similares, priceStats, parseQuery, classify } from '../search.j
 import { data, searchDocs, anios, partidasDe, savePartida, deletePresupuesto, saveCliente, deleteCliente, onChange, recalcularCategorias } from '../store.js';
 import { resultCard, resultRow, statsHtml, mountFiltros, ordenarResultados, fillSelect, modalForm, medidasTxt, categorias, toast } from './common.js';
 import { verPresupuesto, abrirOriginal } from './presview.js';
+import { firmable, etiquetaFirma, firmarAhora } from './firmas.js';
 import { editor } from './editor.js';
 import { go, onShow } from './nav.js';
 
@@ -132,10 +133,13 @@ export function initArticulos() {
 let anioSel = '';
 let clienteSel = '';
 let tipoSel = '';
+let firmaSel = '';
+const FILTROS_FIRMA = [['', 'Firma: todos'], ['porfirmar', 'Sin firmar'], ['pendiente', 'Pendientes'], ['firmado', 'Firmados'], ['rechazado', 'No conformes']];
+const pasaFirma = (p, f) => !f || (f === 'porfirmar' ? firmable(p) && !p.estadoFirma : p.estadoFirma === f);
 export function filtrarPorCliente(nombre) { clienteSel = nombre; anioSel = ''; go('presupuestos'); }
 
 // Orden de la lista. Al pulsar una columna nueva: fechas, números e importes de mayor a menor; textos de la A a la Z.
-const ORDEN_INICIAL = { fecha: 'desc', numero: 'desc', tipo: 'asc', cliente: 'asc', partidas: 'desc', base: 'desc', total: 'desc' };
+const ORDEN_INICIAL = { fecha: 'desc', numero: 'desc', tipo: 'asc', firma: 'asc', cliente: 'asc', partidas: 'desc', base: 'desc', total: 'desc' };
 let orden = { campo: 'fecha', dir: 'desc' };
 try { const o = JSON.parse(localStorage.getItem('ordenAlbaranes')); if (o && ORDEN_INICIAL[o.campo]) orden = o; } catch { /* orden por defecto */ }
 
@@ -144,6 +148,7 @@ const CLAVES = {
   fecha: (p) => p.fecha || '',
   numero: (p) => p.numero || '',
   tipo: (p) => TIPOS[tipoDe(p)].nombre,
+  firma: (p) => ({ firmado: 1, pendiente: 2, rechazado: 3 }[p.estadoFirma] || (firmable(p) ? 4 : 5)),
   cliente: (p) => (p.clienteNombre || '').trim(),
   partidas: (p) => partidasDe(p.id).length,
   base: (p) => p.base || 0,
@@ -179,11 +184,13 @@ export function initPresupuestos() {
       .map(([t, nombre]) => `<button class="chip ${t === tipoSel ? 'on' : ''}" data-t="${t}">${nombre} <small>${n(t)}</small></button>`).join('');
     $('#pAnios').innerHTML = ['', ...ys].map((y) => `<button class="chip ${String(y) === String(anioSel) ? 'on' : ''}" data-y="${y}">${y || 'Todos'} <small>${data.presupuestos.filter((p) => !y || year(p.fecha) === y).length}</small></button>`).join('')
       + (clienteSel ? `<button class="chip on" data-quitar>Cliente: ${esc(clienteSel)} ✕</button>` : '');
+    $('#pFirmas').innerHTML = FILTROS_FIRMA.map(([f, nombre]) => `<button class="chip ${f === firmaSel ? 'on' : ''}" data-firma="${f}">${nombre}${f ? ` <small>${data.presupuestos.filter((p) => pasaFirma(p, f)).length}</small>` : ''}</button>`).join('');
     const q = $('#pQ').value.trim();
     const conceptos = q ? new Set(search(q, searchDocs()).filter((r) => r.score >= 60).map((r) => r.doc.p.presupuestoId)) : null;
     const nq = q.toLowerCase();
     const rows = data.presupuestos
       .filter((p) => !tipoSel || tipoDe(p) === tipoSel)
+      .filter((p) => pasaFirma(p, firmaSel))
       .filter((p) => !anioSel || year(p.fecha) === Number(anioSel))
       .filter((p) => !clienteSel || p.clienteNombre === clienteSel)
       .filter((p) => !q || (p.numero || '').toLowerCase().includes(nq) || (p.clienteNombre || '').toLowerCase().includes(nq) || conceptos.has(p.id))
@@ -194,17 +201,19 @@ export function initPresupuestos() {
         <td>${fmtDate(p.fecha)}</td>
         <td><a href="#" data-ver="${esc(p.id)}">${p.numero ? esc(p.numero) : '<span class="muted">sin número</span>'}</a></td>
         <td><span class="tag ${tipoDe(p) === 'factura' ? 'fact' : 'soft'}">${TIPOS[tipoDe(p)].nombre}</span></td>
+        <td class="solo-servidor-celda">${etiquetaFirma(p, { corta: true })}</td>
         <td>${esc(p.clienteNombre)}</td>
         <td class="num">${partidasDe(p.id).length}</td>
         <td class="num">${fmtEur(p.base)}</td>
         <td class="num"><strong>${fmtEur(p.total)}</strong></td>
         <td class="small">${p.origen === 'importado' ? 'Importado' : 'Creado aquí'}${p.archivoId ? ` · <a href="#" data-orig="${esc(p.id)}" title="${esc(p.archivoNombre)}">original</a>` : ''}</td>
         <td class="nowrap acciones">
-          <button class="btn small" data-abrir="${esc(p.id)}">Abrir</button>
+          ${firmable(p) && p.estadoFirma !== 'firmado' ? `<button class="btn small ghost" data-firmar="${esc(p.id)}" data-firmas title="Que el cliente firme ahora">✍ Firmar</button>` : ''}
+          <button class="btn small" data-abrir="${esc(p.id)}">${p.estadoFirma === 'firmado' ? 'Ver' : 'Abrir'}</button>
           <button class="btn small ghost" data-dup="${esc(p.id)}">Duplicar</button>
           <button class="btn small ghost" data-del="${esc(p.id)}" title="Borrar">✕</button>
         </td>
-      </tr>`).join('') || '<tr><td colspan="9" class="muted">No hay documentos con ese filtro.</td></tr>';
+      </tr>`).join('') || '<tr><td colspan="10" class="muted">No hay documentos con ese filtro.</td></tr>';
   };
   $('#pQ').addEventListener('input', debounce(run, 150));
   // Ordenar pulsando el título de la columna (otra vez: al revés) o, en el móvil, con el desplegable.
@@ -220,6 +229,7 @@ export function initPresupuestos() {
     if (th && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); cambiarOrden(th.dataset.orden); }
   });
   $('#pOrden').addEventListener('change', (e) => { const [c, d] = e.target.value.split(':'); cambiarOrden(c, d); });
+  $('#pFirmas').addEventListener('click', (e) => { const b = e.target.closest('[data-firma]'); if (b) { firmaSel = b.dataset.firma; run(); } });
   $('#pTipos').addEventListener('click', (e) => {
     const b = e.target.closest('.chip');
     if (b) { tipoSel = b.dataset.t; run(); }
@@ -232,6 +242,8 @@ export function initPresupuestos() {
     run();
   });
   $('#pTabla').addEventListener('click', async (e) => {
+    const fi = e.target.closest('[data-firmar]');
+    if (fi) { firmarAhora(fi.dataset.firmar); return; }
     const t = e.target.closest('[data-ver],[data-orig],[data-abrir],[data-dup],[data-del]');
     if (!t) return;
     e.preventDefault();

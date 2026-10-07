@@ -124,7 +124,9 @@ async function enviarCopiaFirma(req, presupuestoId, firmaId, emailCliente) {
   const f = db.prepare('SELECT * FROM firmas WHERE id = ?').get(firmaId);
   const ver = Firmas.crearEnlace(db, presupuestoId, { creadoPor: 'copia', dias: 90, mostrarImportes: !!f.mostrarImportes, solover: true });
   const v = Firmas.vistaDoc(db, presupuestoId, { importes: !!f.mostrarImportes });
-  const m = Firmas.emailCopia(v, f, f.imagen, `${urlPublica(req)}/firmar.html?t=${ver}`);
+  let pdf = null;
+  try { pdf = Firmas.pdfFirmado(db, v, f); } catch (err) { console.error(new Date().toISOString(), 'PDF de la copia firmada', err.message); }
+  const m = Firmas.emailCopia(v, f, f.imagen, `${urlPublica(req)}/firmar.html?t=${ver}`, pdf);
   try {
     await mandarCorreo({ para: para[0], cc: para.slice(1), ...m });
     const txt = `enviada a ${para.join(', ')} el ${new Date().toISOString()}`;
@@ -215,6 +217,8 @@ async function api(req, res, ruta) {
     const yaFirmado = d.estadoFirma === 'firmado' || d.estadoFirma === 'rechazado';
     if (req.method === 'GET') {
       const v = Firmas.vistaDoc(db, e.presupuestoId, { importes: !!e.mostrarImportes });
+      // Al cliente, solo lo que tiene que ver de la firma (no la ubicación ni datos internos).
+      if (v.firma) v.firma = Object.fromEntries(['estado', 'nombre', 'dni', 'fecha', 'modo', 'observaciones', 'motivo', 'huella'].map((k) => [k, v.firma[k]]));
       return json(res, 200, { ...v, modo: e.solover || e.usado || yaFirmado ? 'ver' : 'firmar', caduca: e.expira, emailSugerido: e.email || v.doc.clienteEmail });
     }
     if (req.method !== 'POST') return json(res, 405, { error: 'No permitido' });

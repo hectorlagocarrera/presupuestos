@@ -93,6 +93,35 @@ Se gestionan desde la aplicación: **Ajustes → Usuarios** (solo la ven los **a
 Los usuarios que ya existían antes de esta versión pasan a ser administradores: revisa la lista y deja como
 *Usuario* a quien no necesite gestionar usuarios.
 
+## Firmas de albaranes (partes de trabajo)
+
+**Primero, configura el correo** (Ajustes → ✉ Correo y firmas, solo administradores): servidor SMTP del buzón de la
+empresa (con OVH: `ssl0.ovh.net`, puerto 465, SSL/TLS, usuario y contraseña del buzón), remitente y un email de
+la oficina que recibe copia de todo. Pulsa «Enviar un email de prueba». Sin correo, todo funciona igual, pero
+los enlaces hay que copiarlos (o mandarlos por WhatsApp) y no llegan copias por email.
+
+**Firmar en persona** (móvil o tablet): en «Partes de trabajo» (o en el albarán) pulsa **Firmar**. El cliente
+revisa el parte, pone su nombre (y DNI si quiere), marca «Conforme» y firma con el dedo. Si no está conforme,
+«No conforme…» y escribe el motivo. Recibe la copia en PDF por email.
+
+**Firmar a distancia:** **Enviar para firmar** manda al cliente un enlace (caduca en 3–30 días y solo sirve para
+ese documento). Lo abre sin usuario ni contraseña, firma y recibe su copia. Mientras tanto el albarán sale como
+⏳ *Pendiente de firma*.
+
+**Estados:** Sin firmar · ⏳ Pendiente · ✓ Firmado · ✗ No conforme. En Albaranes hay filtros por estado.
+
+**Pruebas que se guardan:** nombre y DNI, fecha y hora del servidor, IP y navegador, quién recogió la firma, la
+ubicación GPS (si se permite) y la *huella* (SHA-256) del contenido firmado. Un documento firmado **no se puede
+modificar ni borrar**; para cambiarlo, «Anular firma» (oficina o administrador) con un motivo: la firma anulada
+queda en el historial. **Descargar PDF** genera el documento con la firma (también lo puede descargar el cliente
+desde su enlace durante 90 días).
+
+**Operarios:** al crear un usuario, la plantilla **Operario** le deja ver solo «Partes de trabajo» (albaranes):
+buscar el del cliente, enseñarlo y recoger la firma o enviarlo. No ve presupuestos, facturas, tarifa ni histórico.
+Los importes solo los ve si se marca «Mostrar importes en los partes de trabajo» (Ajustes → Correo y firmas).
+
+Para la ubicación GPS, vuelve a ejecutar el instalador una vez (permite al navegador pedirla).
+
 ## Uso diario y mantenimiento
 
 Todo esto se hace conectado al VPS como en el paso 2. (Lo de los usuarios también se puede hacer desde la

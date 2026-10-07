@@ -5,6 +5,7 @@ import { data, searchDocs, savePresupuesto, getPresupuesto, partidasDe, nextNumb
 import { resultCard, statsHtml, mountFiltros, ordenarResultados, toast } from './common.js';
 import { verPresupuesto } from './presview.js';
 import { imprimir } from './print.js';
+import { firmarAhora, enviarParaFirmar } from './firmas.js';
 import { onShow } from './nav.js';
 
 const CAMPOS_TEXTO = ['articulo', 'categoria', 'material', 'descripcion', 'acabados', 'montaje', 'observaciones'];
@@ -61,8 +62,14 @@ function medidasDelTexto(l) {
 export const editor = {
   nuevo() { if (!confirmarSalida()) return false; nuevo(); return true; },
   abrir(id) {
-    if (!confirmarSalida()) return false;
     const p = getPresupuesto(id);
+    // Firmado: no se puede cambiar (se enseña con su firma; para cambiarlo hay que anular la firma o duplicarlo).
+    if (p?.estadoFirma === 'firmado') {
+      verPresupuesto(id);
+      toast('Está firmado: no se puede modificar. Puedes duplicarlo como nuevo o anular la firma.');
+      return false;
+    }
+    if (!confirmarSalida()) return false;
     draft = { ...p };
     lines = partidasDe(id).map((x) => medidasAlTexto({ ...x }));
     if (!lines.length) lines = [emptyLine()];
@@ -353,6 +360,14 @@ export function initEditor() {
 
   $('#edGuardar').addEventListener('click', guardar);
   $('#edImprimir').addEventListener('click', () => imprimir(draft, lines));
+  // Firmar: primero se guarda (se firma lo que está guardado).
+  const paraFirmar = async () => {
+    if (tipoDe(draft) === 'factura') { toast('Las facturas no se firman aquí.'); return null; }
+    if (dirty || !draft.id) await guardar();
+    return dirty || !draft.id ? null : draft.id;
+  };
+  $('#edFirmar').addEventListener('click', async () => { const id = await paraFirmar(); if (id) firmarAhora(id, { alTerminar: () => { editor.nuevo(); } }); });
+  $('#edEnviarFirma').addEventListener('click', async () => { const id = await paraFirmar(); if (id) enviarParaFirmar(id); });
 
   // Referencias: escribir, usar, ver y arrastrar.
   $('#refQ').addEventListener('input', runRefsSoon);

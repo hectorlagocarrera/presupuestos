@@ -89,6 +89,24 @@ export const cuentas = {
   accion: (accion, datos) => post('usuarios/' + accion, datos),
 };
 
+// Firmas de albaranes y presupuestos.
+export const firmasApi = {
+  async estado(id) { return (await api('firmas/' + encodeURIComponent(id))).json(); },
+  presencial: (datos) => post('firmas/presencial', datos),
+  enlace: (datos) => post('firmas/enlace', datos),
+  cancelar: (presupuestoId) => post('firmas/cancelar', { presupuestoId }),
+  reenviar: (presupuestoId, email) => post('firmas/reenviar', { presupuestoId, email }),
+  anular: (presupuestoId, motivo) => post('firmas/anular', { presupuestoId, motivo }),
+  async imagen(firmaId) { return (await api('firmas/imagen/' + encodeURIComponent(firmaId))).blob(); },
+};
+
+// Configuración del correo (la contraseña nunca vuelve al navegador).
+export const correoApi = {
+  async leer() { return (await api('correo')).json(); },
+  guardar: (datos) => post('correo', datos),
+  prueba: (para) => post('correo/prueba', { para }),
+};
+
 // ---------- Navegador (IndexedDB) ----------
 
 let idb = null;

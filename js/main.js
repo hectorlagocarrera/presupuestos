@@ -5,6 +5,8 @@ import { open, data, saveAjustes, onChange, modo, recargar } from './store.js';
 import { servidor, navegador, detectarServidor, entrar, entrarMfa, NoAutorizado } from './backend.js';
 import { initSeguridad, configurarMfa } from './ui/seguridad.js';
 import { initUsuarios, cambiarMiClave } from './ui/usuarios.js';
+import { initPartes } from './ui/partes.js';
+import { initCorreo } from './ui/correo.js';
 import { refreshDatalists, toast, etiquetarTablas } from './ui/common.js';
 import { initEditor } from './ui/editor.js';
 import { initBuscador, initArticulos, initPresupuestos, initClientes, initFacturas } from './ui/screens.js';
@@ -14,10 +16,18 @@ import { show, current, initMenu, limitarPantallas } from './ui/nav.js';
 import { initAyuda } from './ui/ayuda.js';
 
 // Permisos del usuario: se ocultan los botones y pantallas que no puede usar (el servidor, además, lo impide).
-const TODOS_PERMISOS = ['editar', 'borrar', 'importar', 'facturas', 'tarifa', 'ajustes', 'copias'];
-function aplicarPermisos(permisos) {
+const TODOS_PERMISOS = ['editar', 'borrar', 'importar', 'facturas', 'tarifa', 'ajustes', 'copias', 'firmas'];
+const PANTALLAS = ['partes', 'nuevo', 'buscar', 'articulos', 'presupuestos', 'tarifa', 'facturas', 'clientes', 'importar', 'ajustes'];
+function aplicarPermisos(permisos, rol) {
   for (const p of TODOS_PERMISOS) document.body.classList.toggle('sin-' + p, !permisos.includes(p));
+  // Operario: solo «Partes de trabajo» (y Ajustes para su cuenta).
+  if (rol === 'operario') {
+    document.body.classList.add('operario');
+    limitarPantallas(PANTALLAS.filter((t) => !['partes', 'ajustes'].includes(t)), 'partes');
+    return;
+  }
   const sin = [];
+  if (!permisos.includes('firmas')) sin.push('partes');
   if (!permisos.includes('editar')) sin.push('nuevo');
   if (!permisos.includes('facturas')) sin.push('facturas');
   if (!permisos.includes('importar') && !permisos.includes('copias')) { sin.push('importar'); document.body.classList.add('sin-importar-ni-copias'); }
@@ -181,7 +191,8 @@ async function start() {
     $('#menuSalir').addEventListener('click', salir);
     $('#menuUsuario').textContent = 'Usuario: ' + yo.usuario;
     // El nombre de usuario lleva a la gestión de usuarios (administradores) o a «Mi cuenta».
-    aplicarPermisos(yo.permisos || TODOS_PERMISOS);
+    aplicarPermisos(yo.permisos || TODOS_PERMISOS, yo.rol);
+    if (yo.rol === 'admin') parte('Correo', initCorreo);
     for (const id of ['#sesionUsuario', '#menuUsuario']) $(id).addEventListener('click', () => irAjuste(yo.rol === 'admin' ? 'usuarios' : 'miCuenta'));
     $('#menuSesion').classList.remove('hidden');
     // Al volver a la pestaña, traer lo que hayan guardado otros ordenadores.
@@ -190,7 +201,11 @@ async function start() {
       if (document.visibilityState === 'visible' && Date.now() - ultima > 60000) { ultima = Date.now(); recargar().catch(() => {}); }
     });
     document.body.classList.add('modo-servidor');
-  } else document.body.classList.add('modo-navegador');
+  } else {
+    document.body.classList.add('modo-navegador');
+    limitarPantallas(['partes'], 'nuevo'); // firmar necesita el servidor
+  }
+  parte('Partes de trabajo', initPartes);
   parte('Nuevo albarán', initEditor);
   parte('Buscador histórico', initBuscador);
   parte('Artículos', initArticulos);

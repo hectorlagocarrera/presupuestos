@@ -20,6 +20,7 @@
       <a class="brand" href="#nuevo" title="Ir al inicio (nuevo albarán)"><img id="brandLogo" src="logo.png" alt="Logotipo" height="34"><span>Albaranes</span></a>
       <span class="seccion-movil" id="seccionMovil"></span>
       <nav class="tabs">
+        <a href="#partes" data-tab="partes">Partes de trabajo</a>
         <a href="#nuevo" data-tab="nuevo">Nuevo albarán</a>
         <a href="#buscar" data-tab="buscar">Buscador histórico</a>
         <a href="#articulos" data-tab="articulos">Artículos</a>
@@ -99,6 +100,8 @@
           <div class="btns actions">
             <button class="btn" id="edGuardar">Guardar</button>
             <button class="btn ghost" id="edImprimir">Imprimir / PDF</button>
+            <button class="btn ghost" id="edFirmar" data-firmas title="El cliente firma ahora en esta pantalla (móvil o tablet)">✍ Firmar ahora</button>
+            <button class="btn ghost" id="edEnviarFirma" data-firmas title="Enviar al cliente un enlace para firmar a distancia">Enviar para firmar</button>
             <span id="edMsg" class="muted"></span>
           </div>
         </section>
@@ -113,6 +116,20 @@
           <div id="refList" class="results"></div>
         </aside>
       </div>
+    </main>
+
+    <!-- Partes de trabajo: albaranes para firmar (pantalla principal de los operarios) -->
+    <main class="screen hidden" id="s-partes">
+      <section class="pane">
+        <div class="pane-head">
+          <h2>Partes de trabajo</h2>
+          <button class="btn" id="ptNuevo" data-editar-boton>+ Nuevo parte</button>
+        </div>
+        <input id="ptQ" class="search big" type="search" placeholder="Buscar por cliente, número o trabajo" autocomplete="off">
+        <div class="chips" id="ptEstados"></div>
+        <p id="ptInfo" class="muted small"></p>
+        <div id="ptLista" class="partes"></div>
+      </section>
     </main>
 
     <!-- 2. Buscador histórico -->
@@ -167,6 +184,7 @@
           <input id="pQ" placeholder="Filtrar por número, cliente o concepto" autocomplete="off" class="narrow">
         </div>
         <div class="chips" id="pTipos"></div>
+        <div class="chips solo-servidor" id="pFirmas"></div>
         <label class="orden-movil">Ordenar por
           <select id="pOrden">
             <option value="fecha:desc">Fecha (más recientes primero)</option><option value="fecha:asc">Fecha (más antiguos primero)</option>
@@ -178,7 +196,7 @@
         <div class="chips" id="pAnios"></div>
         <div class="table-wrap">
           <table class="data cards">
-            <thead id="pCab"><tr><th data-orden="fecha">Fecha</th><th data-orden="numero">Número</th><th data-orden="tipo">Tipo</th><th data-orden="cliente">Cliente</th><th class="num" data-orden="partidas">Partidas</th><th class="num" data-orden="base">Base</th><th class="num" data-orden="total">Total</th><th data-ayuda="«Importado»: viene de un PDF o Excel antiguo (pulsa «original» para verlo). «Creado aquí»: hecho en esta aplicación.">Origen</th><th></th></tr></thead>
+            <thead id="pCab"><tr><th data-orden="fecha">Fecha</th><th data-orden="numero">Número</th><th data-orden="tipo">Tipo</th><th data-orden="firma" class="solo-servidor-celda">Firma</th><th data-orden="cliente">Cliente</th><th class="num" data-orden="partidas">Partidas</th><th class="num" data-orden="base">Base</th><th class="num" data-orden="total">Total</th><th data-ayuda="«Importado»: viene de un PDF o Excel antiguo (pulsa «original» para verlo). «Creado aquí»: hecho en esta aplicación.">Origen</th><th></th></tr></thead>
             <tbody id="pTabla"></tbody>
           </table>
         </div>
@@ -346,6 +364,7 @@
         <button class="chip solo-servidor" data-ir="miCuenta">Mi cuenta</button>
         <button class="chip solo-servidor" data-ir="seguridad">Verificación en dos pasos</button>
         <button class="chip solo-servidor solo-admin" data-ir="usuarios">👥 Usuarios</button>
+        <button class="chip solo-servidor solo-admin" data-ir="ajCorreo">✉ Correo y firmas</button>
         <button class="chip" data-ir="ajSinonimos">Sinónimos</button>
       </nav>
       <section class="pane" id="ajEmpresa">
@@ -401,6 +420,27 @@
             <tbody id="usuTabla"></tbody>
           </table>
         </div>
+      </section>
+
+      <section class="pane solo-servidor solo-admin" id="ajCorreo">
+        <h2 data-ayuda="Con este buzón la aplicación manda a los clientes los enlaces para firmar y las copias firmadas. Usa el email de la empresa (por ejemplo, el de OVH: servidor ssl0.ovh.net, puerto 465).">Correo y firmas</h2>
+        <p class="muted small">Buzón desde el que se envían los enlaces para firmar y las copias firmadas. La contraseña se guarda en el servidor y no se vuelve a mostrar.</p>
+        <form id="coForm" class="grid g2">
+          <label>Servidor de correo (SMTP) <input id="coHost" placeholder="ssl0.ovh.net" autocomplete="off"></label>
+          <div class="grid g2 sin-margen">
+            <label>Puerto <input id="coPuerto" inputmode="numeric" placeholder="465"></label>
+            <label>Seguridad <select id="coSeguridad"><option value="ssl">SSL/TLS (465)</option><option value="starttls">STARTTLS (587)</option></select></label>
+          </div>
+          <label>Usuario <input id="coUsuario" autocomplete="off" placeholder="info@tuempresa.com"></label>
+          <label>Contraseña <input id="coClave" type="password" autocomplete="new-password"></label>
+          <label>Remitente (email) <input id="coRemitente" type="email" placeholder="info@tuempresa.com"></label>
+          <label>Nombre del remitente <input id="coNombre" placeholder="Nombre de la empresa"></label>
+          <label data-ayuda="A este email llega una copia de cada documento firmado, y es al que contestan los clientes.">Copia para la oficina <input id="coCopia" type="email" placeholder="oficina@tuempresa.com"></label>
+          <label data-ayuda="Dirección con la que los clientes abren los enlaces. Normalmente se deja vacía (se usa la del servidor).">Dirección pública (opcional) <input id="coUrl" placeholder="https://vps-….vps.ovh.net"></label>
+          <label class="check s2" data-ayuda="Si no se marca, los operarios no ven precios ni importes (el servidor ni se los envía) y, por defecto, el cliente firma el parte sin importes."><input type="checkbox" id="coImportes"> Mostrar importes en los partes de trabajo (operarios y cliente)</label>
+          <p id="coMsg" class="muted small s2"></p>
+          <div class="btns s2"><button class="btn" type="submit">Guardar</button><button class="btn ghost" type="button" id="coPrueba">Enviar un email de prueba</button></div>
+        </form>
       </section>
 
       <section class="pane" id="ajSinonimos">

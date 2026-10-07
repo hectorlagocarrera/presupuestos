@@ -124,3 +124,24 @@ test('emails de firma: solicitud con enlace y copia con la firma', () => {
   assert.match(c.asunto, /Copia firmada/);
   assert.ok(c.adjuntos.some((a) => a.cid === 'firma'));
 });
+
+test('PDF del documento: válido, con acentos, varias páginas y la firma', async () => {
+  const { crearPdf, tamJpeg } = await import('../js/pdfdoc.js');
+  // JPEG mínimo de 1×1 (solo cabecera SOF para comprobar que se incrusta).
+  const jpeg = Uint8Array.from([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08, 0x00, 0x01, 0x00, 0x01, 0x03, 0x01, 0x22, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01, 0xff, 0xd9]);
+  assert.deepEqual(tamJpeg(jpeg), { alto: 1, ancho: 1, componentes: 3 });
+  const lineas = Array.from({ length: 40 }, (_, i) => ({ articulo: `Lona número ${i + 1} (ñ, €)`, cantidad: 1, precio: 10, importe: 10 }));
+  const pdf = crearPdf({ empresa: { nombre: 'Empresa Demo' }, doc: { tipo: 'albaran', numero: '7', fecha: '2026-10-01', cliente: 'Cliente (Demo)', lineas, base: 400, total: 484, iva: 21 },
+    firma: { estado: 'firmado', nombre: 'Ana', fecha: new Date().toISOString(), huella: 'abc' }, imagenes: { firma: jpeg } });
+  const txt = Buffer.from(pdf).toString('latin1');
+  assert.ok(txt.startsWith('%PDF-1.4'));
+  assert.match(txt, /\/Count 2/, 'cuarenta líneas ocupan dos páginas');
+  assert.ok(txt.includes('(N\xfamero: 7)'), 'acentos en WinAnsi');
+  assert.ok(txt.includes('Cliente \\(Demo\\)'), 'paréntesis escapados');
+  assert.ok(txt.includes('\x80'), 'el euro en WinAnsi');
+  assert.match(txt, /\/Filter \/DCTDecode/);
+  // La tabla xref apunta al principio de cada objeto.
+  const xref = Number(txt.match(/startxref\n(\d+)/)[1]);
+  const offs = txt.slice(xref).match(/(\d{10}) 00000 n/g).map((x) => Number(x.slice(0, 10)));
+  offs.forEach((o, i) => assert.ok(txt.startsWith(`${i + 1} 0 obj`, o), `objeto ${i + 1}`));
+});

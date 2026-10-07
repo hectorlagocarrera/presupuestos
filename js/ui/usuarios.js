@@ -15,13 +15,14 @@ export const PERMISOS = {
   tarifa: 'Cambiar la tarifa (precios fijados, ajuste general)',
   ajustes: 'Cambiar datos de la empresa, logotipo y sinónimos',
   copias: 'Descargar y cargar copias de seguridad',
+  firmas: 'Recoger firmas de clientes y enviar documentos para firmar',
 };
-const CORTO = { editar: 'editar', borrar: 'borrar', importar: 'importar', facturas: 'facturas', tarifa: 'tarifa', ajustes: 'ajustes', copias: 'copias' };
+const CORTO = { editar: 'editar', borrar: 'borrar', importar: 'importar', facturas: 'facturas', tarifa: 'tarifa', ajustes: 'ajustes', copias: 'copias', firmas: 'firmas' };
 // Plantillas: marcan las casillas de golpe (luego se pueden ajustar).
 const PLANTILLAS = {
   consulta: { nombre: 'Solo consulta', permisos: [] },
-  comercial: { nombre: 'Comercial', permisos: ['editar'] },
-  oficina: { nombre: 'Oficina', permisos: ['editar', 'borrar', 'importar', 'facturas', 'tarifa'] },
+  comercial: { nombre: 'Comercial', permisos: ['editar', 'firmas'] },
+  oficina: { nombre: 'Oficina', permisos: ['editar', 'borrar', 'importar', 'facturas', 'tarifa', 'firmas'] },
   todo: { nombre: 'Todo (sin gestionar usuarios)', permisos: Object.keys(PERMISOS) },
 };
 
@@ -32,11 +33,13 @@ function bloquePermisos(rol, permisos) {
       <legend>Permisos</legend>
       <div class="chips plantillas">
         ${Object.entries(PLANTILLAS).map(([k, t]) => `<button type="button" class="chip" data-plantilla="${k}">${t.nombre}</button>`).join('')}
+        <button type="button" class="chip" data-plantilla="operario">Operario</button>
         <button type="button" class="chip" data-plantilla="admin">Administrador</button>
       </div>
       <p class="muted small">Todos pueden consultar el histórico, los albaranes y la tarifa. Marca lo que además puede hacer:</p>
       <div class="lista-permisos">
         ${Object.entries(PERMISOS).map(([k, txt]) => `<label class="check"><input type="checkbox" data-permiso="${k}" ${permisos.includes(k) ? 'checked' : ''}> ${txt}</label>`).join('')}
+        <label class="check admin-permiso" data-ayuda="Solo ve «Partes de trabajo»: busca el albarán del cliente, lo enseña y recoge la firma (o lo envía para firmar). No ve el histórico, la tarifa, los presupuestos ni las facturas, ni los importes salvo que se permita en Ajustes → Correo y firmas."><input type="checkbox" id="pmOperario" ${rol === 'operario' ? 'checked' : ''}> <strong>Operario</strong>: solo partes de trabajo (buscar el albarán y recoger la firma)</label>
         <label class="check admin-permiso" data-ayuda="Además de todo lo anterior, puede crear, cambiar y borrar usuarios y exigir la verificación en dos pasos."><input type="checkbox" id="pmAdmin" ${rol === 'admin' ? 'checked' : ''}> <strong>Administrador</strong>: todo, y gestionar usuarios</label>
       </div>
     </fieldset>`;
@@ -44,22 +47,31 @@ function bloquePermisos(rol, permisos) {
 function prepararPermisos(raiz) {
   const casillas = () => [...raiz.querySelectorAll('input[data-permiso]')];
   const admin = raiz.querySelector('#pmAdmin');
-  const pintar = () => casillas().forEach((c) => { c.disabled = admin.checked; if (admin.checked) c.checked = true; });
-  admin.addEventListener('change', pintar);
+  const operario = raiz.querySelector('#pmOperario');
+  const pintar = () => casillas().forEach((c) => {
+    c.disabled = admin.checked || operario.checked;
+    if (admin.checked) c.checked = true;
+    if (operario.checked) c.checked = c.dataset.permiso === 'firmas';
+  });
+  admin.addEventListener('change', () => { if (admin.checked) operario.checked = false; pintar(); });
+  operario.addEventListener('change', () => { if (operario.checked) admin.checked = false; pintar(); });
   raiz.querySelector('.plantillas').addEventListener('click', (e) => {
     const b = e.target.closest('[data-plantilla]');
     if (!b) return;
     admin.checked = b.dataset.plantilla === 'admin';
-    if (!admin.checked) casillas().forEach((c) => { c.checked = PLANTILLAS[b.dataset.plantilla].permisos.includes(c.dataset.permiso); });
+    operario.checked = b.dataset.plantilla === 'operario';
+    if (!admin.checked && !operario.checked) casillas().forEach((c) => { c.checked = PLANTILLAS[b.dataset.plantilla].permisos.includes(c.dataset.permiso); });
     pintar();
   });
   pintar();
 }
 function leerPermisos(raiz) {
   const admin = raiz.querySelector('#pmAdmin').checked;
-  return { rol: admin ? 'admin' : 'usuario', permisos: admin ? Object.keys(PERMISOS) : [...raiz.querySelectorAll('input[data-permiso]:checked')].map((c) => c.dataset.permiso) };
+  const operario = raiz.querySelector('#pmOperario').checked;
+  return { rol: admin ? 'admin' : operario ? 'operario' : 'usuario', permisos: admin ? Object.keys(PERMISOS) : operario ? ['firmas'] : [...raiz.querySelectorAll('input[data-permiso]:checked')].map((c) => c.dataset.permiso) };
 }
 const resumenPermisos = (u) => (u.rol === 'admin' ? '<span class="tag">Administrador</span>'
+  : u.rol === 'operario' ? '<span class="tag soft">Operario</span> solo partes'
   : u.permisos.length === 0 ? 'Solo consulta'
     : u.permisos.length === Object.keys(PERMISOS).length ? 'Todo menos usuarios'
       : u.permisos.map((p) => CORTO[p]).join(', '));

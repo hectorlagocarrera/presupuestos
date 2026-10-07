@@ -252,6 +252,17 @@ export async function deletePresupuesto(id) {
 
 export const getArchivo = (id) => backend.leerArchivo(id);
 
+// Estado de firma que devuelve el servidor (el navegador no lo puede cambiar por su cuenta).
+export function actualizarFirma(presupuestoId, r) {
+  const p = getPresupuesto(presupuestoId);
+  if (!p || !r) return;
+  p.estadoFirma = r.estado || null;
+  p.firmaId = r.firma && !r.firma.anulada ? r.firma.id : null;
+  p.firmaFecha = p.firmaId ? r.firma.fecha : null;
+  p.firmaNombre = p.firmaId ? r.firma.nombre : null;
+  changed();
+}
+
 // Apunta en qué páginas del PDF original está cada documento ({ id: '12-13' }). Si el usuario no tiene permiso
 // para modificar documentos, solo se recuerda en esta sesión.
 export async function guardarPaginas(asignacion) {

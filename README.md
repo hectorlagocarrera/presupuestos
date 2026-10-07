@@ -43,9 +43,12 @@ los datos en el navegador.
    la revisión). La pestaña Facturas muestra lo facturado por año y los artículos que se han cobrado de verdad. En
    el buscador y la tarifa los precios facturados llevan la etiqueta «facturado», y se puede filtrar por solo
    facturado o solo presupuestado.
-5. **Tema**: botón arriba a la derecha para elegir entre automático, claro y oscuro (textos blancos, detalles en
+5. **Partes de trabajo y firmas**: el cliente firma el albarán con el dedo en el móvil del técnico o desde un
+   enlace que le llega por email; recibe la copia firmada en PDF. Estados (pendiente, firmado, no conforme),
+   documentos firmados bloqueados, historial y rol de *operario* que solo ve los partes. Ver `deploy/GUIA-VPS.md`.
+6. **Tema**: botón arriba a la derecha para elegir entre automático, claro y oscuro (textos blancos, detalles en
    naranja).
-6. **Seguridad** (con servidor): verificación en dos pasos con app del móvil y códigos de recuperación, opcional u
+7. **Seguridad** (con servidor): verificación en dos pasos con app del móvil y códigos de recuperación, opcional u
    obligatoria para todos (Ajustes → Seguridad).
 
 ## Privacidad

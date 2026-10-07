@@ -3,6 +3,7 @@
 // contenido del documento en ese momento: si después se cambia, se nota.
 import { randomBytes, createHash } from 'node:crypto';
 import { emailValido } from './correo.js';
+import { crearPdf } from '../js/pdfdoc.js';
 
 const sha256 = (x) => createHash('sha256').update(x).digest('hex');
 const nuevoId = () => randomBytes(12).toString('hex');
@@ -45,8 +46,8 @@ export function vistaDoc(db, id, { importes = true } = {}) {
 }
 
 export function resumenFirma(db, firmaId) {
-  const f = db.prepare('SELECT id, estado, nombre, dni, email, observaciones, motivo, fecha, modo, recogidaPor, geo, huella, anulada, copia FROM firmas WHERE id = ?').get(String(firmaId));
-  return f ? { ...f, anulada: !!f.anulada } : null;
+  const f = db.prepare('SELECT id, estado, nombre, dni, email, observaciones, motivo, fecha, modo, recogidaPor, geo, huella, anulada, copia, mostrarImportes FROM firmas WHERE id = ?').get(String(firmaId));
+  return f ? { ...f, anulada: !!f.anulada, mostrarImportes: !!f.mostrarImportes } : null;
 }
 
 export const historialFirmas = (db, presupuestoId) => db.prepare(
@@ -80,10 +81,16 @@ export function validarFirma(d) {
   if (!rechazo && !d.conforme) return { error: 'Marca la casilla de conformidad para firmar.' };
   const motivo = String(d.motivo || '').trim().slice(0, 1000);
   if (rechazo && motivo.length < 3) return { error: 'Explica brevemente por qué no estás conforme.' };
+  let imagenJpeg = null;
+  const mj = String(d.imagenJpeg || '').match(/^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/);
+  if (mj && imagen) {
+    imagenJpeg = Buffer.from(mj[1], 'base64');
+    if (imagenJpeg.length > 500000 || imagenJpeg[0] !== 0xff || imagenJpeg[1] !== 0xd8) imagenJpeg = null;
+  }
   let geo = null;
   if (d.geo && Number.isFinite(+d.geo.lat) && Number.isFinite(+d.geo.lon)) geo = JSON.stringify({ lat: +(+d.geo.lat).toFixed(6), lon: +(+d.geo.lon).toFixed(6), precision: Math.round(+d.geo.precision || 0) });
   return {
-    estado: rechazo ? 'rechazado' : 'firmado', nombre, email, imagen, motivo, geo,
+    estado: rechazo ? 'rechazado' : 'firmado', nombre, email, imagen, imagenJpeg, motivo, geo,
     dni: String(d.dni || '').trim().slice(0, 30), observaciones: String(d.observaciones || '').trim().slice(0, 1000),
   };
 }
@@ -95,9 +102,9 @@ export function registrarFirma(db, presupuestoId, datos, { ip, agente, modo, rec
   const fecha = new Date().toISOString();
   db.exec('BEGIN');
   try {
-    db.prepare(`INSERT INTO firmas (id, presupuestoId, estado, nombre, dni, email, observaciones, motivo, imagen, fecha, ip, agente, modo, recogidaPor, geo, huella, contenido, mostrarImportes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(id, String(presupuestoId), datos.estado, datos.nombre, datos.dni, datos.email,
-      datos.observaciones, datos.motivo, datos.imagen, fecha, String(ip || '').slice(0, 64), String(agente || '').slice(0, 300), modo, recogidaPor || null,
+    db.prepare(`INSERT INTO firmas (id, presupuestoId, estado, nombre, dni, email, observaciones, motivo, imagen, imagenJpeg, fecha, ip, agente, modo, recogidaPor, geo, huella, contenido, mostrarImportes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(id, String(presupuestoId), datos.estado, datos.nombre, datos.dni, datos.email,
+      datos.observaciones, datos.motivo, datos.imagen, datos.imagenJpeg || null, fecha, String(ip || '').slice(0, 64), String(agente || '').slice(0, 300), modo, recogidaPor || null,
       datos.geo, c.huella, c.json, mostrarImportes ? 1 : 0);
     db.prepare('UPDATE presupuestos SET estadoFirma = ?, firmaId = ?, firmaFecha = ?, firmaNombre = ? WHERE id = ?').run(datos.estado, id, fecha, datos.nombre, String(presupuestoId));
     db.prepare('UPDATE enlaces_firma SET usado = 1, firmaId = ? WHERE presupuestoId = ? AND usado = 0 AND solover = 0').run(id, String(presupuestoId));
@@ -197,8 +204,21 @@ export function emailSolicitud(v, url, dias) {
   return { asunto, html, texto, adjuntos: adjLogo(v) };
 }
 
+// PDF del documento firmado (para adjuntarlo a la copia). firma: fila de la tabla firmas.
+export function pdfFirmado(db, v, firma) {
+  const aj = ajustes(db);
+  const logo = String(aj.logoJpeg || '').match(/^data:image\/jpeg;base64,(.+)$/);
+  const bytes = crearPdf({
+    empresa: v.empresa, doc: { ...v.doc, lineas: v.doc.lineas.map((l) => ({ ...l })) }, importes: v.importes,
+    firma: { estado: firma.estado, nombre: firma.nombre, dni: firma.dni, fecha: firma.fecha, modo: firma.modo, recogidaPor: firma.recogidaPor, huella: firma.huella, observaciones: firma.observaciones, motivo: firma.motivo },
+    imagenes: { ...(logo ? { logo: new Uint8Array(Buffer.from(logo[1], 'base64')) } : {}), ...(firma.imagenJpeg ? { firma: new Uint8Array(firma.imagenJpeg) } : {}) },
+  });
+  return Buffer.from(bytes);
+}
+export const nombrePdf = (v, firmado = true) => `${(NOMBRE_TIPO[v.doc.tipo] || 'documento').normalize('NFD').replace(/[\u0300-\u036f]/g, '')}-${String(v.doc.numero || '').replace(/[^\w.-]+/g, '_')}${firmado ? '-firmado' : ''}.pdf`;
+
 // Copia firmada para el cliente (y la oficina).
-export function emailCopia(v, firma, imagen, urlVer) {
+export function emailCopia(v, firma, imagen, urlVer, pdf) {
   const t = NOMBRE_TIPO[v.doc.tipo] || 'documento';
   const firmado = firma.estado === 'firmado';
   const asunto = `${firmado ? 'Copia firmada' : 'No conforme'}: ${t} ${v.doc.numero}${v.empresa.nombre ? ' · ' + v.empresa.nombre : ''}`;
@@ -213,9 +233,10 @@ export function emailCopia(v, firma, imagen, urlVer) {
       ${imagen ? '<img src="cid:firma" alt="Firma" style="max-width:300px;background:#fff;border:1px solid #e3e7ee;border-radius:6px;display:block">' : ''}
       <p style="font-size:11px;color:#6b7280;margin:8px 0 0">Huella del documento firmado (SHA-256): ${esc(firma.huella)}</p>
     </div>
-    ${urlVer ? `<p style="margin-top:16px"><a href="${esc(urlVer)}">Ver o imprimir el documento firmado</a> (disponible 90 días).</p>` : ''}`);
+    <p style="margin-top:16px">${pdf ? 'Le adjuntamos el documento firmado en PDF.' : ''}${urlVer ? ` También puede <a href="${esc(urlVer)}">verlo y descargarlo aquí</a> durante 90 días.` : ''}</p>`);
   const texto = `${t} ${v.doc.numero} (${fechaCorta(v.doc.fecha)})\n${firmado ? 'Firmado' : 'No conforme'} por ${firma.nombre} el ${fecha(firma.fecha)}.\n${urlVer ? 'Ver el documento: ' + urlVer + '\n' : ''}\n${v.empresa.nombre || ''}`;
-  const adjuntos = [...adjLogo(v), ...(imagen ? [{ nombre: 'firma.png', tipo: 'image/png', datos: Buffer.from(imagen), cid: 'firma' }] : [])];
+  const adjuntos = [...adjLogo(v), ...(imagen ? [{ nombre: 'firma.png', tipo: 'image/png', datos: Buffer.from(imagen), cid: 'firma' }] : []),
+    ...(pdf ? [{ nombre: nombrePdf(v), tipo: 'application/pdf', datos: pdf }] : [])];
   return { asunto, html, texto, adjuntos };
 }
 

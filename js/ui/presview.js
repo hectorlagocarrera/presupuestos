@@ -3,7 +3,8 @@ import { $, esc, fmtEur, fmtNum, fmtDate, TIPOS, tipoDe } from '../util.js';
 import { data, getPresupuesto, partidasDe, getArchivo, guardarPaginas } from '../store.js';
 import { abrirPdf, pdfToPages, dibujarPagina } from '../pdf.js';
 import { looksLikeColumns, columnsToBudgets } from '../columnas.js';
-import { imprimirHtml } from './print.js';
+import { imprimirHtml, imprimir } from './print.js';
+import { firmable, panelFirma, descargarPdfDoc } from './firmas.js';
 import { medidasTxt, toast } from './common.js';
 import { go } from './nav.js';
 import { editor } from './editor.js';
@@ -112,15 +113,22 @@ export function verPresupuesto(id) {
       <tbody>${partidas.map((l) => `<tr><td><strong>${esc(l.articulo)}</strong>${l.descripcion ? `<div class="muted small">${esc(l.descripcion)}</div>` : ''}</td>
         <td>${medidasTxt(l)}</td><td class="num">${fmtNum(l.cantidad)}</td><td class="num">${fmtEur(l.precioUnitario)}</td><td class="num">${fmtEur(l.precioTotal)}</td></tr>`).join('')}</tbody>
     </table></div>
-    <p class="right-text">Base ${fmtEur(p.base)} · <strong>Total ${fmtEur(p.total)}</strong> (IVA ${fmtNum(p.iva)} %)</p>
+    ${p.total != null ? `<p class="right-text">Base ${fmtEur(p.base)} · <strong>Total ${fmtEur(p.total)}</strong> (IVA ${fmtNum(p.iva)} %)</p>` : ''}
+    <div id="pvFirma"></div>
     <div class="btns actions">
       ${p.archivoId ? '<button class="btn ghost" data-orig>Ver original</button>' : ''}
+      <button class="btn ghost" data-imprimir>Imprimir</button>
+      <button class="btn ghost" data-pdf>Descargar PDF</button>
       <button class="btn ghost" data-dup>Duplicar como nuevo</button>
-      <button class="btn" data-edit>Abrir para editar</button>
+      ${p.estadoFirma === 'firmado' ? '' : '<button class="btn" data-edit>Abrir para editar</button>'}
     </div>`;
-  dlg.showModal();
+  dlg.className = '';
+  if (!dlg.open) dlg.showModal();
+  if (firmable(p)) panelFirma(id, $('#pvFirma'));
   dlg.onclick = (e) => {
     if (e.target === dlg || e.target.closest('[data-cerrar]')) dlg.close();
+    if (e.target.closest('[data-imprimir]')) imprimir(p, partidas);
+    if (e.target.closest('[data-pdf]')) descargarPdfDoc(p.id);
     if (e.target.closest('[data-orig]')) abrirOriginal(p.id);
     if (e.target.closest('[data-edit]')) { dlg.close(); if (editor.abrir(id)) go('nuevo'); }
     if (e.target.closest('[data-dup]')) { dlg.close(); if (editor.duplicar(id)) go('nuevo'); }

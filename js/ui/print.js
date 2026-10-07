@@ -19,7 +19,22 @@ export function imprimirHtml(html, titulo, { sinMargen = false } = {}) {
   document.title = old;
 }
 
-export function imprimir(pres, partidas) {
+// Firma del documento para imprimirla (solo si está firmado y hay servidor).
+async function bloqueFirma(pres) {
+  if (!pres.firmaId || !['firmado', 'rechazado'].includes(pres.estadoFirma)) return '';
+  try {
+    const { imagenFirmaDataUrl } = await import('./firmas.js');
+    const img = pres.estadoFirma === 'firmado' ? await imagenFirmaDataUrl(pres.firmaId) : '';
+    const cuando = pres.firmaFecha ? new Date(pres.firmaFecha).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' }) : '';
+    return `<div class="p-firma">
+      <span>${pres.estadoFirma === 'firmado' ? (tipoDe(pres) === 'presupuesto' ? 'Aceptado y firmado por el cliente' : 'Conforme · firma del cliente') : 'No conforme'}</span>
+      ${img ? `<img src="${img}" alt="Firma">` : ''}
+      <strong>${esc(pres.firmaNombre || '')}</strong><small>${esc(cuando)}</small>
+    </div>`;
+  } catch { return ''; }
+}
+
+export async function imprimir(pres, partidas) {
   const tipo = TIPOS[tipoDe(pres)];
   const a = data.ajustes;
   const lineas = partidas.map(calcPartida).filter((l) => l.articulo || l.descripcion || l.precioUnitario);
@@ -51,6 +66,7 @@ export function imprimir(pres, partidas) {
       <tr class="grand"><td>TOTAL</td><td class="num">${fmtEur(base + iva)}</td></tr>
     </table>
     ${pres.notas ? `<p class="p-notes">${esc(pres.notas).replace(/\n/g, '<br>')}</p>` : ''}
-    ${a.validez && tipoDe(pres) === 'presupuesto' ? `<p class="p-notes">Validez del presupuesto: ${esc(a.validez)}.</p>` : ''}`;
+    ${a.validez && tipoDe(pres) === 'presupuesto' ? `<p class="p-notes">Validez del presupuesto: ${esc(a.validez)}.</p>` : ''}
+    ${await bloqueFirma(pres)}`;
   imprimirHtml(html, `${tipo.nombre} ${pres.numero || ''} ${pres.clienteNombre || ''}`.trim());
 }
