@@ -467,7 +467,7 @@ body.sin-editar a[data-tab="nuevo"], body.sin-editar [data-use], body.sin-editar
 body.sin-editar [data-dup], body.sin-editar [data-edit], body.sin-editar [data-nuevo], body.sin-editar #aRecalcular,
 body.sin-editar #cNuevo,
 body.sin-borrar [data-del],
-body.sin-importar #iInicio, body.sin-importar #iRevision,
+body.sin-importar #iInicio, body.sin-importar #iRevision, body.sin-importar #iReparar, body.sin-borrar #iReparar,
 body.sin-copias #iCopia,
 body.sin-importar-ni-copias a[data-tab="importar"],
 body.sin-facturas a[data-tab="facturas"], body.sin-facturas #pTipos [data-t="factura"], body.sin-facturas [data-f="tipo"],

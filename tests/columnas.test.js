@@ -88,3 +88,55 @@ test('tipo de documento por el título de la página', async () => {
   assert.equal(tipoTexto('EMPRESA\nFACTURA Nº 2026/015\nFecha 01/02/2026'), 'factura');
   assert.equal(tipoTexto('EMPRESA\nPRESUPUESTO Nº 12\nCliente: Facturas SL'), 'presupuesto');
 });
+
+// Factura sintética con la disposición de las facturas del programa de gestión (datos inventados):
+// «Nº Factura · Fecha · Fecha Valor · Referencia», total en su propia fila y, a veces, retención o sin IVA.
+function factura({ numero, fecha, referencia = '', filas, base, total, retencion, conIva = true }) {
+  return {
+    rows: [
+      { y: 802, cells: [cell(430, 'FACTURA')] },
+      { y: 758, cells: [cell(27, 'EMPRESA DEMO S.L.U.')] },
+      { y: 747, cells: [cell(27, 'N.I.F. B00000000')] },
+      { y: 732, cells: [cell(317, 'CLIENTE FICTICIO S.L.')] },
+      { y: 710, cells: [cell(27, 'Tel. 900000000'), cell(317, 'AVDA. INVENTADA, 1')] },
+      { y: 697, cells: [cell(317, '36000 CIUDAD')] },
+      { y: 673, cells: [cell(317, 'B-00.000.000')] },
+      { y: 634, cells: [cell(27, 'Nº Factura', 45), cell(106, 'Fecha'), cell(179, 'Fecha Valor', 50), cell(252, 'Referencia', 48)] },
+      { y: 620, cells: [cell(80, numero), cell(105, fecha), cell(176, fecha), ...(referencia ? [cell(252, referencia)] : [])] },
+      { y: 602, cells: [cell(22, 'Descripción')] },
+      { y: 569, cells: [cell(27, 'Cantidad'), cell(74, 'Código'), cell(141, 'Artículo'), cell(381, 'Precio'), cell(458, 'IVA'), cell(504, 'Subtotal')] },
+      { y: 552, cells: [cell(24, 'Nº Albarán 1. Fecha Albarán 03/03/2026. Referencia Albarán . P. Entrega /')] },
+      ...filas,
+      { y: 175, cells: [cell(62, '1'), cell(437, 'Subtotal'), cell(513, base)] },
+      { y: 151, cells: [...(retencion ? [cell(39, 'Retención', 40)] : []), cell(87, 'Descuento'), cell(186, 'Dto P.Pago'), cell(295, 'IVA'), cell(324, 'Base Imponible', 66), cell(404, 'Importe IVA', 50), cell(483, 'Importe R.E.', 50)] },
+      { y: 137, cells: [...(retencion ? [cell(68, retencion)] : []), cell(164, '%'), cell(268, '%'), ...(conIva ? [cell(291, '21,00%'), cell(363, base), cell(435, '1,00')] : [])] },
+      ...(conIva ? [] : [{ y: 104, cells: [cell(367, base)] }]),
+      { y: 80, cells: [cell(459, 'TOTAL FACTURA', 60)] },
+      { y: 63, cells: [cell(21, 'Vencimientos :'), cell(496, total + ' €')] },
+      { y: 23, cells: [cell(504, 'Página'), cell(527, '1 /'), cell(540, '1')] },
+    ],
+  };
+}
+
+test('facturas: número «A/1», fecha, cliente sin colarse la referencia, totales en su fila', () => {
+  const linea = (precio) => [{ y: 511, cells: [cell(61, '1'), cell(141, 'ALQUILER ANUAL VALLA'), cell(388, precio), cell(453, '21,00'), cell(514, precio)] }];
+  const pages = [
+    factura({ numero: 'A/1', fecha: '04/03/2026', referencia: 'PEDIDO 9', base: '200,00', total: '242,00', filas: linea('200,00') }),
+    factura({ numero: 'A/2', fecha: '05/03/2026', base: '30,00', total: '27,90', retencion: '2,10', conIva: false, filas: linea('30,00') }),
+  ];
+  assert.ok(looksLikeColumns(pages));
+  const [f1, f2] = columnsToBudgets(pages);
+  assert.equal(f1.tipo, 'factura');
+  assert.equal(f1.numero, 'A/1');
+  assert.equal(f1.fecha, '2026-03-04');
+  assert.equal(f1.cliente, 'CLIENTE FICTICIO S.L.');
+  assert.equal(f1.clienteDatos.cif, 'B-00.000.000');
+  assert.ok(!/PEDIDO|Referencia/.test(f1.clienteDatos.direccion), 'la referencia no es parte de la dirección');
+  assert.equal(f1.base, 200);
+  assert.equal(f1.total, 242, 'TOTAL FACTURA en su propia fila');
+  assert.equal(f1.partidas.length, 1);
+  assert.equal(f1.partidas[0].precioUnitario, 200);
+  assert.equal(f2.numero, 'A/2');
+  assert.equal(f2.base, 30, 'sin IVA la base está más abajo, y la retención no se confunde con la base');
+  assert.equal(f2.total, 27.9);
+});

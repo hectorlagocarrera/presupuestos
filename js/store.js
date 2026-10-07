@@ -251,6 +251,28 @@ export async function deletePresupuesto(id) {
 
 export const getArchivo = (id) => backend.leerArchivo(id);
 
+// Sustituye los documentos importados de un archivo por los que se acaban de volver a leer de él (el original
+// se conserva). Se salta los que ya existan por otro lado. Devuelve { borrados, guardados, saltados }.
+export async function sustituirDeArchivo(archivoId, archivoNombre, leidos) {
+  const viejos = data.presupuestos.filter((p) => p.archivoId === archivoId);
+  const ids = new Set(viejos.map((p) => p.id));
+  let guardados = 0; let saltados = 0;
+  await enBloque(async () => {
+    await escribir({ del: { presupuestos: [...ids], partidas: data.partidas.filter((x) => ids.has(x.presupuestoId)).map((x) => x.id) } });
+    data.presupuestos = data.presupuestos.filter((p) => !ids.has(p.id));
+    data.partidas = data.partidas.filter((x) => !ids.has(x.presupuestoId));
+    for (const b of leidos) {
+      const doc = { tipo: tipoDe(b), numero: b.numero, fecha: b.fecha || '', clienteNombre: b.cliente, clienteDatos: b.clienteDatos,
+        origen: 'importado', archivoId, archivoNombre, notas: '', total: b.total };
+      if (b.numero && buscarDuplicado({ ...doc, clienteNombre: b.cliente })) { saltados++; continue; }
+      await savePresupuesto(doc, b.partidas, { silencioso: true, totalesPdf: b.base != null ? { base: b.base, total: b.total } : null });
+      guardados++;
+    }
+  });
+  changed();
+  return { borrados: viejos.length, guardados, saltados };
+}
+
 // ---------- Copia de seguridad ----------
 
 const blobToDataUrl = (blob) => new Promise((resolve) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.readAsDataURL(blob); });

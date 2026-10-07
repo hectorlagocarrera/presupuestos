@@ -3,7 +3,7 @@ import { $, esc, fmtEur, fmtNum, numOrNull, today, calcPartida, round, tipoDe, T
 import { textToBudget, rowsToBudgets } from '../parse.js';
 import { itemsToRows, rowsToLines, looksLikeColumns, columnsToBudgets } from '../columnas.js';
 import { classify } from '../search.js';
-import { data, savePresupuesto, buscarDuplicado, exportar, importar, notify, saveAjustes, enBloque, recargar } from '../store.js';
+import { data, savePresupuesto, buscarDuplicado, exportar, importar, notify, saveAjustes, enBloque, recargar, getArchivo, sustituirDeArchivo, onChange } from '../store.js';
 import { toast, loadScript } from './common.js';
 import { onShow } from './nav.js';
 
@@ -54,6 +54,56 @@ async function leerArchivo(file, progreso) {
   }
   const text = await file.text();
   return [{ b: textToBudget(text.split(/\r?\n/)), texto: text, archivo }];
+}
+
+// ---------- Volver a leer documentos mal importados ----------
+
+// Originales con documentos importados sin número.
+function reparables() {
+  const porArchivo = new Map();
+  for (const p of data.presupuestos) {
+    if (p.origen !== 'importado' || !p.archivoId) continue;
+    const a = porArchivo.get(p.archivoId) || { id: p.archivoId, nombre: p.archivoNombre || 'archivo', n: 0, sinNumero: 0 };
+    a.n++;
+    if (!String(p.numero || '').trim()) a.sinNumero++;
+    porArchivo.set(p.archivoId, a);
+  }
+  return [...porArchivo.values()].filter((a) => a.sinNumero > 0 && /\.pdf$/i.test(a.nombre));
+}
+
+function pintarReparar() {
+  const lista = reparables();
+  $('#iReparar').classList.toggle('hidden', !lista.length);
+  $('#iRepararTabla').innerHTML = lista.map((a) => `
+    <tr><td>${esc(a.nombre)}</td><td class="num">${a.n}</td><td class="num">${a.sinNumero}</td>
+      <td class="acciones"><button class="btn small" data-releer="${esc(a.id)}">Volver a leer</button></td></tr>`).join('');
+}
+
+async function releer(archivoId) {
+  const a = reparables().find((x) => x.id === archivoId);
+  const msg = (t) => { $('#iRepararMsg').textContent = t; };
+  try {
+    msg(`Leyendo «${a.nombre}»…`);
+    const original = await getArchivo(archivoId);
+    if (!original) { msg('No se encontró el archivo original.'); return; }
+    const pages = await pdfToPages(await original.blob.arrayBuffer(), (t) => msg(`Leyendo «${a.nombre}»: ${t}`));
+    if (!looksLikeColumns(pages)) { msg('Este archivo no tiene el formato de columnas del programa de gestión: no se puede volver a leer solo. Revisa sus documentos a mano.'); return; }
+    const leidos = columnsToBudgets(pages, a.nombre);
+    const tipos = Object.entries(leidos.reduce((m, b) => ({ ...m, [tipoDe(b)]: (m[tipoDe(b)] || 0) + 1 }), {}))
+      .map(([t, n]) => `${n} ${(n === 1 ? TIPOS[t].nombre : TIPOS[t].plural).toLowerCase()}`).join(', ');
+    const sinNum = leidos.filter((b) => !b.numero).length;
+    if (!confirm(`«${a.nombre}»\n\nAhora se leen ${leidos.length} documentos (${tipos})${sinNum ? `, ${sinNum} todavía sin número` : ', todos con número'}.\n`
+      + `Se sustituirán los ${a.n} documentos que se importaron de este archivo (el PDF original se conserva).\n\n`
+      + 'Si habías corregido alguno a mano, esos cambios se perderán. ¿Continuar?')) { msg(''); return; }
+    msg(`Guardando ${leidos.length} documentos…`);
+    const r = await sustituirDeArchivo(archivoId, a.nombre, leidos);
+    msg(`Listo: ${r.guardados} documentos leídos de nuevo (antes había ${r.borrados})${r.saltados ? ` · ${r.saltados} ya existían y se han saltado` : ''}.`);
+    toast('Documentos leídos de nuevo');
+  } catch (err) {
+    msg('No se pudo: ' + err.message);
+    await recargar().catch(() => {});
+  }
+  pintarReparar();
 }
 
 // ---------- Cola de revisión ----------
@@ -284,5 +334,12 @@ export function initImportar() {
     }
   });
 
-  onShow('importar', mostrarCola);
+  onShow('importar', () => { mostrarCola(); pintarReparar(); });
+  onChange(() => { if (!$('#s-importar').classList.contains('hidden')) pintarReparar(); });
+  $('#iRepararTabla').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-releer]');
+    if (!b) return;
+    $('#iRepararTabla').querySelectorAll('button').forEach((x) => { x.disabled = true; });
+    await releer(b.dataset.releer);
+  });
 }

@@ -69,7 +69,8 @@ export function tipoTitulo(page) {
 // Nº, fecha, cliente y datos del emisor (cabecera de la página).
 function cabecera(page) {
   const out = { numero: '', fecha: '', cliente: '', clienteDatos: {}, empresa: [], tipo: tipoTitulo(page) };
-  const num = findCell(page.rows, /^numero$/);
+  // «Número» en presupuestos; «Nº Factura», «Nº Albarán»… en los demás documentos.
+  const num = findCell(page.rows, /^(numero|n[ºo°.]*\s*(de\s*)?(factura|albaran|presupuesto)|numero (de )?(factura|albaran|presupuesto))$/);
   const fec = findCell(page.rows, /^fecha$/);
   const val = findCell(page.rows, /^valido hasta$/);
   if (!num || !fec) return out;
@@ -82,17 +83,21 @@ function cabecera(page) {
       if (d && !out.fecha && Math.abs(c.x - fec.cell.x) < 40) out.fecha = `${d[3]}-${d[2]}-${d[1]}`;
     }
   }
-  // Cliente: bloque de la derecha, por encima de la fila de números.
-  const rightX = val ? val.cell.x + val.cell.w + 25 : fec.cell.x + 120;
+  // Cliente: bloque de la derecha. Empieza donde empieza el texto de la derecha por encima de la fila de números
+  // (así no se cuelan otras columnas de la cabecera, como «Referencia» en las facturas).
+  const TITULOS = /^(presupuesto|factura|albaran|factura proforma|pagina|\d+\s*\/?|\/)$/;
   const head = headerOf(page);
   const yMin = yNum - 30;
+  const xsDerecha = page.rows.filter((r) => r.y > yNum + 4 && (!head || r.y > head.row.y))
+    .flatMap((r) => r.cells).filter((c) => c.x >= 280 && !TITULOS.test(norm(c.s))).map((c) => c.x);
+  const rightX = xsDerecha.length ? Math.min(...xsDerecha) - 6 : (val ? val.cell.x + val.cell.w + 25 : fec.cell.x + 120);
   const lines = page.rows
     .filter((r) => r.y > yMin && (!head || r.y > head.row.y))
-    .map((r) => ({ y: r.y, s: r.cells.filter((c) => c.x >= rightX && !/^(presupuesto|factura|albaran|factura proforma|pagina|\d+\s*\/?|\/)$/.test(norm(c.s))).map((c) => c.s).join(' ').trim() }))
+    .map((r) => ({ y: r.y, s: r.cells.filter((c) => c.x >= rightX && !TITULOS.test(norm(c.s))).map((c) => c.s).join(' ').trim() }))
     .filter((l) => l.s);
   if (lines.length) {
     const last = lines[lines.length - 1];
-    if (CIF.test(last.s.replace(/\s/g, '')) && lines.length > 1) { out.clienteDatos.cif = last.s; lines.pop(); }
+    if (CIF.test(last.s.replace(/[\s.]/g, '')) && lines.length > 1) { out.clienteDatos.cif = last.s; lines.pop(); }
     out.cliente = lines[0].s;
     out.clienteDatos.direccion = lines.slice(1).map((l) => l.s).join(', ');
   }
@@ -108,12 +113,23 @@ function cabecera(page) {
 function pie(page) {
   const b = findCell(page.rows, /^base imponible$/);
   if (!b) return null;
-  const r = page.rows.find((x) => x.y < b.row.y - 3 && x.y > b.row.y - 30 && x.cells.some((c) => isNum(c.s.replace('€', ''))));
+  // Importes debajo del rótulo (en facturas sin IVA quedan dos filas más abajo, tras la fila del «%»).
+  // Solo cuenta un importe en la columna de la base (no la retención u otros importes de la misma fila).
+  const r = page.rows.find((x) => x.y < b.row.y - 3 && x.y > b.row.y - 60
+    && x.cells.some((c) => isNum(c.s.replace('€', '').trim()) && Math.abs(c.x - (b.cell.x + 20)) < 70));
   if (!r) return null;
   const nums = r.cells.filter((c) => isNum(c.s.replace('€', '').trim())).map((c) => ({ x: c.x, v: parseNum(c.s) }));
   const near = (x) => nums.reduce((best, n) => (Math.abs(n.x - x) < Math.abs((best?.x ?? 1e9) - x) ? n : best), null);
   const t = findCell(page.rows, /^total (presupuesto|factura|albaran)$/);
-  return { base: near(b.cell.x + 20)?.v ?? null, total: t ? near(t.cell.x + 40)?.v ?? null : null };
+  let total = null;
+  if (t && Math.abs(t.row.y - b.row.y) < 5) total = near(t.cell.x + 40)?.v ?? null; // en la misma fila que la base (presupuestos)
+  else if (t) {
+    // En su propia fila, más abajo (facturas): el importe está justo debajo del rótulo.
+    const fila = page.rows.find((x) => x.y < t.row.y && x.y > t.row.y - 30 && x.cells.some((c) => c.x > t.cell.x - 40 && isNum(c.s.replace('€', '').trim())));
+    const v = fila?.cells.filter((c) => c.x > t.cell.x - 40 && isNum(c.s.replace('€', '').trim())).pop();
+    total = v ? parseNum(v.s) : null;
+  }
+  return { base: near(b.cell.x + 20)?.v ?? null, total };
 }
 
 // Partidas de una página. Devuelve las nuevas partidas y las líneas de texto anteriores a la primera.

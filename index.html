@@ -284,6 +284,16 @@
         <p id="iMsg" class="muted"></p>
       </section>
 
+      <section class="pane hidden" id="iReparar">
+        <h2 data-ayuda="Documentos que se importaron sin número (por ejemplo, facturas leídas con una versión anterior del lector). Se vuelven a leer del PDF original que guardó la aplicación y se sustituyen; el original se conserva.">Volver a leer documentos mal importados</h2>
+        <p class="muted small">Estos archivos tienen documentos que se guardaron <strong>sin número</strong>. Si ahora se leen mejor,
+          pulsa «Volver a leer»: se sustituyen los documentos importados de ese archivo por los que se lean ahora.</p>
+        <div class="table-wrap"><table class="data cards">
+          <thead><tr><th>Archivo original</th><th class="num">Documentos</th><th class="num">Sin número</th><th></th></tr></thead>
+          <tbody id="iRepararTabla"></tbody>
+        </table></div>
+        <p id="iRepararMsg" class="muted small"></p>
+      </section>
       <section class="pane hidden" id="iRevision">
         <div class="pane-head">
           <h2 id="iTitulo">Revisar importación</h2>
