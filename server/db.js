@@ -2,7 +2,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
 
 // Columnas de cada tabla (el resto de campos que lleguen se ignoran).
 export const COLUMNAS = {
@@ -53,6 +53,8 @@ export function abrir(ruta) {
     const hay = new Set(db.prepare(`PRAGMA table_info(${tabla})`).all().map((c) => c.name));
     for (const [c, tipo] of Object.entries(cols)) if (!hay.has(c)) db.exec(`ALTER TABLE ${tabla} ADD COLUMN ${c} ${tipo}`);
   }
+  // Las sesiones se guardan ahora como huella (hash): las antiguas se borran una vez (hay que volver a entrar).
+  if (leerConfig(db, 'sesiones_hash') !== '1') { db.exec('DELETE FROM sesiones'); guardarConfig(db, 'sesiones_hash', '1'); }
   return db;
 }
 
@@ -128,13 +130,17 @@ export const listaArchivos = (db) => db.prepare('SELECT id, nombre, tipo FROM ar
 
 // ---------- Usuarios y sesiones ----------
 
+export const MIN_CLAVE = 12;
+
 function hashClave(clave, sal = randomBytes(16).toString('hex')) {
   return `scrypt:${sal}:${scryptSync(clave, sal, 64).toString('hex')}`;
 }
 
 export function crearUsuario(db, usuario, clave) {
   if (!/^[\w.@-]{2,40}$/.test(usuario)) throw new Error('Usuario no válido (letras, números, . - _ @).');
-  if (String(clave).length < 8) throw new Error('La contraseña debe tener al menos 8 caracteres.');
+  if (String(clave).length < MIN_CLAVE) throw new Error(`La contraseña debe tener al menos ${MIN_CLAVE} caracteres.`);
+  if (String(clave).length > 200) throw new Error('La contraseña es demasiado larga.');
+  if (String(clave).toLowerCase().includes(usuario.toLowerCase())) throw new Error('La contraseña no puede contener el nombre de usuario.');
   db.prepare('INSERT OR REPLACE INTO usuarios (usuario, hash, creado) VALUES (?, ?, ?)').run(usuario, hashClave(clave), new Date().toISOString());
   db.prepare('DELETE FROM sesiones WHERE usuario = ?').run(usuario); // cierra sesiones con la contraseña anterior
 }
@@ -152,17 +158,21 @@ export function comprobarClave(db, usuario, clave) {
   return !!u && timingSafeEqual(calc, Buffer.from(h, 'hex'));
 }
 
-const DIAS_SESION = 30;
+// En la base de datos solo se guarda la huella del token: quien viera una copia de la base de datos
+// no podría usarla para entrar.
+const huella = (token) => createHash('sha256').update(String(token || '')).digest('hex');
+const DIAS_SESION = 7;
 export function crearSesion(db, usuario) {
   const token = randomBytes(32).toString('hex');
-  db.prepare('INSERT INTO sesiones (token, usuario, expira) VALUES (?, ?, ?)').run(token, usuario, Date.now() + DIAS_SESION * 86400000);
+  db.prepare('INSERT INTO sesiones (token, usuario, expira) VALUES (?, ?, ?)').run(huella(token), usuario, Date.now() + DIAS_SESION * 86400000);
   db.prepare('DELETE FROM sesiones WHERE expira < ?').run(Date.now());
   return { token, maxAge: DIAS_SESION * 86400 };
 }
 export function usuarioDeSesion(db, token) {
   if (!token) return null;
-  const s = db.prepare('SELECT usuario, expira FROM sesiones WHERE token = ?').get(token);
+  if (!/^[0-9a-f]{64}$/.test(token)) return null;
+  const s = db.prepare('SELECT usuario, expira FROM sesiones WHERE token = ?').get(huella(token));
   return s && s.expira > Date.now() ? s.usuario : null;
 }
-export const cerrarOtrasSesiones = (db, usuario, token) => db.prepare('DELETE FROM sesiones WHERE usuario = ? AND token <> ?').run(String(usuario), String(token || ''));
-export const cerrarSesion = (db, token) => db.prepare('DELETE FROM sesiones WHERE token = ?').run(String(token || ''));
+export const cerrarOtrasSesiones = (db, usuario, token) => db.prepare('DELETE FROM sesiones WHERE usuario = ? AND token <> ?').run(String(usuario), huella(token));
+export const cerrarSesion = (db, token) => db.prepare('DELETE FROM sesiones WHERE token = ?').run(huella(token));

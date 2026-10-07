@@ -1,1 +1,14 @@
 node_modules/
+# Datos privados de la empresa: nunca al repositorio (es público).
+datos/
+*.db
+*.db-wal
+*.db-shm
+*.db.gz
+*.pdf
+*.xlsx
+*.xls
+*.ods
+*.csv
+copia-*.json
+codigos-recuperacion-*.txt

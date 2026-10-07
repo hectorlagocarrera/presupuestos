@@ -22,7 +22,7 @@ const db = DB.abrir(RUTA_DB);
 
 function json(res, code, obj, extra = {}) {
   const body = JSON.stringify(obj);
-  res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...extra });
+  res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...extra });
   res.end(body);
 }
 
@@ -44,19 +44,27 @@ const cookies = (req) => Object.fromEntries((req.headers.cookie || '').split(';'
 const esHttps = (req) => req.headers['x-forwarded-proto'] === 'https';
 const ip = (req) => req.headers['x-real-ip'] || req.socket.remoteAddress;
 
-// Freno a los intentos de contraseña: 8 fallos por IP en 15 minutos.
+// Freno a los intentos: 8 fallos por IP, 20 contraseñas o 10 códigos incorrectos por usuario, en 15 minutos.
+// Así no se pueden probar contraseñas ni códigos sin fin, ni repartiendo los intentos entre muchas IP.
+const VENTANA = 15 * 60000;
+const LIMITES = { ip: 8, usuario: 20, mfa: 10 };
 const fallos = new Map();
-function bloqueado(dir) {
-  const f = fallos.get(dir);
+const claveFallo = (tipo, valor) => `${tipo}:${String(valor).toLowerCase()}`;
+function bloqueado(tipo, valor) {
+  const f = fallos.get(claveFallo(tipo, valor));
   if (!f) return false;
-  if (Date.now() - f.desde > 15 * 60000) { fallos.delete(dir); return false; }
-  return f.n >= 8;
+  if (Date.now() - f.desde > VENTANA) { fallos.delete(claveFallo(tipo, valor)); return false; }
+  return f.n >= LIMITES[tipo];
 }
-function fallo(dir) {
-  const f = fallos.get(dir) || { n: 0, desde: Date.now() };
+function fallo(tipo, valor) {
+  const k = claveFallo(tipo, valor);
+  const f = fallos.get(k) || { n: 0, desde: Date.now() };
   f.n++;
-  fallos.set(dir, f);
+  fallos.set(k, f);
 }
+setInterval(() => { const t = Date.now(); for (const [k, f] of fallos) if (t - f.desde > VENTANA) fallos.delete(k); }, 60000).unref();
+const aviso = (req, texto) => console.warn(new Date().toISOString(), 'SEGURIDAD', texto, 'ip=' + ip(req));
+const DEMASIADOS = { error: 'Demasiados intentos. Espera 15 minutos.' };
 
 // ---------- Verificación en dos pasos ----------
 
@@ -99,35 +107,46 @@ async function api(req, res, ruta) {
   // Paso 1: usuario y contraseña. Si tiene verificación en dos pasos, se devuelve un «reto» en vez de la sesión.
   if (ruta === 'entrar' && req.method === 'POST') {
     const dir = ip(req);
-    if (bloqueado(dir)) return json(res, 429, { error: 'Demasiados intentos. Espera 15 minutos.' });
+    if (bloqueado('ip', dir)) return json(res, 429, DEMASIADOS);
     const datos = await leerJson();
     if (!datos) return json(res, 400, { error: 'Datos no válidos' });
-    const usuario = String(datos.usuario || '').trim();
-    if (!DB.comprobarClave(db, usuario, String(datos.clave || ''))) { fallo(dir); return json(res, 401, { error: 'Usuario o contraseña incorrectos' }); }
-    fallos.delete(dir);
+    const usuario = String(datos.usuario || '').trim().slice(0, 60);
+    if (bloqueado('usuario', usuario)) { aviso(req, `usuario bloqueado por intentos: ${usuario}`); return json(res, 429, DEMASIADOS); }
+    if (!DB.comprobarClave(db, usuario, String(datos.clave || '').slice(0, 200))) {
+      fallo('ip', dir); fallo('usuario', usuario);
+      aviso(req, `contraseña incorrecta para «${usuario}»`);
+      return json(res, 401, { error: 'Usuario o contraseña incorrectos' });
+    }
     if (DB.datosMfa(db, usuario)?.mfa_secreto) {
+      if (bloqueado('mfa', usuario)) { aviso(req, `códigos bloqueados para «${usuario}»`); return json(res, 429, DEMASIADOS); }
       const reto = randomBytes(24).toString('hex');
       retos.set(reto, { usuario, expira: Date.now() + 5 * 60000, intentos: 0 });
       return json(res, 200, { mfa: true, reto });
     }
+    fallos.delete(claveFallo('ip', dir));
     return abrirSesion(usuario);
   }
 
   // Paso 2: código de la app (o uno de recuperación).
   if (ruta === 'entrar-mfa' && req.method === 'POST') {
     const dir = ip(req);
-    if (bloqueado(dir)) return json(res, 429, { error: 'Demasiados intentos. Espera 15 minutos.' });
+    if (bloqueado('ip', dir)) return json(res, 429, DEMASIADOS);
     const datos = await leerJson();
     const r = datos && retos.get(String(datos.reto || ''));
     if (!r || r.expira < Date.now()) return json(res, 401, { error: 'Ha pasado demasiado tiempo. Vuelve a escribir la contraseña.', reiniciar: true });
+    // Límite por usuario: aunque se sepa la contraseña, no se pueden probar códigos sin fin pidiendo retos nuevos.
+    if (bloqueado('mfa', r.usuario)) { retos.delete(datos.reto); return json(res, 429, { ...DEMASIADOS, reiniciar: true }); }
     const v = verificarCodigo(r.usuario, datos.codigo);
     if (!v) {
-      fallo(dir);
+      fallo('ip', dir); fallo('mfa', r.usuario);
+      aviso(req, `código incorrecto para «${r.usuario}»`);
       if (++r.intentos >= 5) { retos.delete(datos.reto); return json(res, 401, { error: 'Demasiados códigos incorrectos. Vuelve a empezar.', reiniciar: true }); }
       return json(res, 401, { error: 'Código incorrecto' });
     }
     retos.delete(datos.reto);
-    fallos.delete(dir);
+    fallos.delete(claveFallo('ip', dir));
+    fallos.delete(claveFallo('mfa', r.usuario));
+    if (v.recuperacion) aviso(req, `entrada con código de recuperación de «${r.usuario}»`);
     return abrirSesion(r.usuario, v.recuperacion ? { recuperacionRestantes: v.restantes } : {});
   }
 
@@ -147,7 +166,7 @@ async function api(req, res, ruta) {
   if (ruta.startsWith('mfa/') && req.method === 'POST') {
     const datos = (await leerJson()) || {};
     const dir = ip(req);
-    if (bloqueado(dir)) return json(res, 429, { error: 'Demasiados intentos. Espera 15 minutos.' });
+    if (bloqueado('ip', dir) || bloqueado('mfa', usuario)) return json(res, 429, DEMASIADOS);
     const accion = ruta.slice(4);
     if (accion === 'iniciar') {
       if (mfaActivo) return json(res, 400, { error: 'Ya está activada. Desactívala primero para cambiar de móvil.' });
@@ -159,7 +178,7 @@ async function api(req, res, ruta) {
       const pendiente = DB.datosMfa(db, usuario)?.mfa_pendiente;
       if (!pendiente) return json(res, 400, { error: 'Empieza de nuevo la activación.' });
       const paso = MFA.comprobar(pendiente, datos.codigo);
-      if (paso == null) { fallo(dir); return json(res, 400, { error: 'Código incorrecto. Comprueba que la hora del móvil es la correcta y prueba con el código nuevo.' }); }
+      if (paso == null) { fallo('ip', dir); fallo('mfa', usuario); return json(res, 400, { error: 'Código incorrecto. Comprueba que la hora del móvil es la correcta y prueba con el código nuevo.' }); }
       const { codigos, hashes } = MFA.nuevosCodigosRecuperacion();
       DB.guardarMfa(db, usuario, { mfa_secreto: pendiente, mfa_pendiente: null, mfa_ultimo_paso: paso, mfa_recuperacion: JSON.stringify(hashes) });
       DB.cerrarOtrasSesiones(db, usuario, token); // las sesiones abiertas solo con contraseña se cierran
@@ -167,15 +186,17 @@ async function api(req, res, ruta) {
     }
     if (accion === 'desactivar') {
       if (!DB.comprobarClave(db, usuario, String(datos.clave || '')) || !verificarCodigo(usuario, datos.codigo)) {
-        fallo(dir); return json(res, 400, { error: 'Contraseña o código incorrectos' });
+        fallo('ip', dir); fallo('mfa', usuario); aviso(req, `intento fallido de desactivar la verificación de «${usuario}»`);
+        return json(res, 400, { error: 'Contraseña o código incorrectos' });
       }
       DB.quitarMfa(db, usuario);
+      aviso(req, `verificación en dos pasos desactivada por «${usuario}»`);
       return json(res, 200, { ok: true, mfaObligatorio: obligatorio });
     }
     if (accion === 'recuperacion') {
       const m = DB.datosMfa(db, usuario);
       const paso = m?.mfa_secreto ? MFA.comprobar(m.mfa_secreto, datos.codigo, m.mfa_ultimo_paso ?? -1) : null;
-      if (paso == null) { fallo(dir); return json(res, 400, { error: 'Código incorrecto' }); }
+      if (paso == null) { fallo('ip', dir); fallo('mfa', usuario); return json(res, 400, { error: 'Código incorrecto' }); }
       const { codigos, hashes } = MFA.nuevosCodigosRecuperacion();
       DB.guardarMfa(db, usuario, { mfa_ultimo_paso: paso, mfa_recuperacion: JSON.stringify(hashes) });
       return json(res, 200, { codigos });
@@ -183,6 +204,7 @@ async function api(req, res, ruta) {
     if (accion === 'politica') {
       if (!mfaActivo) return json(res, 400, { error: 'Activa primero la verificación en tu usuario.' });
       DB.guardarConfig(db, 'mfa_obligatorio', datos.obligatorio ? '1' : '0');
+      aviso(req, `verificación obligatoria ${datos.obligatorio ? 'activada' : 'desactivada'} por «${usuario}»`);
       return json(res, 200, { mfaObligatorio: !!datos.obligatorio });
     }
     return json(res, 404, { error: 'No existe' });
@@ -203,21 +225,32 @@ async function api(req, res, ruta) {
   const m = ruta.match(/^archivos\/([\w-]{1,64})$/);
   if (m && req.method === 'PUT') {
     const u = new URL(req.url, 'http://x');
-    DB.guardarArchivo(db, { id: m[1], nombre: u.searchParams.get('nombre'), tipo: u.searchParams.get('tipo'), datos: await cuerpo(req, MAX_ARCHIVO) });
+    DB.guardarArchivo(db, { id: m[1], nombre: String(u.searchParams.get('nombre') || '').slice(0, 200), tipo: String(u.searchParams.get('tipo') || '').slice(0, 100), datos: await cuerpo(req, MAX_ARCHIVO) });
     return json(res, 200, { ok: true });
   }
   if (m && req.method === 'GET') {
     const a = DB.leerArchivo(db, m[1]);
     if (!a) return json(res, 404, { error: 'No existe' });
+    // Solo se muestran en el navegador los tipos conocidos (PDF, imágenes); el resto se descarga.
+    // «sandbox» impide que un archivo subido ejecute código en la aplicación aunque fuera una página web.
+    const tipo = TIPOS_ARCHIVO.has(a.tipo) ? a.tipo : 'application/octet-stream';
+    const verEnNavegador = /^(application\/pdf|image\/(png|jpeg|gif|webp))$/.test(tipo);
     res.writeHead(200, {
-      'Content-Type': a.tipo && a.tipo.includes('/') ? a.tipo : 'application/octet-stream',
-      'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(a.nombre || a.id)}`,
+      'Content-Type': tipo,
+      'Content-Disposition': `${verEnNavegador ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(a.nombre || a.id)}`,
+      'Content-Security-Policy': "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'",
+      'X-Content-Type-Options': 'nosniff',
       'Cache-Control': 'private, no-store',
     });
     return res.end(Buffer.from(a.datos));
   }
   return json(res, 404, { error: 'No existe' });
 }
+
+// Tipos de archivo original admitidos (PDF, Excel, hojas de cálculo, texto, imágenes).
+const TIPOS_ARCHIVO = new Set(['application/pdf', 'text/csv', 'text/plain', 'image/png', 'image/jpeg', 'image/gif', 'image/webp',
+  'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.oasis.opendocument.spreadsheet']);
 
 // ---------- Archivos de la web ----------
 
@@ -242,15 +275,18 @@ async function estatico(req, res, ruta) {
 // ---------- Arranque ----------
 
 const servidor = http.createServer(async (req, res) => {
-  const ruta = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  let ruta = '';
   try {
+    // Una dirección mal formada (p. ej. «%E0%A4%A») da error 400 en vez de tumbar el servidor.
+    try { ruta = decodeURIComponent(new URL(req.url, 'http://x').pathname); } catch { res.writeHead(400); return res.end(); }
     const m = ruta.match(/\/api\/(.*)$/);
     if (m) await api(req, res, m[1]);
     else if (req.method === 'GET' || req.method === 'HEAD') await estatico(req, res, ruta);
     else { res.writeHead(405); res.end(); }
   } catch (err) {
     console.error(new Date().toISOString(), req.method, ruta, err);
-    if (!res.headersSent) json(res, err.code === 413 ? 413 : 500, { error: err.code === 413 ? err.message : 'Error del servidor: ' + err.message });
+    // Al navegador no se le dan detalles internos del error (quedan en el registro del servidor).
+    if (!res.headersSent) json(res, err.code === 413 ? 413 : 500, { error: err.code === 413 ? err.message : 'Error del servidor. Inténtalo de nuevo.' });
     else res.end();
   }
 });
@@ -259,5 +295,8 @@ servidor.listen(PORT, HOST, () => {
   console.log(`Albaranes en http://${HOST}:${PORT} · base de datos ${RUTA_DB}`);
   if (!DB.listaUsuarios(db).length) console.log('Aún no hay usuarios. Crea uno con:  node server/usuarios.js nuevo <usuario>');
 });
+
+// Última red de seguridad: un error inesperado se apunta en el registro y el servidor sigue funcionando.
+process.on('unhandledRejection', (err) => console.error(new Date().toISOString(), 'Error no controlado', err));
 
 for (const s of ['SIGINT', 'SIGTERM']) process.on(s, () => { servidor.close(); db.close(); process.exit(0); });

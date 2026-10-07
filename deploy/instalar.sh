@@ -35,12 +35,15 @@ fi
 if [ "$CREAR_USUARIO" = 1 ]; then
   USUARIO="$(pregunta 'Usuario para entrar en la aplicación' 'oficina')"
   while true; do
-    read -r -s -u 3 -p "Contraseña (mínimo 8 caracteres): " P1; echo
+    read -r -s -u 3 -p "Contraseña (mínimo 12 caracteres; mejor una frase): " P1; echo
     read -r -s -u 3 -p "Repite la contraseña: " P2; echo
-    if [ "${#P1}" -ge 8 ] && [ "$P1" = "$P2" ]; then break; fi
+    if [ "${#P1}" -ge 12 ] && [ "$P1" = "$P2" ]; then break; fi
     echo "No coinciden o es demasiado corta. Prueba otra vez."
   done
 fi
+# Actualizar sola cada noche desde GitHub es cómodo, pero si alguien entrara en la cuenta de GitHub
+# su código llegaría al servidor sin que nadie lo revise. Por eso, por defecto, se actualiza a mano.
+AUTO_ACTUALIZAR="$(pregunta '¿Traer las actualizaciones de GitHub automáticamente cada noche? (s/n, recomendado n)' 'n')"
 
 echo "--- 1/7 Instalando programas (nginx, Node.js, certificados…)."
 export DEBIAN_FRONTEND=noninteractive
@@ -52,7 +55,7 @@ if fuser /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock >/dev/null 2>&1; th
 fi
 APT=(-o DPkg::Lock::Timeout=900 -y -q)
 apt-get "${APT[@]}" update
-apt-get "${APT[@]}" install ca-certificates curl git nginx certbot python3-certbot-nginx ufw sqlite3 unattended-upgrades
+apt-get "${APT[@]}" install ca-certificates curl git nginx certbot python3-certbot-nginx ufw sqlite3 unattended-upgrades fail2ban
 if ! command -v node >/dev/null || [ "$(node -p 'process.versions.node.split(".")[0]')" -lt 22 ]; then
   echo "    Instalando Node.js 22…"
   curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null
@@ -81,10 +84,26 @@ Environment=HOST=127.0.0.1
 ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning $APP/server/server.js
 Restart=always
 RestartSec=3
+# Aislamiento: el programa solo puede escribir en su carpeta de datos y no puede ganar permisos.
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+UMask=0077
 ReadWritePaths=$DATOS
 
 [Install]
@@ -119,10 +138,13 @@ systemctl restart presupuestos
 CMD
 chmod 755 /usr/local/bin/presupuestos-usuario /usr/local/bin/presupuestos-copia /usr/local/bin/presupuestos-actualizar
 cat > /etc/cron.d/presupuestos <<CRON
-# Copia de seguridad diaria a las 3:30 y actualización de la aplicación a las 4:15.
+# Copia de seguridad diaria a las 3:30.
 30 3 * * * presupuestos /usr/local/bin/presupuestos-copia
-15 4 * * * root /usr/local/bin/presupuestos-actualizar
 CRON
+if [ "$AUTO_ACTUALIZAR" = "s" ]; then
+  echo "# Actualización de la aplicación a las 4:15." >> /etc/cron.d/presupuestos
+  echo "15 4 * * * root /usr/local/bin/presupuestos-actualizar" >> /etc/cron.d/presupuestos
+fi
 
 if [ "$CREAR_USUARIO" = 1 ]; then
   printf '%s\n' "$P1" | sudo -u presupuestos env PRESUPUESTOS_DB="$DATOS/datos.db" node --disable-warning=ExperimentalWarning "$APP/server/usuarios.js" nuevo "$USUARIO"
@@ -131,6 +153,13 @@ fi
 
 echo "--- 4/7 Servidor web (nginx)…"
 LISTEN6=""; [ -s /proc/net/if_inet6 ] && LISTEN6="listen [::]:80;"
+# Límite de intentos de entrada (además del de la aplicación) y sin decir la versión de nginx.
+cat > /etc/nginx/conf.d/presupuestos-seguridad.conf <<NGINX
+limit_req_zone \$binary_remote_addr zone=presupuestos_entrar:10m rate=10r/m;
+limit_req_zone \$binary_remote_addr zone=presupuestos_api:10m rate=20r/s;
+limit_req_status 429;
+server_tokens off;
+NGINX
 cat > /etc/nginx/sites-available/presupuestos <<NGINX
 server {
     listen 80;
@@ -142,11 +171,23 @@ server {
 
     # Archivos internos que no se publican.
     location ~ (^|/)\. { deny all; }
-    location ~ ^/(server|deploy|tests|docs|datos)/ { deny all; }
+    location ~ ^/(server|deploy|tests|docs|datos|node_modules)/ { deny all; }
+    location ~ \.md$ { deny all; }
     location ~ ^/package(-lock)?\.json$ { deny all; }
+
+    # Entrar: como mucho 10 intentos por minuto desde cada IP.
+    location ~ ^/api/entrar {
+        limit_req zone=presupuestos_entrar burst=5 nodelay;
+        client_max_body_size 16k;
+        proxy_pass http://127.0.0.1:$PUERTO;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
 
     # Datos: los gestiona el servidor de la aplicación (con usuario y contraseña).
     location /api/ {
+        limit_req zone=presupuestos_api burst=100 nodelay;
         proxy_pass http://127.0.0.1:$PUERTO;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
@@ -157,9 +198,14 @@ server {
 
     location / { try_files \$uri \$uri/ =404; }
 
+    # Cabeceras de seguridad: solo HTTPS, sin incrustar la app en otras webs, solo código propio.
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' data: blob:; worker-src 'self' blob:; object-src blob:; frame-src blob:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'" always;
     add_header X-Content-Type-Options nosniff always;
     add_header X-Frame-Options DENY always;
     add_header Referrer-Policy no-referrer always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
+    add_header Cross-Origin-Opener-Policy same-origin always;
 
     gzip on;
     gzip_types text/css application/javascript image/svg+xml application/json;
@@ -171,7 +217,9 @@ nginx -t -q
 systemctl enable -q nginx
 systemctl reload nginx || systemctl restart nginx
 
-echo "--- 5/7 Cortafuegos (solo SSH, HTTP y HTTPS)…"
+echo "--- 5/7 Cortafuegos (solo SSH, HTTP y HTTPS) y bloqueo de ataques a SSH…"
+# fail2ban bloquea durante un tiempo las IP que prueban contraseñas de SSH.
+systemctl enable -q --now fail2ban || true
 ufw allow OpenSSH >/dev/null
 ufw allow 'Nginx Full' >/dev/null
 ufw --force enable >/dev/null
@@ -179,7 +227,8 @@ ufw --force enable >/dev/null
 echo "--- 6/7 Certificado HTTPS gratuito (Let's Encrypt)…"
 HTTPS=1
 if [ -n "$EMAIL" ]; then CB=(-m "$EMAIL"); else CB=(--register-unsafely-without-email); fi
-certbot --nginx -d "$HOST" --non-interactive --agree-tos --redirect "${CB[@]}" || HTTPS=0
+# --keep-until-expiring: al volver a ejecutar el instalador se reutiliza el certificado que ya hay.
+certbot --nginx -d "$HOST" --non-interactive --agree-tos --redirect --keep-until-expiring "${CB[@]}" || HTTPS=0
 
 echo "--- 7/7 Comprobando…"
 dpkg-reconfigure -f noninteractive unattended-upgrades >/dev/null 2>&1 || true

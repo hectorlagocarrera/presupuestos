@@ -26,16 +26,25 @@ test('base de datos: escribir, leer y borrar en una transacción', () => {
 
 test('usuarios y sesiones', () => {
   const db = DB.abrir(':memory:');
-  assert.throws(() => DB.crearUsuario(db, 'ana', 'corta'), /8 caracteres/);
-  DB.crearUsuario(db, 'ana', 'una-clave-larga');
-  assert.equal(DB.comprobarClave(db, 'ana', 'una-clave-larga'), true);
+  assert.throws(() => DB.crearUsuario(db, 'ana', 'corta-de-11'), /12 caracteres/);
+  assert.throws(() => DB.crearUsuario(db, 'ana', 'ana-y-su-clave'), /nombre de usuario/);
+  DB.crearUsuario(db, 'ana', 'una-clave-larguisima');
+  assert.equal(DB.comprobarClave(db, 'ana', 'una-clave-larguisima'), true);
   assert.equal(DB.comprobarClave(db, 'ana', 'otra'), false);
-  assert.equal(DB.comprobarClave(db, 'nadie', 'una-clave-larga'), false);
+  assert.equal(DB.comprobarClave(db, 'nadie', 'una-clave-larguisima'), false);
   const { token } = DB.crearSesion(db, 'ana');
   assert.equal(DB.usuarioDeSesion(db, token), 'ana');
-  DB.crearUsuario(db, 'ana', 'clave-nueva-larga');
+  DB.crearUsuario(db, 'ana', 'clave-nueva-larguisima');
   assert.equal(DB.usuarioDeSesion(db, token), null, 'cambiar la contraseña cierra las sesiones');
   assert.ok(!DB.listaUsuarios(db)[0].hash, 'la lista no muestra los hashes');
+  const s2 = DB.crearSesion(db, 'ana');
+  const guardado = db.prepare('SELECT token FROM sesiones').all().map((r) => r.token);
+  assert.ok(!guardado.includes(s2.token), 'en la base de datos solo está la huella del token');
+  assert.equal(DB.usuarioDeSesion(db, s2.token), 'ana');
+  assert.equal(DB.usuarioDeSesion(db, guardado[0]), null, 'la huella no sirve para entrar');
+  assert.equal(DB.usuarioDeSesion(db, "x' OR 1=1 --"), null);
+  DB.cerrarSesion(db, s2.token);
+  assert.equal(DB.usuarioDeSesion(db, s2.token), null, 'salir cierra la sesión');
 });
 
 test('verificación en dos pasos: códigos TOTP (RFC 6238) y de recuperación', async () => {
@@ -60,7 +69,7 @@ test('verificación en dos pasos: códigos TOTP (RFC 6238) y de recuperación', 
 
 test('base de datos: columnas de MFA se añaden a bases antiguas', () => {
   const db = DB.abrir(':memory:');
-  DB.crearUsuario(db, 'ana', 'una-clave-larga');
+  DB.crearUsuario(db, 'ana', 'una-clave-larguisima');
   DB.guardarMfa(db, 'ana', { mfa_secreto: 'ABC' });
   assert.equal(DB.datosMfa(db, 'ana').mfa_secreto, 'ABC');
   assert.equal(DB.listaUsuarios(db)[0].mfa, 1);

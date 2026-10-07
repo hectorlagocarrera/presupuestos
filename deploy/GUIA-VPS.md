@@ -46,7 +46,8 @@ Te hará unas preguntas:
 | Nombre del servidor | Pulsa Intro si sale tu `vps-….vps.ovh.net`. Si no, escríbelo. |
 | Email para avisos del certificado | Tu email (te avisarían si hubiera un problema con el HTTPS). |
 | Usuario para entrar en la aplicación | Por ejemplo `oficina` o tu nombre. |
-| Contraseña | Mínimo 8 caracteres. **No se ve al escribir.** |
+| Contraseña | Mínimo 12 caracteres; mejor una frase fácil de recordar (`grapa-caballo-bateria-azul`). **No se ve al escribir.** |
+| ¿Traer las actualizaciones automáticamente? | `n` (recomendado). Actualizarás a mano con `sudo presupuestos-actualizar`. |
 
 Tarda unos minutos. Al final verás:
 
@@ -81,7 +82,8 @@ Todo esto se hace conectado al VPS como en el paso 2.
 | Quitar la verificación en dos pasos (móvil perdido y sin códigos) | `sudo presupuestos-usuario mfa-quitar maria` |
 | Exigir verificación en dos pasos a todos | `sudo presupuestos-usuario mfa-obligatoria si` (o `no`) |
 | Hacer una copia de seguridad ahora | `sudo presupuestos-copia` |
-| Traer la última versión de la aplicación | `sudo presupuestos-actualizar` (también se hace sola cada noche) |
+| Traer la última versión de la aplicación | `sudo presupuestos-actualizar` |
+| Ver intentos de entrada fallidos | `sudo journalctl -u presupuestos \| grep SEGURIDAD` |
 | Ver si el servicio funciona | `sudo systemctl status presupuestos` |
 | Ver errores | `sudo journalctl -u presupuestos -n 50` |
 | Reiniciar la aplicación | `sudo systemctl restart presupuestos` |
@@ -127,13 +129,35 @@ Desde entonces, al entrar se pide la contraseña y después el código del móvi
   del sistema sin permisos y solo puede escribir en su carpeta de datos.
 - **nginx con HTTPS gratuito (Let's Encrypt)**: el certificado se renueva solo.
 - **Cortafuegos (ufw)**: solo deja pasar SSH, HTTP y HTTPS.
+- **fail2ban**: bloquea las IP que prueban contraseñas de SSH.
 - **Actualizaciones de seguridad de Ubuntu automáticas.**
 
-**Seguridad de los datos:**
-- Sin usuario y contraseña no se puede leer nada.
-- Las contraseñas se guardan cifradas (scrypt).
-- Tras 8 intentos fallidos, ese ordenador se bloquea 15 minutos.
-- La sesión dura 30 días y se cierra con **Salir**.
+**Seguridad de los datos** (la aplicación está abierta a Internet, así que se protege por capas):
+- Sin usuario y contraseña no se puede leer nada. Todo va cifrado por HTTPS (y el navegador lo exige: HSTS).
+- Las contraseñas se guardan cifradas (scrypt) y deben tener al menos 12 caracteres.
+- Límites de intentos: nginx admite 10 intentos de entrada por minuto y por IP; la aplicación bloquea 15 minutos
+  una IP tras 8 fallos, un usuario tras 20 contraseñas incorrectas (aunque vengan de muchas IP) y tras 10 códigos
+  de verificación incorrectos. Cada intento fallido queda en el registro (`SEGURIDAD`).
+- La sesión dura 7 días y se cierra con **Salir**. En la base de datos solo se guarda una huella de la sesión.
+- Cabeceras de seguridad: la aplicación solo ejecuta su propio código (CSP), no se puede incrustar en otras webs
+  y los PDF subidos se abren aislados.
+- El servicio funciona aislado: sin permisos, sin acceso a otras carpetas y solo escribe en su carpeta de datos.
+- El código es público, pero no contiene datos ni claves: los datos solo están en la base de datos del VPS.
+
+**Recomendaciones:**
+1. Activa la **verificación en dos pasos** y márcala como obligatoria para todos (ver arriba). Es la medida más
+   importante: sin el móvil no se entra aunque roben una contraseña.
+2. Activa la **verificación en dos pasos en tu cuenta de GitHub** (github.com → Settings → Password and
+   authentication): de ahí sale el código que se instala en el servidor.
+3. Entra al VPS por SSH con **llave** en vez de contraseña (en Windows: `ssh-keygen`, y copia la llave al VPS).
+4. Desactiva **GitHub Pages** si aún está publicado: ya no hace falta.
+
+**Aplicar las mejoras de seguridad en un VPS ya instalado:** vuelve a ejecutar el instalador. Los datos y el
+certificado se conservan; al preguntar «¿Crear otro usuario?», contesta `n`:
+```
+curl -fsSLO https://raw.githubusercontent.com/hectorlagocarrera/presupuestos/main/deploy/instalar.sh
+sudo bash instalar.sh
+```
 
 ## Si algo falla
 
