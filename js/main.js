@@ -13,7 +13,19 @@ import { initTarifa } from './ui/tarifa.js';
 import { show, current, initMenu } from './ui/nav.js';
 import { initAyuda } from './ui/ayuda.js';
 
+// Ir a un apartado de Ajustes (y resaltarlo un momento).
+function irAjuste(id) {
+  show('ajustes');
+  if (location.hash !== '#ajustes') history.pushState(null, '', '#ajustes');
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  el.classList.add('resaltar');
+  setTimeout(() => el.classList.remove('resaltar'), 1500);
+}
+
 function initAjustes() {
+  $('#ajIndice').addEventListener('click', (e) => { const b = e.target.closest('[data-ir]'); if (b) irAjuste(b.dataset.ir); });
   $$('[data-aj]').forEach((el) => {
     const k = el.dataset.aj;
     el.value = data.ajustes[k] ?? '';
@@ -157,6 +169,8 @@ async function start() {
     $('#btnSalir').addEventListener('click', salir);
     $('#menuSalir').addEventListener('click', salir);
     $('#menuUsuario').textContent = 'Usuario: ' + yo.usuario;
+    // El nombre de usuario lleva a la gestión de usuarios (administradores) o a «Mi cuenta».
+    for (const id of ['#sesionUsuario', '#menuUsuario']) $(id).addEventListener('click', () => irAjuste(yo.rol === 'admin' ? 'usuarios' : 'miCuenta'));
     $('#menuSesion').classList.remove('hidden');
     // Al volver a la pestaña, traer lo que hayan guardado otros ordenadores.
     let ultima = Date.now();

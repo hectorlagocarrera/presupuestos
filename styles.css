@@ -463,6 +463,10 @@ body:not(.modo-servidor) .solo-servidor, body.modo-servidor .solo-navegador { di
 .tabla-hist .acciones .btn { padding: 4px 10px; }
 
 /* ---- Usuarios ---- */
+.indice-ajustes { margin: 0 0 12px; }
+.enlace-usuario { background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 2px 4px; border-radius: 6px; text-decoration: underline dotted; text-underline-offset: 3px; }
+.enlace-usuario:hover, .enlace-usuario:focus-visible { color: var(--accent); outline: none; }
+.pane.resaltar { outline: 2px solid var(--accent); outline-offset: 2px; transition: outline-color 1.5s; }
 body:not(.es-admin) .solo-admin { display: none !important; }
 #usuTabla tr.apagado td { opacity: 0.6; }
 .fila-clave { display: flex; gap: 6px; align-items: center; }

@@ -32,7 +32,7 @@
       </nav>
       <div class="top-right">
         <button class="btn small ghost" id="btnTema" title="Cambiar entre automático, claro y oscuro">Tema</button>
-        <div class="sesion hidden" id="sesion"><span id="sesionUsuario"></span><button class="btn small ghost" id="btnSalir">Salir</button></div>
+        <div class="sesion hidden" id="sesion"><button class="enlace-usuario" id="sesionUsuario" title="Mi cuenta y usuarios"></button><button class="btn small ghost" id="btnSalir">Salir</button></div>
       </div>
       <button class="btn-menu" id="btnMenu" aria-expanded="false" aria-controls="menuMovil" aria-label="Abrir el menú">
         <span class="hamburguesa" aria-hidden="true"></span><span>Menú</span>
@@ -51,7 +51,7 @@
           </div>
         </div>
         <div class="menu-bloque menu-sesion hidden" id="menuSesion">
-          <span id="menuUsuario"></span>
+          <button class="enlace-usuario" id="menuUsuario" title="Mi cuenta y usuarios"></button>
           <button class="btn ghost" id="menuSalir">Salir</button>
         </div>
       </div>
@@ -331,7 +331,14 @@
 
     <!-- Ajustes -->
     <main class="screen hidden" id="s-ajustes">
-      <section class="pane">
+      <nav class="chips indice-ajustes" id="ajIndice" aria-label="Apartados de Ajustes">
+        <button class="chip" data-ir="ajEmpresa">Empresa y logotipo</button>
+        <button class="chip solo-servidor" data-ir="miCuenta">Mi cuenta</button>
+        <button class="chip solo-servidor" data-ir="seguridad">Verificación en dos pasos</button>
+        <button class="chip solo-servidor solo-admin" data-ir="usuarios">👥 Usuarios</button>
+        <button class="chip" data-ir="ajSinonimos">Sinónimos</button>
+      </nav>
+      <section class="pane" id="ajEmpresa">
         <h2>Datos de la empresa</h2>
         <p class="muted small">Salen en los documentos impresos. Se guardan solos.</p>
         <div class="grid g2">
@@ -386,7 +393,7 @@
         </div>
       </section>
 
-      <section class="pane">
+      <section class="pane" id="ajSinonimos">
         <div class="pane-head">
           <h2 data-ayuda="Palabras que el buscador trata como lo mismo. Por ejemplo, si «Dibond» está en la línea de Alupanel, buscar «alupanel» también encuentra los trabajos de Dibond. Tras cambiarlos, pulsa «Recalcular categorías» en Artículos.">Sinónimos del buscador</h2>
           <button class="btn ghost" id="ajSinReset">Restaurar los de fábrica</button>
