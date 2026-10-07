@@ -30,7 +30,11 @@ export async function initCorreo() {
   $('#coForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const datos = Object.fromEntries(Object.entries(CAMPOS).map(([id, k]) => [k, $('#' + id).value.trim()]));
-    try { const r = await correoApi.guardar(datos); toast('Correo guardado'); pintar({ ...datos, clave: datos.clave ? '********' : '', listo: r.listo }); } catch (err) { msg(err.message); }
+    try {
+      const r = await correoApi.guardar(datos);
+      pintar({ ...datos, urlPublica: r.urlPublica, clave: datos.clave ? '********' : '', listo: r.listo });
+      if (r.avisoUrl) { msg('⚠ ' + r.avisoUrl + ' (El resto se ha guardado.)'); toast('Revisa la dirección pública'); } else toast('Correo guardado');
+    } catch (err) { msg(err.message); }
   });
   $('#coPrueba').addEventListener('click', async () => {
     const para = prompt('¿A qué email mando la prueba?', $('#coCopia').value || $('#coRemitente').value);

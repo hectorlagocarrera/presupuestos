@@ -398,9 +398,20 @@ async function api(req, res, ruta) {
         if (!(k in datos) || (k === 'clave' && datos.clave === '********')) continue;
         DB.guardarConfig(db, 'smtp_' + k, String(datos[k] ?? '').trim().slice(0, 300));
       }
-      if ('urlPublica' in datos) DB.guardarConfig(db, 'url_publica', String(datos.urlPublica || '').trim().slice(0, 300));
+      let avisoUrl = '';
+      if ('urlPublica' in datos) {
+        const u = String(datos.urlPublica || '').trim().replace(/\/+$/, '').slice(0, 300);
+        // Comprobar que es la dirección de esta aplicación: los clientes abrirán ahí los enlaces para firmar.
+        if (u) {
+          try {
+            const r = await fetch(`${u}/firmar.html`, { signal: AbortSignal.timeout(6000), redirect: 'follow' });
+            if (!r.ok || !(await r.text()).includes('js/firmar.js')) avisoUrl = `«${u}» no es la dirección de esta aplicación (allí no está la página de firma). Los clientes no podrían abrir los enlaces: déjala vacía para usar la del servidor.`;
+          } catch { avisoUrl = `No se ha podido abrir «${u}». Los clientes no podrían abrir los enlaces: déjala vacía para usar la del servidor.`; }
+        }
+        if (!avisoUrl) DB.guardarConfig(db, 'url_publica', u);
+      }
       aviso(req, `«${usuario}» ha cambiado la configuración del correo`);
-      return json(res, 200, { ok: true, listo: correoListo() });
+      return json(res, 200, { ok: true, listo: correoListo(), avisoUrl, urlPublica: DB.leerConfig(db, 'url_publica') || '' });
     }
     if (ruta === 'correo/prueba' && req.method === 'POST') {
       if (!Correo.emailValido(datos.para)) return json(res, 400, { error: 'Escribe un email válido.' });

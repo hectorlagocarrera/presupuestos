@@ -88,7 +88,16 @@ export async function enviar(config, mensaje) {
     if (!codigos.includes(r.slice(0, 3))) {
       const visible = linea && /^(AUTH|[A-Za-z0-9+/=]{8,}$)/.test(linea) ? '(autenticación)' : linea;
       let ayuda = '';
-      if (/^53[45]/.test(r)) {
+      const relay = /smtp-relay\.gmail\.com/i.test(host);
+      if (relay && /^53[45]/.test(r)) {
+        ayuda = ' → Google no acepta ese usuario y contraseña. Con el relé SMTP lo más sencillo es dejar usuario y contraseña VACÍOS y autorizar la IP del VPS '
+          + '(consola de Google Workspace → Aplicaciones → Google Workspace → Gmail → Enrutamiento → Servicio de relé SMTP → «Solo aceptar correo de las direcciones IP especificadas»). '
+          + 'Si prefieres usuario y contraseña: el usuario es la dirección completa de Workspace y, con verificación en dos pasos, la contraseña es una «contraseña de aplicación».';
+      } else if (relay && /^(421|550|553|554)/.test(r)) {
+        ayuda = ' → Relé SMTP de Google: en la consola de administración de Google Workspace (Aplicaciones → Google Workspace → Gmail → Enrutamiento → Servicio de relé SMTP) '
+          + 'añade la IP de tu VPS en «Solo aceptar correo de las direcciones IP especificadas» (o marca «Requerir autenticación SMTP» y pon aquí usuario y contraseña de aplicación), '
+          + 'elige «Solo direcciones de mis dominios» y comprueba que el remitente es un buzón o alias de tu dominio.';
+      } else if (/^53[45]/.test(r)) {
         ayuda = /gmail|google/i.test(`${host} ${usuario}`)
           ? ' → Gmail no acepta la contraseña normal de la cuenta: crea una «contraseña de aplicación» en myaccount.google.com/apppasswords (hace falta tener activada la verificación en dos pasos) y ponla aquí.'
           : ' → Usuario o contraseña del buzón incorrectos (con Microsoft 365/Outlook puede que haya que activar «SMTP autenticado» o usar una contraseña de aplicación).';
@@ -99,7 +108,10 @@ export async function enviar(config, mensaje) {
   };
   try {
     await orden(null, ['220']);
-    const yo = hostname() || 'localhost';
+    // Nombre con el que se presenta (EHLO): tiene que ser un dominio completo. El relé SMTP de Google rechaza
+    // nombres como «vps-1234» o «localhost»; si el del servidor no lo es, se usa el dominio del remitente.
+    const propio = hostname() || '';
+    const yo = config.ehlo || (/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(propio) && !/\.(local|lan|internal)$/i.test(propio) ? propio : (de.split('@')[1] || 'localhost'));
     let ehlo = await orden(`EHLO ${yo}`, ['250']);
     if (seguridad === 'starttls') {
       if (!/STARTTLS/i.test(ehlo)) throw new Error('El servidor de correo no admite conexión segura (STARTTLS).');

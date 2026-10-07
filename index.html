@@ -426,7 +426,9 @@
         <h2 data-ayuda="Con este buzón la aplicación manda a los clientes los enlaces para firmar y las copias firmadas. OVH: servidor ssl0.ovh.net, puerto 465. Gmail: smtp.gmail.com, puerto 465, usuario = la dirección de Gmail y, como contraseña, una «contraseña de aplicación» (myaccount.google.com/apppasswords), no la normal.">Correo y firmas</h2>
         <p class="muted small">Buzón desde el que se envían los enlaces para firmar y las copias firmadas. La contraseña se guarda en el servidor y no se vuelve a mostrar.
           <strong>Gmail:</strong> servidor <code>smtp.gmail.com</code>, puerto 465, y como contraseña una
-          <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">contraseña de aplicación</a> (no la de entrar en Gmail).</p>
+          <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">contraseña de aplicación</a> (no la de entrar en Gmail).
+          <strong>Relé SMTP de Google Workspace:</strong> <code>smtp-relay.gmail.com</code>, puerto 587 (STARTTLS) o 465, usuario y contraseña
+          <em>vacíos</em> y la IP del VPS autorizada en la consola de Google.</p>
         <form id="coForm" class="grid g2">
           <label>Servidor de correo (SMTP) <input id="coHost" placeholder="ssl0.ovh.net" autocomplete="off"></label>
           <div class="grid g2 sin-margen">
@@ -438,7 +440,7 @@
           <label>Remitente (email) <input id="coRemitente" type="email" placeholder="info@tuempresa.com"></label>
           <label>Nombre del remitente <input id="coNombre" placeholder="Nombre de la empresa"></label>
           <label data-ayuda="A este email llega una copia de cada documento firmado, y es al que contestan los clientes.">Copia para la oficina <input id="coCopia" type="email" placeholder="oficina@tuempresa.com"></label>
-          <label data-ayuda="Dirección con la que los clientes abren los enlaces. Normalmente se deja vacía (se usa la del servidor).">Dirección pública (opcional) <input id="coUrl" placeholder="https://vps-….vps.ovh.net"></label>
+          <label data-ayuda="Dirección de ESTA aplicación (la del VPS), no la de la página web de la empresa. Normalmente se deja vacía y se usa la del servidor.">Dirección pública (opcional) <input id="coUrl" placeholder="https://vps-….vps.ovh.net"></label>
           <label class="check s2" data-ayuda="Si no se marca, los operarios no ven precios ni importes (el servidor ni se los envía) y, por defecto, el cliente firma el parte sin importes."><input type="checkbox" id="coImportes"> Mostrar importes en los partes de trabajo (operarios y cliente)</label>
           <p id="coMsg" class="muted small s2"></p>
           <div class="btns s2"><button class="btn" type="submit">Guardar</button><button class="btn ghost" type="button" id="coPrueba">Enviar un email de prueba</button></div>
