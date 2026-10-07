@@ -122,7 +122,17 @@
         <div class="filters" id="bFiltros"></div>
         <div id="bStats"></div>
         <p id="bInfo" class="muted small"></p>
-        <div id="bList" class="results wide"></div>
+        <div class="table-wrap">
+          <table class="data cards tabla-hist" id="bTabla">
+            <thead id="bCab"><tr>
+              <th data-orden-h="fecha">Fecha</th><th>Trabajo</th><th>Medidas</th><th class="num">Cant.</th>
+              <th class="num" data-orden-h="precio">Precio ud.</th><th class="num">Total</th>
+              <th class="num" data-ayuda="Precio por metro cuadrado (precio ud. ÷ superficie). Sirve para comparar trabajos de distinto tamaño.">€/m²</th>
+              <th class="col-sim">Parecido</th><th></th>
+            </tr></thead>
+            <tbody id="bList"></tbody>
+          </table>
+        </div>
       </section>
     </main>
 

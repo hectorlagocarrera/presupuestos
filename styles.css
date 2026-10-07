@@ -204,13 +204,17 @@ output { display: block; padding: 7px 0; font-weight: 600; color: var(--text); f
 /* ---- Comparación de precios ---- */
 .stats { border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--accent-soft); margin-top: 6px; }
 .stats-head { font-weight: 600; margin-bottom: 8px; }
-.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+.stats-nota { font-weight: 400; font-size: 0.8rem; margin-left: 6px; }
+/* Precios y evolución por años en una sola franja (se parte en varias líneas si no cabe). */
+.stats-fila { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: stretch; }
+.kpis { display: flex; flex-wrap: wrap; gap: 8px; }
+.kpis > div { min-width: 104px; }
 .kpis div { background: var(--card); border-radius: 8px; padding: 7px 9px; display: flex; flex-direction: column; }
 .kpis span { font-size: 0.75rem; color: var(--muted); }
 .kpis strong { font-size: 1.1rem; }
 .kpis small { font-size: 0.72rem; color: var(--muted); }
 .kpis .ref { outline: 1px dashed var(--accent); }
-.evo { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.evo { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .evo > div { display: flex; flex-direction: column; background: var(--card); border-radius: 8px; padding: 5px 9px; }
 .evo .y { font-size: 0.75rem; color: var(--muted); }
 .evo small { font-size: 0.72rem; color: var(--muted); }
@@ -442,6 +446,22 @@ body:not(.modo-servidor) .solo-servidor, body.modo-servidor .solo-navegador { di
   border: 1px solid var(--warn); border-radius: 10px; padding: 12px 14px; box-shadow: 0 6px 24px rgba(0,0,0,.25); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .aviso-arranque small { opacity: 0.8; }
 
+/* ---- Buscador histórico en tabla ---- */
+.tabla-hist { margin-top: 6px; }
+.tabla-hist td { vertical-align: top; }
+.tabla-hist tbody tr:hover td { background: var(--accent-soft); }
+.tabla-hist .col-trabajo { min-width: 260px; max-width: 520px; }
+.tabla-hist .t-titulo { font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tabla-hist .t-desc { color: var(--muted); font-size: 0.82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 520px; }
+.tabla-hist .t-meta { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; margin-top: 3px; color: var(--muted); font-size: 0.78rem; }
+.tabla-hist .t-meta .tag { font-size: 0.72rem; }
+.tabla-hist .precio-ud { font-weight: 700; font-size: 1.02rem; }
+.tabla-hist .col-sim { width: 90px; white-space: nowrap; }
+.tabla-hist.sin-parecido .col-sim { display: none; }
+.sim-barra { display: inline-block; width: 46px; height: 6px; border-radius: 3px; background: var(--border); vertical-align: middle; margin-right: 6px; overflow: hidden; }
+.sim-barra i { display: block; height: 100%; background: var(--accent); }
+.tabla-hist .acciones .btn { padding: 4px 10px; }
+
 /* ---- Usuarios ---- */
 body:not(.es-admin) .solo-admin { display: none !important; }
 #usuTabla tr.apagado td { opacity: 0.6; }
@@ -486,6 +506,11 @@ th[aria-sort] { color: var(--text); }
   table.cards tr.flag td { background: transparent; }
   table.tarifa input { width: 100%; }
   table.data.cards .clamp { max-width: none; }
+  /* Buscador: fecha y parecido a media anchura, el trabajo a lo ancho. */
+  .tabla-hist td:first-child { grid-column: auto; }
+  .tabla-hist td.col-trabajo { grid-column: 1 / -1; order: -1; max-width: none; }
+  .tabla-hist .t-desc { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .tabla-hist tbody tr:hover td { background: transparent; }
 }
 
 /* ---- Ayuda («?») ---- */

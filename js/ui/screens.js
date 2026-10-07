@@ -2,7 +2,7 @@
 import { $, esc, fmtEur, fmtNum, fmtDate, debounce, year, tipoDe, TIPOS } from '../util.js';
 import { search, similares, priceStats, parseQuery, classify } from '../search.js';
 import { data, searchDocs, anios, partidasDe, savePartida, deletePresupuesto, saveCliente, deleteCliente, onChange, recalcularCategorias } from '../store.js';
-import { resultCard, statsHtml, mountFiltros, ordenarResultados, fillSelect, modalForm, medidasTxt, categorias, toast } from './common.js';
+import { resultCard, resultRow, statsHtml, mountFiltros, ordenarResultados, fillSelect, modalForm, medidasTxt, categorias, toast } from './common.js';
 import { verPresupuesto, abrirOriginal } from './presview.js';
 import { editor } from './editor.js';
 import { go, onShow } from './nav.js';
@@ -29,8 +29,28 @@ export function initBuscador() {
     const stats = priceStats(q ? similares(res) : res, parseQuery(q).dims);
     $('#bStats').innerHTML = statsHtml(stats, res.length);
     $('#bInfo').textContent = res.length ? `${res.length} resultados${res.length > 100 ? ' (se muestran los 100 primeros)' : ''}` : 'Sin resultados. Prueba con menos palabras o con otro sinónimo.';
-    $('#bList').innerHTML = ordenarResultados(res, f.orden).slice(0, 100).map((r) => resultCard(r, { score: !!q })).join('');
+    $('#bTabla').classList.toggle('sin-parecido', !q);
+    $('#bList').innerHTML = ordenarResultados(res, f.orden).slice(0, 100).map((r) => resultRow(r, { conParecido: !!q })).join('');
+    pintarOrdenCab(f.orden);
   };
+  // Títulos de columna que ordenan: Fecha (recientes ↔ antiguos) y Precio (barato ↔ caro).
+  const selOrden = () => $('#bFiltros [data-f=orden]');
+  const pintarOrdenCab = (o) => {
+    $('#bCab').querySelectorAll('th[data-orden-h]').forEach((th) => {
+      const campo = th.dataset.ordenH;
+      const dir = campo === 'fecha' ? { reciente: 'descending', antiguo: 'ascending' }[o] : { barato: 'ascending', caro: 'descending' }[o];
+      if (dir) th.setAttribute('aria-sort', dir); else th.removeAttribute('aria-sort');
+      th.dataset.orden = campo; // mismo aspecto (flechas) que las demás tablas ordenables
+      th.tabIndex = 0;
+    });
+  };
+  const ordenarPor = (campo) => {
+    const o = selOrden().value;
+    selOrden().value = campo === 'fecha' ? (o === 'reciente' ? 'antiguo' : 'reciente') : (o === 'barato' ? 'caro' : 'barato');
+    selOrden().dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  $('#bCab').addEventListener('click', (e) => { const th = e.target.closest('th[data-orden-h]'); if (th) ordenarPor(th.dataset.ordenH); });
+  $('#bCab').addEventListener('keydown', (e) => { const th = e.target.closest('th[data-orden-h]'); if (th && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); ordenarPor(th.dataset.ordenH); } });
   $('#bQ').addEventListener('input', debounce(run, 120));
   $('#bList').addEventListener('click', (e) => {
     const use = e.target.closest('[data-use]');

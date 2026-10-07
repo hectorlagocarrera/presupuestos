@@ -53,6 +53,37 @@ export function resultCard({ doc, score }, opts = {}) {
     </article>`;
 }
 
+// Fila de la tabla del buscador histórico: lo que se compara (fecha, medidas, precios) en columnas alineadas.
+export function resultRow({ doc, score }, { conParecido = true } = {}) {
+  const p = doc.p;
+  const med = medidasTxt(p) || (doc.dims?.ancho ? `${fmtNum(doc.dims.ancho)} × ${fmtNum(doc.dims.alto)} m` : '');
+  const m2 = p.m2 || doc.dims?.m2;
+  const quien = [p.numero ? `${p.tipo === 'factura' ? 'factura' : p.tipo === 'albaran' ? 'albarán' : 'nº'} ${p.numero}` : '', p.cliente].filter(Boolean).join(' · ');
+  const sim = Math.round(score ?? 0);
+  // La descripción solo si aporta algo (en muchos importados repite el título).
+  const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9áéíóúñü]+/g, ' ').trim();
+  const desc = p.descripcion && !norm(p.descripcion).startsWith(norm(p.articulo).slice(0, 40)) ? p.descripcion : '';
+  return `
+    <tr data-pid="${esc(p.id)}">
+      <td class="nowrap">${fmtDate(p.fecha)}</td>
+      <td class="col-trabajo">
+        <div class="t-titulo" title="${esc(p.articulo || '')}">${esc(p.articulo || '(sin nombre)')}</div>
+        ${desc ? `<div class="t-desc" title="${esc(desc)}">${esc(desc)}</div>` : ''}
+        <div class="t-meta">${p.tipo === 'factura' ? '<span class="tag fact">facturado</span>' : ''}${p.categoria ? `<span class="tag">${esc(p.categoria)}</span>` : ''}${p.revisar ? '<span class="tag warn">revisar</span>' : ''}${quien ? `<span>${esc(quien)}</span>` : ''}</div>
+      </td>
+      <td class="nowrap">${med ? `${esc(med)}${m2 ? `<div class="muted small">${fmtM2(m2)}</div>` : ''}` : '<span class="muted">—</span>'}</td>
+      <td class="num">${p.cantidad != null ? fmtNum(p.cantidad) : ''}</td>
+      <td class="num precio-ud">${fmtEur(p.precioUnitario)}</td>
+      <td class="num">${fmtEur(p.precioTotal)}</td>
+      <td class="num">${p.precioM2 ? fmtEur(p.precioM2) : '<span class="muted">—</span>'}</td>
+      <td class="col-sim">${conParecido ? `<span class="sim-barra" title="${sim}% parecido"><i style="width:${Math.max(4, Math.min(100, sim))}%"></i></span><small>${sim}%</small>` : ''}</td>
+      <td class="nowrap acciones">
+        <button class="btn small" data-use="${esc(p.id)}" title="Añadir al albarán que estás haciendo">Usar</button>
+        <button class="btn small ghost" data-ver="${esc(p.presupuestoId)}" title="Ver el documento completo">Ver</button>
+      </td>
+    </tr>`;
+}
+
 // Panel de comparación de precios.
 export function statsHtml(s, n) {
   if (!s) return '';
@@ -64,7 +95,9 @@ export function statsHtml(s, n) {
     </div>` : '';
   return `
     <div class="stats">
-      <div class="stats-head">Comparación de precios · ${s.n} ${s.n === 1 ? 'trabajo parecido' : 'trabajos parecidos'}${n > s.n ? ` <span class="muted">(de ${n} encontrados)</span>` : ''}</div>
+      <div class="stats-head">Comparación de precios · ${s.n} ${s.n === 1 ? 'trabajo parecido' : 'trabajos parecidos'}${n > s.n ? ` <span class="muted">(de ${n} encontrados)</span>` : ''}
+        <span class="muted stats-nota">Es solo una referencia: el precio lo decides tú.</span></div>
+      <div class="stats-fila">
       <div class="kpis">
         <div><span data-ayuda="Precio de la vez más reciente que se hizo un trabajo parecido (presupuesto, albarán o factura).">Último</span><strong>${fmtEur(u.precioUnitario)}</strong><small>${fmtDate(u.fecha)}${u.cliente ? ' · ' + esc(u.cliente) : ''}</small></div>
         <div><span data-ayuda="Media de los precios de los trabajos parecidos.">Medio</span><strong>${fmtEur(s.medio)}</strong></div>
@@ -74,7 +107,7 @@ export function statsHtml(s, n) {
         ${s.orientativo ? `<div class="ref"><span data-ayuda="Lo que costaría tu medida con el €/m² habitual. Es solo una referencia: el precio lo decides tú.">Orientativo ${fmtM2(s.orientativo.area)}</span><strong>${fmtEur(s.orientativo.precio)}</strong><small>con el €/m² habitual</small></div>` : ''}
       </div>
       ${evo}
-      <p class="muted small">Es solo una referencia: el precio lo decides tú.</p>
+      </div>
     </div>`;
 }
 

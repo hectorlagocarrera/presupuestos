@@ -302,7 +302,12 @@ export function similares(results, max = 40) {
   const near = results.filter((r) => r.score >= limit);
   // Si se buscó una medida, para comparar precios cuentan los de medida parecida (si los hay).
   const sameSize = near.filter((r) => r.dim == null || r.dim >= 0.6);
-  return (sameSize.length ? sameSize : near).slice(0, max);
+  const lista = sameSize.length ? sameSize : near;
+  if (lista.length <= max) return lista;
+  // Los empatados con el último que entra también cuentan: si «lona» encuentra 200 trabajos igual de parecidos,
+  // no hay motivo para quedarse con los 40 más recientes (la evolución por años saldría solo con el último año).
+  const corte = lista[max - 1].score;
+  return lista.filter((r, i) => i < max || r.score >= corte).slice(0, 400);
 }
 
 export function priceStats(results, queryDims) {
