@@ -26,6 +26,9 @@ los datos en el navegador.
 1. **Importar**: arrastra los PDF de presupuestos que saca el programa de gestión (uno por año, con todos los
    presupuestos dentro), revisa lo detectado y pulsa **Guardar todos**. También admite Excel, CSV y texto pegado.
    Los datos de la empresa se rellenan solos desde el PDF y el logotipo ya viene puesto.
+   **No se duplican**: si ya existe un documento del mismo tipo con el mismo número en el mismo año (o, sin
+   número, con la misma fecha, cliente y total), se avisa en la revisión, «Guardar todos» lo salta y «Guardar» pide
+   confirmación. Al guardar un albarán con un número que ya existe también se pide confirmación.
 2. **Nuevo albarán**: elige el tipo (albarán, presupuesto o factura; cada uno con su numeración), escribe el trabajo en la partida con las medidas en el mismo texto (por ejemplo «Alupanel 3x2»; no hay casillas de
    ancho y alto). A la derecha
    salen los trabajos parecidos con último precio, medio, mínimo, máximo, €/m² habitual y evolución por año.

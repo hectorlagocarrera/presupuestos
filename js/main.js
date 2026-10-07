@@ -147,7 +147,7 @@ async function start() {
       if (document.visibilityState === 'visible' && Date.now() - ultima > 60000) { ultima = Date.now(); recargar().catch(() => {}); }
     });
     document.body.classList.add('modo-servidor');
-  }
+  } else document.body.classList.add('modo-navegador');
   initEditor();
   initBuscador();
   initArticulos();

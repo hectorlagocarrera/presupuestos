@@ -114,6 +114,43 @@ let clienteSel = '';
 let tipoSel = '';
 export function filtrarPorCliente(nombre) { clienteSel = nombre; anioSel = ''; go('presupuestos'); }
 
+// Orden de la lista. Al pulsar una columna nueva: fechas, números e importes de mayor a menor; textos de la A a la Z.
+const ORDEN_INICIAL = { fecha: 'desc', numero: 'desc', tipo: 'asc', cliente: 'asc', partidas: 'desc', base: 'desc', total: 'desc' };
+let orden = { campo: 'fecha', dir: 'desc' };
+try { const o = JSON.parse(localStorage.getItem('ordenAlbaranes')); if (o && ORDEN_INICIAL[o.campo]) orden = o; } catch { /* orden por defecto */ }
+
+const natural = (a, b) => String(a).localeCompare(String(b), 'es', { numeric: true, sensitivity: 'base' });
+const CLAVES = {
+  fecha: (p) => p.fecha || '',
+  numero: (p) => p.numero || '',
+  tipo: (p) => TIPOS[tipoDe(p)].nombre,
+  cliente: (p) => (p.clienteNombre || '').trim(),
+  partidas: (p) => partidasDe(p.id).length,
+  base: (p) => p.base || 0,
+  total: (p) => p.total || 0,
+};
+function ordenar(a, b) {
+  const k = CLAVES[orden.campo];
+  const va = k(a); const vb = k(b);
+  // Lo que no tiene número o cliente va siempre al final.
+  if (va === '' && vb !== '') return 1;
+  if (vb === '' && va !== '') return -1;
+  const c = typeof va === 'number' ? va - vb : natural(va, vb);
+  // Empate: por fecha y número, de lo más reciente a lo más antiguo.
+  return (orden.dir === 'asc' ? c : -c) || natural(b.fecha || '', a.fecha || '') || natural(b.numero || '', a.numero || '');
+}
+function pintarOrden() {
+  $('#pCab').querySelectorAll('th[data-orden]').forEach((th) => {
+    if (th.dataset.orden === orden.campo) th.setAttribute('aria-sort', orden.dir === 'asc' ? 'ascending' : 'descending');
+    else th.removeAttribute('aria-sort');
+    th.title = 'Ordenar por ' + th.textContent.trim().toLowerCase();
+  });
+  const sel = $('#pOrden');
+  const v = `${orden.campo}:${orden.dir}`;
+  if (![...sel.options].some((o) => o.value === v)) sel.add(new Option(`${$(`#pCab th[data-orden=${orden.campo}]`).textContent.trim()} (${orden.dir === 'asc' ? 'de menor a mayor' : 'de mayor a menor'})`, v));
+  sel.value = v;
+}
+
 export function initPresupuestos() {
   const run = () => {
     const ys = anios();
@@ -130,7 +167,8 @@ export function initPresupuestos() {
       .filter((p) => !anioSel || year(p.fecha) === Number(anioSel))
       .filter((p) => !clienteSel || p.clienteNombre === clienteSel)
       .filter((p) => !q || (p.numero || '').toLowerCase().includes(nq) || (p.clienteNombre || '').toLowerCase().includes(nq) || conceptos.has(p.id))
-      .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') || (b.numero || '').localeCompare(a.numero || ''));
+      .sort(ordenar);
+    pintarOrden();
     $('#pTabla').innerHTML = rows.slice(0, 500).map((p) => `
       <tr>
         <td>${fmtDate(p.fecha)}</td>
@@ -149,6 +187,19 @@ export function initPresupuestos() {
       </tr>`).join('') || '<tr><td colspan="9" class="muted">No hay documentos con ese filtro.</td></tr>';
   };
   $('#pQ').addEventListener('input', debounce(run, 150));
+  // Ordenar pulsando el título de la columna (otra vez: al revés) o, en el móvil, con el desplegable.
+  const cambiarOrden = (campo, dir) => {
+    orden = { campo, dir: dir || (orden.campo === campo ? (orden.dir === 'asc' ? 'desc' : 'asc') : ORDEN_INICIAL[campo]) };
+    try { localStorage.setItem('ordenAlbaranes', JSON.stringify(orden)); } catch { /* sin almacenamiento: no pasa nada */ }
+    run();
+  };
+  $('#pCab').querySelectorAll('th[data-orden]').forEach((th) => { th.tabIndex = 0; });
+  $('#pCab').addEventListener('click', (e) => { const th = e.target.closest('th[data-orden]'); if (th && !e.target.closest('.ayuda')) cambiarOrden(th.dataset.orden); });
+  $('#pCab').addEventListener('keydown', (e) => {
+    const th = e.target.closest('th[data-orden]');
+    if (th && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); cambiarOrden(th.dataset.orden); }
+  });
+  $('#pOrden').addEventListener('change', (e) => { const [c, d] = e.target.value.split(':'); cambiarOrden(c, d); });
   $('#pTipos').addEventListener('click', (e) => {
     const b = e.target.closest('.chip');
     if (b) { tipoSel = b.dataset.t; run(); }

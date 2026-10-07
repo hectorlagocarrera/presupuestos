@@ -3,7 +3,7 @@ import { $, esc, fmtEur, fmtNum, numOrNull, today, calcPartida, round, tipoDe, T
 import { textToBudget, rowsToBudgets } from '../parse.js';
 import { itemsToRows, rowsToLines, looksLikeColumns, columnsToBudgets } from '../columnas.js';
 import { classify } from '../search.js';
-import { data, savePresupuesto, exportar, importar, notify, saveAjustes, enBloque, recargar } from '../store.js';
+import { data, savePresupuesto, buscarDuplicado, exportar, importar, notify, saveAjustes, enBloque, recargar } from '../store.js';
 import { toast, loadScript } from './common.js';
 import { onShow } from './nav.js';
 
@@ -84,15 +84,16 @@ function mostrarCola() {
   renderTabla();
 }
 
-// Ya importado: mismo tipo de documento, nº y fecha.
-const esDuplicado = (n, f, tipo) => n && data.presupuestos.find((p) => tipoDe(p) === tipo && p.numero === n && (!f || p.fecha === f));
+// Ya importado: mismo tipo de documento y número en el mismo año (o, sin número, misma fecha, cliente y total).
+const duplicadoDe = (b) => buscarDuplicado({ tipo: tipoDe(b), numero: b.numero, fecha: b.fecha, clienteNombre: b.cliente, total: b.total });
+const textoDuplicado = (b, dup) => (`Ya hay ${dup.tipo === 'factura' ? 'una' : 'un'} ${TIPOS[tipoDe(dup)].nombre.toLowerCase()} ${dup.numero ? 'número ' + dup.numero : 'sin número'}`
+  + `${dup.fecha ? ' con fecha ' + dup.fecha.split('-').reverse().join('/') : ''}${dup.clienteNombre ? ' de ' + dup.clienteNombre : ''}`).replace(/\.?$/, '.');
 
 function dupCheck() {
-  const n = $('#iNumero').value.trim();
-  const f = $('#iFecha').value;
-  const dup = esDuplicado(n, f, $('#iTipo').value);
+  const b = { ...cola[0].b, tipo: $('#iTipo').value, numero: $('#iNumero').value.trim(), fecha: $('#iFecha').value, cliente: $('#iCliente').value.trim() };
+  const dup = duplicadoDe(b);
   $('#iDup').classList.toggle('hidden', !dup);
-  if (dup) $('#iDup').textContent = `Ya hay un ${TIPOS[$('#iTipo').value].nombre.toLowerCase()} número ${n}${dup.fecha ? ' con fecha ' + dup.fecha.split('-').reverse().join('/') : ''}. ¿Quizá ya lo importaste?`;
+  if (dup) $('#iDup').textContent = textoDuplicado(b, dup) + ' Parece que ya lo importaste: si es así, pulsa «Descartar».';
 }
 
 function renderTabla() {
@@ -193,6 +194,7 @@ export function initImportar() {
     dupCheck();
   });
   $('#iFecha').addEventListener('input', dupCheck);
+  $('#iCliente').addEventListener('input', dupCheck);
 
   $('#iTabla').addEventListener('input', (e) => {
     const f = e.target.dataset.f;
@@ -227,7 +229,10 @@ export function initImportar() {
 
   $('#iDescartar').addEventListener('click', () => { cola.shift(); mostrarCola(); if (!cola.length) notify(); });
   $('#iGuardar').addEventListener('click', async () => {
-    try { await guardarActual(); toast('Guardado en el histórico'); } catch (err) { toast('Error: ' + err.message); }
+    leerCabecera();
+    const dup = duplicadoDe(cola[0].b);
+    if (dup && !confirm(`${textoDuplicado(cola[0].b, dup)}\n\n¿Guardarlo otra vez de todas formas? (Aceptar = guardar un duplicado; Cancelar = no guardar)`)) return;
+    try { await guardarActual(false); toast('Guardado en el histórico'); } catch (err) { toast('Error: ' + err.message); }
     mostrarCola();
     if (!cola.length) notify();
   });
@@ -242,7 +247,7 @@ export function initImportar() {
       await enBloque(async () => {
         while (cola.length) {
           const b = cola[0].b;
-          if (esDuplicado(b.numero, b.fecha, tipoDe(b))) { cola.shift(); saltados++; continue; }
+          if (duplicadoDe(b)) { cola.shift(); saltados++; continue; }
           await guardarActual(false);
           hechos++;
         }

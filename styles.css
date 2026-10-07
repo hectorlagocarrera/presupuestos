@@ -295,6 +295,8 @@ table.tarifa .precio-tarifa input { font-weight: 600; color: var(--text); }
 .nota-precio { display: block; font-size: 0.72rem; color: var(--muted); margin-top: 2px; white-space: nowrap; }
 .nota-precio.fijo { color: var(--accent); font-weight: 600; }
 .mini-icon { min-width: 0 !important; min-height: 0 !important; padding: 0 4px; font-size: 0.9rem; color: inherit; }
+.aviso-navegador { display: none; background: var(--warn-bg); color: var(--warn); border-bottom: 1px solid var(--border); padding: 8px 16px; font-size: 0.88rem; }
+body.modo-navegador .aviso-navegador { display: block; } /* solo cuando ya se sabe que no hay servidor */
 .aviso-ajuste { background: var(--accent-soft); border-left: 3px solid var(--accent); padding: 8px 12px; border-radius: 6px; font-weight: 600; margin: 6px 0; }
 table.tarifa .nombre { cursor: pointer; }
 table.tarifa .nombre:hover { color: var(--accent); }
@@ -434,8 +436,18 @@ body:not(.modo-servidor) .solo-servidor, body.modo-servidor .solo-navegador { di
 @media (min-width: 861px) { .menu-movil { display: none !important; } }
 .pane, .line { scroll-margin-top: calc(var(--alto-cabecera, 56px) + 10px); }
 
+/* ---- Ordenar tablas ---- */
+th[data-orden] { cursor: pointer; user-select: none; }
+th[data-orden]:hover, th[data-orden]:focus-visible { color: var(--text); outline: none; }
+th[data-orden]::after { content: ' ↕'; opacity: 0.35; }
+th[aria-sort="ascending"]::after { content: ' ↑'; opacity: 1; color: var(--accent); }
+th[aria-sort="descending"]::after { content: ' ↓'; opacity: 1; color: var(--accent); }
+th[aria-sort] { color: var(--text); }
+.orden-movil { display: none; }
+
 /* ---- Tablas como tarjetas en el móvil ---- */
 @media (max-width: 700px) {
+  .orden-movil { display: flex; }
   table.cards, table.cards tbody { display: block; width: 100%; }
   table.cards thead { display: none; }
   table.cards tr {

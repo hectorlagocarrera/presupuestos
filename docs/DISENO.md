@@ -86,7 +86,8 @@ creado, modificado               m2             ancho × alto           id, nomb
    precios (último, medio, mínimo, máximo, €/m², evolución por año) y la lista de trabajos parecidos.
 3. **Artículos / trabajos.** Tabla con todas las partidas para revisar y corregir las importadas. Las que no se
    leyeron con seguridad salen marcadas como «Revisar».
-4. **Albaranes** (documentos anteriores). Lista por año (2024, 2025, 2026…) y por tipo. Desde ahí se abre, duplica, imprime o borra un
+4. **Albaranes** (documentos anteriores). Lista por año (2024, 2025, 2026…) y por tipo, ordenable pulsando el título de
+   cada columna (en el móvil, con «Ordenar por»). Desde ahí se abre, duplica, imprime o borra un
    presupuesto, y se ve el PDF o Excel original.
 5. **Clientes.** Datos para el encabezado del presupuesto. Se crean solos al guardar.
 6. **Importar.** PDF, Excel, CSV, ODS o texto pegado, con pantalla de revisión antes de guardar. Aquí está también

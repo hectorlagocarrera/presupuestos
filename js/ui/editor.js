@@ -1,7 +1,7 @@
 // Pantalla «Nuevo albarán»: documento a la izquierda, referencias del histórico a la derecha.
 import { $, esc, fmtEur, fmtNum, fmtDate, numOrNull, today, debounce, calcPartida, round, piezasTexto, TIPOS, tipoDe } from '../util.js';
 import { search, similares, priceStats, parseQuery, classify, normalize, parseMeasures } from '../search.js';
-import { data, searchDocs, savePresupuesto, getPresupuesto, partidasDe, nextNumber, clientePorNombre, onChange } from '../store.js';
+import { data, searchDocs, savePresupuesto, getPresupuesto, partidasDe, nextNumber, clientePorNombre, buscarDuplicado, onChange } from '../store.js';
 import { resultCard, statsHtml, mountFiltros, toast } from './common.js';
 import { verPresupuesto } from './presview.js';
 import { imprimir } from './print.js';
@@ -372,6 +372,10 @@ async function guardar() {
   if (!lines.some((l) => !isEmpty(l))) { $('#edMsg').textContent = 'Añade al menos una partida.'; return; }
   if (!draft.clienteNombre?.trim() && !confirm(`El ${TIPOS[tipoDe(draft)].nombre.toLowerCase()} no tiene cliente. ¿Guardarlo igualmente?`)) return;
   numeroAuto();
+  const dup = draft.numero?.trim() && buscarDuplicado(draft, draft.id);
+  if (dup && !confirm(`Ya hay ${tipoDe(draft) === 'factura' ? 'una' : 'un'} ${TIPOS[tipoDe(draft)].nombre.toLowerCase()} número ${dup.numero}`
+    + `${dup.fecha ? ' con fecha ' + fmtDate(dup.fecha) : ''}${dup.clienteNombre ? ' de ' + dup.clienteNombre : ''}`.replace(/\.?$/, '.')
+    + `\n\n¿Guardar con el mismo número? (Cancelar para cambiarlo)`)) { $('#edNumero').focus(); return; }
   try {
     const saved = await savePresupuesto(draft, lines.map(calcPartida));
     draft = { ...saved };

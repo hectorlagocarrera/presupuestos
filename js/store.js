@@ -110,6 +110,23 @@ export function nextNumber(fecha, tipo = 'albaran') {
   return `${y}-${String(maxAnio + 1).padStart(3, '0')}`;
 }
 
+// Documento ya guardado que es el mismo que doc (para no importarlo o numerarlo dos veces).
+// Con número: mismo tipo, mismo número (sin contar espacios, mayúsculas ni ceros a la izquierda) y mismo año,
+// porque la numeración vuelve a empezar cada año. Sin número: mismo tipo, fecha, cliente y total.
+const claveNumero = (n) => String(n || '').toLowerCase().replace(/\s+/g, '').replace(/(^|[^\d])0+(?=\d)/g, '$1');
+export function buscarDuplicado(doc, excluirId = null) {
+  const tipo = tipoDe(doc);
+  const n = claveNumero(doc.numero);
+  const anio = String(doc.fecha || '').slice(0, 4);
+  return data.presupuestos.find((p) => {
+    if (p.id === excluirId || tipoDe(p) !== tipo) return false;
+    if (n) return claveNumero(p.numero) === n && (!anio || !p.fecha || p.fecha.slice(0, 4) === anio);
+    return !p.numero && doc.fecha && p.fecha === doc.fecha
+      && (p.clienteNombre || '').trim().toLowerCase() === (doc.clienteNombre || '').trim().toLowerCase()
+      && doc.total != null && Math.abs((p.total || 0) - doc.total) < 0.01;
+  }) || null;
+}
+
 // ---------- Escritura ----------
 
 export async function saveAjustes(cambios) {
