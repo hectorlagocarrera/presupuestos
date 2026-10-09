@@ -113,6 +113,7 @@
           <input id="refQ" class="search" placeholder="Busca: alupanel 3x2, lona, letras corpóreas…" autocomplete="off">
           <div class="filters" id="refFiltros"></div>
           <p class="muted small" id="refAyuda">Se busca solo con lo que escribes en la partida activa.</p>
+          <div id="refCatalogo"></div>
           <div id="refStats"></div>
           <div id="refList" class="results"></div>
         </aside>
@@ -206,7 +207,17 @@
 
     <!-- Tarifa de precios -->
     <main class="screen hidden" id="s-tarifa">
-      <section class="pane">
+      <nav class="chips vistas-tarifa" id="tVistas" aria-label="Vista de la tarifa"></nav>
+      <section class="pane hidden" id="tOficialPane">
+        <div class="pane-head">
+          <h2 data-ayuda="Tu tarifa de artículos (PDF o Excel con Código, Descripción, Precio y Unidad), importada en «Importar». Al hacer un albarán, los artículos que coincidan salen arriba de las referencias.">Tarifa oficial</h2>
+          <div class="btns"><button class="btn ghost" id="toExcel">Descargar Excel</button><button class="btn ghost peligro" id="toBorrar">Borrar tarifa oficial</button></div>
+        </div>
+        <p class="muted small" id="toInfo"></p>
+        <div class="filters"><input id="toQ" type="search" placeholder="Buscar artículo o código" autocomplete="off"></div>
+        <div id="toLista"></div>
+      </section>
+      <section class="pane" id="tHistPane">
         <div class="pane-head">
           <h2>Tarifa de precios</h2>
           <div class="btns">

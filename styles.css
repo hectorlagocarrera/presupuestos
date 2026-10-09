@@ -556,6 +556,25 @@ dialog.firma-dlg { width: min(760px, 96vw); }
 .btn.btn-whatsapp-borde { border-color: #25d366; color: #128c4a; }
 :root[data-tema="oscuro"] .btn.btn-whatsapp-borde { color: #5be38f; }
 
+/* ---- Tarifa oficial ---- */
+.vistas-tarifa { margin: 0 0 10px; }
+.to-seccion { border: 1px solid var(--border); border-radius: 10px; margin: 8px 0; background: var(--card); }
+.to-seccion > summary { cursor: pointer; padding: 10px 12px; font-weight: 600; display: flex; justify-content: space-between; gap: 8px; }
+.to-seccion > summary small { color: var(--muted); font-weight: 400; }
+.to-seccion[open] > summary { border-bottom: 1px solid var(--border); }
+.to-seccion .table-wrap { padding: 0 8px 8px; }
+.to-precio { font-weight: 700; white-space: nowrap; }
+.to-hist { font-size: 0.82rem; color: var(--muted); white-space: nowrap; }
+.to-hist.distinto { color: var(--warn); font-weight: 600; }
+.mono { font-family: ui-monospace, monospace; font-size: 0.82rem; }
+.warn-txt { color: var(--warn); }
+.visor-tarifa { max-height: 46vh; overflow: auto; border: 1px solid var(--border); border-radius: 8px; margin: 8px 0; }
+.ref-catalogo { border: 1px solid var(--accent); border-radius: 10px; padding: 8px 10px; margin: 6px 0 10px; background: var(--accent-soft); }
+.ref-catalogo h3 { margin: 0 0 6px; font-size: 0.9rem; }
+.ref-catalogo .fila-cat { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 4px 0; border-top: 1px solid var(--border); }
+.ref-catalogo .fila-cat:first-of-type { border-top: none; }
+body.sin-tarifa #toBorrar, body.sin-editar [data-to-anadir], body.sin-editar [data-cat-usar] { display: none !important; }
+
 /* ---- Página pública de firma ---- */
 .firma-publica { max-width: 820px; margin: 0 auto; padding: 16px; }
 .fp-cab { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 2px solid var(--accent); padding-bottom: 10px; margin-bottom: 12px; }

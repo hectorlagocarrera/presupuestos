@@ -6,7 +6,7 @@
 //   escribir({ put: { tabla: [filas] }, del: { tabla: [ids] } })   (todo o nada)
 //   guardarArchivo({ id, nombre, tipo, blob }) · leerArchivo(id) · listaArchivos()
 
-export const TABLAS = ['presupuestos', 'partidas', 'clientes', 'ajustes', 'archivos'];
+export const TABLAS = ['presupuestos', 'partidas', 'clientes', 'ajustes', 'archivos', 'catalogo'];
 
 // ---------- Servidor ----------
 
@@ -118,7 +118,7 @@ async function abrirIdb() {
   if (idb) return idb;
   if (!('indexedDB' in window)) throw new Error('Este navegador no permite guardar datos.');
   idb = await new Promise((resolve, reject) => {
-    const r = indexedDB.open('presupuestos', 1);
+    const r = indexedDB.open('presupuestos', 2); // 2: tabla «catalogo» (tarifa oficial)
     r.onupgradeneeded = () => {
       for (const s of TABLAS) if (!r.result.objectStoreNames.contains(s)) {
         const os = r.result.createObjectStore(s, { keyPath: 'id' });

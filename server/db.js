@@ -12,8 +12,10 @@ export const COLUMNAS = {
     'observaciones', 'ancho', 'alto', 'm2', 'cantidad', 'precioUnitario', 'precioTotal', 'precioM2', 'revisar',
     'fecha', 'cliente', 'numero', 'tipo'],
   clientes: ['id', 'nombre', 'cif', 'direccion', 'telefono', 'email', 'notas'],
+  // Tarifa oficial (catálogo de artículos importado de un PDF o Excel de tarifas).
+  catalogo: ['id', 'codigo', 'seccion', 'descripcion', 'precio', 'precioTexto', 'tipo', 'unidad', 'porM2', 'observaciones', 'orden', 'origen', 'actualizado'],
 };
-const NUMERICAS = new Set(['iva', 'base', 'total', 'orden', 'ancho', 'alto', 'm2', 'cantidad', 'precioUnitario', 'precioTotal', 'precioM2']);
+const NUMERICAS = new Set(['iva', 'base', 'total', 'orden', 'ancho', 'alto', 'm2', 'cantidad', 'precioUnitario', 'precioTotal', 'precioM2', 'precio', 'porM2']);
 
 const ESQUEMA = `
 CREATE TABLE IF NOT EXISTS presupuestos (
@@ -31,6 +33,10 @@ CREATE TABLE IF NOT EXISTS clientes (
   id TEXT PRIMARY KEY, nombre TEXT, cif TEXT, direccion TEXT, telefono TEXT, email TEXT, notas TEXT
 );
 CREATE TABLE IF NOT EXISTS ajustes (id TEXT PRIMARY KEY, valor TEXT);
+CREATE TABLE IF NOT EXISTS catalogo (
+  id TEXT PRIMARY KEY, codigo TEXT, seccion TEXT, descripcion TEXT, precio REAL, precioTexto TEXT, tipo TEXT, unidad TEXT,
+  porM2 INTEGER, observaciones TEXT, orden INTEGER, origen TEXT, actualizado TEXT
+);
 CREATE TABLE IF NOT EXISTS archivos (id TEXT PRIMARY KEY, nombre TEXT, tipo TEXT, datos BLOB, creado TEXT);
 CREATE TABLE IF NOT EXISTS usuarios (usuario TEXT PRIMARY KEY, hash TEXT NOT NULL, creado TEXT);
 CREATE TABLE IF NOT EXISTS sesiones (token TEXT PRIMARY KEY, usuario TEXT NOT NULL, expira INTEGER NOT NULL);
@@ -107,6 +113,7 @@ export function leerTodo(db, { sinFacturas = false, operario = false } = {}) {
     const albaranes = new Set(out.presupuestos.filter((p) => p.tipo === 'albaran').map((p) => p.id));
     out.presupuestos = out.presupuestos.filter((p) => albaranes.has(p.id));
     out.partidas = out.partidas.filter((p) => albaranes.has(p.presupuestoId));
+    out.catalogo = [];
     const aj = JSON.parse(db.prepare("SELECT valor FROM ajustes WHERE id = 'ajustes'").get()?.valor || '{}');
     if (!aj.partesImportes) {
       for (const p of out.presupuestos) { p.base = null; p.total = null; }
@@ -209,6 +216,7 @@ export function comprobarEscritura(db, permisos, { put = {}, del = {} }) {
     if (!tiene('editar')) return sinPermiso('modificar documentos');
   }
   if ((del.clientes || []).length && !tiene('borrar')) return sinPermiso('borrar clientes');
+  if (((put.catalogo || []).length || (del.catalogo || []).length) && !tiene('tarifa')) return sinPermiso('cambiar la tarifa oficial');
   if ((del.archivos || []).length && !tiene('borrar')) return sinPermiso('borrar archivos');
 
   // Ajustes: cada clave según su permiso; lo que no se puede cambiar se conserva.

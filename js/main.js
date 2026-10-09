@@ -12,6 +12,7 @@ import { initEditor } from './ui/editor.js';
 import { initBuscador, initArticulos, initPresupuestos, initClientes, initFacturas } from './ui/screens.js';
 import { initImportar } from './ui/importar.js';
 import { initTarifa } from './ui/tarifa.js';
+import { initCatalogo } from './ui/catalogo.js';
 import { show, current, initMenu, limitarPantallas } from './ui/nav.js';
 import { initAyuda } from './ui/ayuda.js';
 
@@ -214,6 +215,7 @@ async function start() {
   parte('Clientes', initClientes);
   parte('Importar', initImportar);
   parte('Tarifa', initTarifa);
+  parte('Tarifa oficial', initCatalogo);
   parte('Ajustes', initAjustes);
   parte('Logotipo', initLogo);
   parte('Listas', () => { refreshDatalists(); etiquetarTablas(); avisoCopia(); });

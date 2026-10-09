@@ -1,7 +1,8 @@
 // Pantalla «Nuevo albarán»: documento a la izquierda, referencias del histórico a la derecha.
 import { $, esc, fmtEur, fmtNum, fmtDate, numOrNull, today, debounce, calcPartida, round, piezasTexto, TIPOS, tipoDe } from '../util.js';
-import { search, similares, priceStats, parseQuery, classify, normalize, parseMeasures } from '../search.js';
-import { data, searchDocs, savePresupuesto, getPresupuesto, partidasDe, nextNumber, clientePorNombre, buscarDuplicado, onChange } from '../store.js';
+import { search, similares, priceStats, parseQuery, classify, normalize, parseMeasures, buildDoc } from '../search.js';
+import { data, searchDocs, savePresupuesto, getPresupuesto, partidasDe, nextNumber, clientePorNombre, buscarDuplicado, onChange, docsCatalogo } from '../store.js';
+import { comoArticuloEditor } from '../catalogo.js';
 import { resultCard, statsHtml, mountFiltros, ordenarResultados, toast } from './common.js';
 import { verPresupuesto } from './presview.js';
 import { imprimir } from './print.js';
@@ -242,6 +243,7 @@ function autoRefs() {
 function runRefs() {
   const q = $('#refQ').value.trim();
   const docs = searchDocs().filter((d) => !draft.id || d.p.presupuestoId !== draft.id);
+  pintarCatalogo(q);
   if (!q) {
     $('#refStats').innerHTML = '';
     $('#refList').innerHTML = data.partidas.length ? '' : '<p class="muted">Todavía no hay histórico. Impórtalo en la pestaña «Importar».</p>';
@@ -254,6 +256,21 @@ function runRefs() {
   const stats = priceStats(similares(res), parseQuery(q).dims);
   $('#refStats').innerHTML = statsHtml(stats, res.length);
   $('#refList').innerHTML = ordenarResultados(res, f.orden).slice(0, 40).map((r) => resultCard(r)).join('') || '<p class="muted">Sin trabajos parecidos.</p>';
+}
+// Lo que dice la tarifa oficial para lo que se busca (los 3 artículos más parecidos), encima del histórico.
+function pintarCatalogo(q) {
+  const caja = $('#refCatalogo');
+  if (!q || !data.catalogo.length) { caja.innerHTML = ''; return; }
+  // Sin las medidas: la tarifa no las tiene y bajarían la puntuación.
+  const palabras = q.replace(/\d+(?:[.,]\d+)?\s*(?:mm|cm|mts?|m)?\s*[x×*]\s*\d+(?:[.,]\d+)?\s*(?:mm|cm|mts?|m)?/gi, ' ').trim();
+  const res = palabras ? search(palabras, docsCatalogo(buildDoc, classify)).filter((r) => r.score >= 55).slice(0, 3) : [];
+  const arts = res.map((r) => data.catalogo.find((x) => x.id === r.doc.p.id)).filter(Boolean);
+  if (!arts.length) { caja.innerHTML = ''; return; }
+  caja.innerHTML = `<div class="ref-catalogo"><h3>Tarifa oficial</h3>${arts.map((a) => `
+    <div class="fila-cat"><span><span class="mono muted">${esc(a.codigo || '')}</span> ${esc(a.descripcion)}
+      <span class="muted small">· ${esc(a.seccion || '')}</span></span>
+      <span class="nowrap"><b>${a.precio != null ? fmtEur(a.precio) + (a.porM2 ? '/m²' : '') : esc(a.precioTexto || 'Consultar')}</b>
+      ${a.precio != null ? `<button class="btn small" data-cat-usar="${esc(a.id)}">Usar</button>` : ''}</span></div>`).join('')}</div>`;
 }
 const runRefsSoon = debounce(runRefs, 120);
 const autoRefsSoon = debounce(autoRefs, 250);
@@ -393,6 +410,15 @@ export function initEditor() {
 
   // Referencias: escribir, usar, ver y arrastrar.
   $('#refQ').addEventListener('input', runRefsSoon);
+  $('#refCatalogo').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-cat-usar]');
+    const a = b && data.catalogo.find((x) => x.id === b.dataset.catUsar);
+    if (!a) return;
+    // Sustituye la partida activa si es la que se está buscando y aún no tiene precio.
+    const l = lines[active];
+    if (l && !(l.precioUnitario > 0) && !(l.tarifaM2 > 0)) lines[active] = emptyLine();
+    editor.desdeTarifa(comoArticuloEditor(a, classify(`${a.descripcion} ${a.seccion}`).categoria), a.precio);
+  });
   $('#refVolver').addEventListener('click', () => $(`#edLineas .line[data-i="${active}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   $('#refList').addEventListener('click', (e) => {
     const use = e.target.closest('[data-use]');

@@ -9,7 +9,7 @@ export const DEFAULT_AJUSTES = {
   sinonimos: DEFAULT_SINONIMOS, ultimaCopia: '', logo: '',
 };
 
-export const data = { presupuestos: [], partidas: [], clientes: [], ajustes: { ...DEFAULT_AJUSTES } };
+export const data = { presupuestos: [], partidas: [], clientes: [], catalogo: [], ajustes: { ...DEFAULT_AJUSTES } };
 let backend = navegador;
 let docs = null;
 const listeners = new Set();
@@ -51,7 +51,7 @@ export async function enBloque(fn) {
       }
     }
     // Primero clientes y presupuestos, luego partidas.
-    const orden = { clientes: 0, presupuestos: 1, partidas: 2, ajustes: 3, archivos: 4 };
+    const orden = { clientes: 0, presupuestos: 1, partidas: 2, ajustes: 3, archivos: 4, catalogo: 5 };
     trozos.sort((a, b) => orden[Object.keys(Object.values(a)[0])[0]] - orden[Object.keys(Object.values(b)[0])[0]]);
     for (const t of trozos) await backend.escribir(t);
   } finally {
@@ -69,6 +69,8 @@ export async function open(be) {
   const tipos = new Map((d.presupuestos || []).map((p) => [p.id, tipoDe(p)]));
   for (const p of data.partidas) if (!p.tipo) p.tipo = tipos.get(p.presupuestoId) || 'presupuesto';
   data.clientes = d.clientes || [];
+  data.catalogo = (d.catalogo || []).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+  catalogoDocs = null;
   data.ajustes = { ...DEFAULT_AJUSTES, ...(d.ajustes || {}) };
   setSinonimos(data.ajustes.sinonimos);
   changed();
@@ -251,6 +253,34 @@ export async function deletePresupuesto(id) {
 }
 
 export const getArchivo = (id) => backend.leerArchivo(id);
+
+// Tarifa oficial: sustituye la que hubiera (o añade y actualiza por código) con los artículos leídos.
+export async function guardarCatalogo(articulos, { sustituir = true, origen = '' } = {}) {
+  const ahora = new Date().toISOString();
+  const nuevos = articulos.map((a, i) => ({ ...a, orden: i, origen, actualizado: ahora }));
+  const ids = new Set(nuevos.map((a) => a.id));
+  const quitar = sustituir ? data.catalogo.filter((a) => !ids.has(a.id)).map((a) => a.id) : [];
+  await enBloque(async () => { await escribir({ ...(quitar.length ? { del: { catalogo: quitar } } : {}), put: { catalogo: nuevos } }); });
+  const resto = sustituir ? [] : data.catalogo.filter((a) => !ids.has(a.id));
+  data.catalogo = [...resto, ...nuevos].map((a, i) => ({ ...a, orden: i }));
+  catalogoDocs = null;
+  changed();
+  return { guardados: nuevos.length, quitados: quitar.length };
+}
+export async function borrarCatalogo() {
+  const ids = data.catalogo.map((a) => a.id);
+  if (ids.length) await enBloque(async () => { await escribir({ del: { catalogo: ids } }); });
+  data.catalogo = []; catalogoDocs = null;
+  changed();
+}
+// Fichas de búsqueda de la tarifa oficial (como las del histórico, para encontrar «alupanel 3x2» etc.).
+let catalogoDocs = null;
+export function docsCatalogo(buildDoc, classify) {
+  if (!catalogoDocs) {
+    catalogoDocs = data.catalogo.map((a) => buildDoc({ ...a, articulo: a.descripcion, categoria: classify(`${a.descripcion} ${a.seccion}`).categoria, descripcion: a.seccion, catalogo: true }));
+  }
+  return catalogoDocs;
+}
 
 // Estado de firma que devuelve el servidor (el navegador no lo puede cambiar por su cuenta).
 export function actualizarFirma(presupuestoId, r) {

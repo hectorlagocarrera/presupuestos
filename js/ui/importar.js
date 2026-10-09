@@ -2,11 +2,12 @@
 import { $, esc, fmtEur, fmtNum, numOrNull, today, calcPartida, round, tipoDe, TIPOS } from '../util.js';
 import { textToBudget, rowsToBudgets } from '../parse.js';
 import { rowsToLines, looksLikeColumns, columnsToBudgets } from '../columnas.js';
+import { esTarifaPdf, leerTarifaPdf, esTarifaFilas, leerTarifaFilas } from '../catalogo.js';
 import { classify } from '../search.js';
-import { data, savePresupuesto, buscarDuplicado, exportar, importar, notify, saveAjustes, enBloque, recargar, getArchivo, sustituirDeArchivo, onChange } from '../store.js';
+import { data, savePresupuesto, buscarDuplicado, exportar, importar, notify, saveAjustes, enBloque, recargar, getArchivo, sustituirDeArchivo, onChange, guardarCatalogo } from '../store.js';
 import { toast, loadScript } from './common.js';
 import { pdfToPages } from '../pdf.js';
-import { onShow } from './nav.js';
+import { onShow, go } from './nav.js';
 
 // ---------- Lectura de archivos (todo en este ordenador) ----------
 
@@ -17,6 +18,8 @@ async function leerArchivo(file, progreso) {
   if (ext === 'pdf') {
     const pages = await pdfToPages(await file.arrayBuffer(), (t) => progreso?.(`${file.name}: ${t}`));
     const vacio = !pages.some((p) => p.rows.length);
+    // Tarifa de artículos (Código · Descripción · Precio · Unidad): va a la tarifa oficial, no al histórico.
+    if (esTarifaPdf(pages)) return [{ tarifa: leerTarifaPdf(pages), archivo }];
     if (looksLikeColumns(pages)) {
       // Formato con columnas Cantidad/Artículo/Precio/Subtotal (puede traer muchos presupuestos).
       return columnsToBudgets(pages, file.name).map((b) => ({ b, texto: '', archivo }));
@@ -30,6 +33,7 @@ async function leerArchivo(file, progreso) {
     const out = [];
     for (const name of wb.SheetNames) {
       const rows = window.XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: '' });
+      if (esTarifaFilas(rows)) { out.push({ tarifa: leerTarifaFilas(rows), archivo }); continue; }
       const bs = rowsToBudgets(rows, file.name);
       const texto = rows.slice(0, 200).map((r) => r.join(' | ')).join('\n');
       for (const b of bs) out.push({ b, texto, archivo, hoja: wb.SheetNames.length > 1 ? name : '' });
@@ -38,6 +42,56 @@ async function leerArchivo(file, progreso) {
   }
   const text = await file.text();
   return [{ b: textToBudget(text.split(/\r?\n/)), texto: text, archivo }];
+}
+
+// ---------- Tarifa oficial (PDF o Excel de tarifas) ----------
+
+function revisarTarifa({ tarifa, archivo }) {
+  return new Promise((resolve) => {
+    if (!tarifa.length) { toast(`${archivo.nombre}: no se encontraron artículos en la tarifa.`); resolve(); return; }
+    const secciones = [...new Set(tarifa.map((a) => a.seccion || 'Sin sección'))];
+    const cuenta = (f) => tarifa.filter(f).length;
+    const actuales = data.catalogo.length;
+    const nuevosCod = tarifa.filter((a) => !data.catalogo.some((c) => c.id === a.id)).length;
+    const dlg = $('#modal');
+    $('#modalBody').innerHTML = `
+      <div class="pane-head"><h2>Tarifa de artículos · ${esc(archivo.nombre)}</h2><button class="btn ghost small" data-cerrar>Cerrar</button></div>
+      <p>Se han leído <strong>${tarifa.length} artículos</strong> en ${secciones.length} secciones. Se guardan como <strong>tarifa oficial</strong>
+        (aparte del histórico de presupuestos y facturas): la verás en <em>Tarifa</em> y te los propondrá al hacer un albarán.</p>
+      <ul class="small">
+        <li>${cuenta((a) => a.porM2)} por m² · ${cuenta((a) => !a.porM2 && a.precio != null)} por unidad, lote o servicio</li>
+        ${cuenta((a) => a.tipo.startsWith('suplemento') || a.tipo.startsWith('ajuste')) ? `<li>${cuenta((a) => a.tipo.startsWith('suplemento') || a.tipo.startsWith('ajuste'))} suplementos o descuentos (+ / −)</li>` : ''}
+        ${cuenta((a) => a.precio == null) ? `<li class="warn-txt">${cuenta((a) => a.precio == null)} sin precio («Consultar»)</li>` : ''}
+        ${cuenta((a) => a.tipo.endsWith('+iva')) ? `<li>${cuenta((a) => a.tipo.endsWith('+iva'))} con «+ IVA» en el precio</li>` : ''}
+        ${cuenta((a) => /revis/i.test(a.observaciones)) ? `<li class="warn-txt">${cuenta((a) => /revis/i.test(a.observaciones))} con observaciones de «revisar»</li>` : ''}
+      </ul>
+      <div class="table-wrap visor-tarifa"><table class="data cards">
+        <thead><tr><th>Sección</th><th>Código</th><th>Descripción</th><th class="num">Precio</th><th>Unidad</th><th>Observaciones</th></tr></thead>
+        <tbody>${tarifa.map((a) => `<tr><td data-l="Sección" class="small">${esc(a.seccion)}</td><td data-l="Código" class="small mono">${esc(a.codigo)}</td><td data-l="Descripción">${esc(a.descripcion)}</td>
+          <td data-l="Precio" class="num nowrap">${a.precio == null ? '<span class="tag warn">Consultar</span>' : esc(a.precioTexto)}</td><td data-l="Unidad" class="small">${esc(a.unidad)}</td><td data-l="Observaciones" class="small muted">${esc(a.observaciones)}</td></tr>`).join('')}</tbody>
+      </table></div>
+      ${actuales ? `<fieldset class="permisos"><legend>Ya hay una tarifa oficial con ${actuales} artículos</legend>
+        <label class="check"><input type="radio" name="tModo" value="sustituir" checked> Sustituirla por esta (se quitan los artículos que no estén en este archivo)</label>
+        <label class="check"><input type="radio" name="tModo" value="anadir"> Añadir y actualizar por código (${nuevosCod} nuevos, ${tarifa.length - nuevosCod} actualizados; el resto se queda)</label>
+      </fieldset>` : ''}
+      <p id="tImpMsg" class="warn hidden"></p>
+      <div class="btns actions"><button class="btn" data-guardar>Guardar tarifa oficial</button><button class="btn ghost" data-cerrar>Cancelar</button></div>`;
+    dlg.className = 'visor';
+    if (!dlg.open) dlg.showModal();
+    const fin = () => { dlg.close(); dlg.className = ''; resolve(); };
+    dlg.onclick = async (e) => {
+      if (e.target.closest('[data-cerrar]')) fin();
+      if (e.target.closest('[data-guardar]')) {
+        const sustituir = !actuales || $('input[name=tModo]:checked', dlg)?.value !== 'anadir';
+        try {
+          const r = await guardarCatalogo(tarifa, { sustituir, origen: archivo.nombre });
+          fin();
+          toast(`Tarifa oficial guardada: ${r.guardados} artículos${r.quitados ? ` (${r.quitados} quitados)` : ''}`);
+          go('tarifa');
+        } catch (err) { $('#tImpMsg').textContent = err.message; $('#tImpMsg').classList.remove('hidden'); }
+      }
+    };
+  });
 }
 
 // ---------- Volver a leer documentos mal importados ----------
@@ -204,7 +258,10 @@ export function initImportar() {
       try { nuevos.push(...await leerArchivo(f, (t) => { msg.textContent = `Leyendo ${t}…`; })); } catch (err) { toast(`${f.name}: ${err.message}`); }
     }
     msg.textContent = nuevos.length ? '' : 'No se pudo leer ningún archivo.';
-    if (nuevos.length) encolar(nuevos);
+    const tarifas = nuevos.filter((x) => x.tarifa);
+    const docs = nuevos.filter((x) => !x.tarifa);
+    if (docs.length) encolar(docs);
+    for (const t of tarifas) await revisarTarifa(t);
   };
   $('#iFiles').addEventListener('change', (e) => { procesar([...e.target.files]); e.target.value = ''; });
   const drop = $('#iDrop');

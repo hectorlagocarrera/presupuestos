@@ -1,6 +1,7 @@
 // Navegación entre pantallas por #hash, con el menú desplegable del móvil.
 const handlers = {};
-export const onShow = (tab, fn) => { handlers[tab] = fn; };
+// Varias partes pueden reaccionar a la misma pantalla (p. ej. Tarifa: histórico y tarifa oficial).
+export const onShow = (tab, fn) => { (handlers[tab] ||= []).push(fn); };
 export function go(tab) {
   // Al momento (sin esperar al evento hashchange), para que lo que venga después ya vea la pantalla.
   if (location.hash !== '#' + tab) history.pushState(null, '', '#' + tab);
@@ -40,7 +41,7 @@ export function show(tab) {
   if (sm) sm.textContent = nombre;
   cerrarMenu();
   window.scrollTo(0, 0);
-  handlers[tab]?.();
+  (handlers[tab] || []).forEach((fn) => fn());
 }
 
 // Copia las pestañas en el menú del móvil y lo hace funcionar.

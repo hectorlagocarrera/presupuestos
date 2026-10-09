@@ -39,6 +39,11 @@ los datos en el navegador.
    unidad). Fija tus precios, aplica un % general, quita lo que no quieras y descárgala en Excel o imprímela.
    El botón **Añadir** pasa un artículo de la tarifa al presupuesto; si va por m², el precio se calcula al poner
    las medidas.
+   **Tarifa oficial**: tu propia tarifa (PDF o Excel con las columnas Código · Descripción · Precio · Unidad ·
+   Observaciones, agrupadas por secciones) se sube en **Importar** y se guarda aparte del histórico. Se ve en
+   Tarifa → «Tarifa oficial», por secciones, con lo que se ha cobrado en el histórico al lado (en naranja si
+   difiere más de un 25 %). Al hacer un albarán, los artículos de la tarifa que coinciden con lo que escribes salen
+   arriba de las referencias con un botón «Usar». Volver a subirla la sustituye o la actualiza por código.
 4. **Facturas**: al importar se detecta si cada documento es factura, presupuesto o albarán (se puede corregir en
    la revisión). La pestaña Facturas muestra lo facturado por año y los artículos que se han cobrado de verdad. En
    el buscador y la tarifa los precios facturados llevan la etiqueta «facturado», y se puede filtrar por solo
@@ -71,6 +76,7 @@ js/store.js      datos en memoria, guardado (en bloque para importaciones) y cop
 js/backend.js    dónde se guarda: API del servidor o IndexedDB del navegador
 js/columnas.js   lector a medida de los PDF del programa de gestión
 js/tarifa.js     tarifa de precios: agrupación de artículos y precio sugerido
+js/catalogo.js   lector de la tarifa oficial (PDF o Excel por secciones)
 server/          servidor Node.js (sin dependencias): API, usuarios, verificación en dos pasos (mfa.js), SQLite
 deploy/          instalación en el VPS (instalar.sh) y guía
 js/ui/*.js       pantallas
