@@ -137,7 +137,7 @@ aplicación, como se explica arriba; los comandos sirven, por ejemplo, si nadie 
 | Quitar la verificación en dos pasos (móvil perdido y sin códigos) | `sudo presupuestos-usuario mfa-quitar maria` |
 | Exigir verificación en dos pasos a todos | `sudo presupuestos-usuario mfa-obligatoria si` (o `no`) |
 | Hacer una copia de seguridad ahora | `sudo presupuestos-copia` |
-| Traer la última versión de la aplicación | `sudo presupuestos-actualizar` |
+| Traer la última versión de la aplicación | `sudo presupuestos-actualizar` (al terminar dice el número de versión instalada; en la aplicación se ve en Ajustes → Novedades, y quien la tenga abierta recibe un aviso para actualizar) |
 | Ver intentos de entrada fallidos | `sudo journalctl -u presupuestos \| grep SEGURIDAD` |
 | Ver si el servicio funciona | `sudo systemctl status presupuestos` |
 | Ver errores | `sudo journalctl -u presupuestos -n 50` |

@@ -135,6 +135,7 @@ set -e
 git -C $APP pull -q --ff-only
 chmod -R a+rX $APP
 systemctl restart presupuestos
+echo "Versión instalada: \$(grep -o "version: '[0-9.]*'" $APP/js/version.js | head -1 | grep -o '[0-9.]*[0-9]')"
 CMD
 chmod 755 /usr/local/bin/presupuestos-usuario /usr/local/bin/presupuestos-copia /usr/local/bin/presupuestos-actualizar
 cat > /etc/cron.d/presupuestos <<CRON

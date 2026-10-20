@@ -453,7 +453,7 @@ body:not(.modo-servidor) .solo-servidor, body.modo-servidor .solo-navegador { di
 .pane, .line { scroll-margin-top: calc(var(--alto-cabecera, 56px) + 10px); }
 
 /* ---- Aviso si la aplicación no arranca ---- */
-.aviso-arranque { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 300; background: var(--warn-bg); color: var(--warn);
+.aviso-arranque, .aviso-version { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 300; background: var(--warn-bg); color: var(--warn);
   border: 1px solid var(--warn); border-radius: 10px; padding: 12px 14px; box-shadow: 0 6px 24px rgba(0,0,0,.25); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .aviso-arranque small { opacity: 0.8; }
 
@@ -670,3 +670,7 @@ label > .ayuda, .etq > .ayuda, th > .ayuda, h2 > .ayuda { margin-left: 6px; }
 .resumen-fact div { background: var(--accent-soft); border-radius: 10px; padding: 8px 12px; display: flex; flex-direction: column; min-width: 120px; }
 .resumen-fact span { font-size: 0.75rem; color: var(--muted); }
 .resumen-fact strong { font-size: 1.1rem; }
+.aviso-version { background: var(--accent-soft); color: var(--text); border-color: var(--accent); }
+.menu-version { margin: 8px 0 0; }
+#novedades h3 { margin: 14px 0 4px; font-size: 1rem; }
+#novedades ul { margin: 0; padding-left: 1.2rem; }

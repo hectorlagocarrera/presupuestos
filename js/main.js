@@ -1,5 +1,5 @@
 // Arranque de la aplicación.
-import { $, $$, debounce, numOrNull, today } from './util.js';
+import { $, $$, esc, debounce, numOrNull, today } from './util.js';
 import { DEFAULT_SINONIMOS } from './search.js';
 import { open, data, saveAjustes, onChange, modo, recargar } from './store.js';
 import { servidor, navegador, detectarServidor, entrar, entrarMfa, NoAutorizado } from './backend.js';
@@ -15,6 +15,7 @@ import { initTarifa } from './ui/tarifa.js';
 import { initCatalogo } from './ui/catalogo.js';
 import { show, current, initMenu, limitarPantallas } from './ui/nav.js';
 import { initAyuda } from './ui/ayuda.js';
+import { VERSION, NOVEDADES } from './version.js';
 
 // Permisos del usuario: se ocultan los botones y pantallas que no puede usar (el servidor, además, lo impide).
 const TODOS_PERMISOS = ['editar', 'borrar', 'importar', 'facturas', 'tarifa', 'ajustes', 'copias', 'firmas'];
@@ -156,8 +157,34 @@ function parte(nombre, fn) {
   }
 }
 
+// Número de versión y novedades (Ajustes → Novedades y menú del móvil).
+function pintarVersion() {
+  document.querySelectorAll('.version-app').forEach((e) => { e.textContent = VERSION; });
+  document.querySelector('.brand')?.setAttribute('title', `Albaranes · versión ${VERSION}`);
+  const fecha = (f) => f.split('-').reverse().join('/');
+  $('#novedades').innerHTML = NOVEDADES.map((n) => `<h3>${esc(n.version)} <span class="muted small">· ${fecha(n.fecha)}</span></h3>
+    <ul>${n.cambios.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>`).join('');
+}
+
+// Si el servidor ya tiene otra versión (se ha actualizado mientras la página estaba abierta, o el navegador
+// guarda la anterior en su caché), se avisa para recargar.
+let avisoVersion = false;
+function comprobarVersion(enServidor) {
+  if (!enServidor || enServidor === VERSION || avisoVersion) return;
+  avisoVersion = true;
+  const caja = document.createElement('div');
+  caja.className = 'aviso-version no-print';
+  caja.setAttribute('role', 'status');
+  caja.innerHTML = `<strong>Hay una versión nueva de la aplicación (${esc(enServidor)}).</strong> Tienes la ${esc(VERSION)}. Guarda lo que estés haciendo y pulsa
+    <button type="button" class="btn">Actualizar</button> <button type="button" class="btn ghost" data-luego>Más tarde</button>`;
+  caja.querySelector('.btn:not([data-luego])').addEventListener('click', (e) => { e.target.disabled = true; e.target.textContent = 'Actualizando…'; (window.__recargarDelTodo || (() => location.reload()))(); });
+  caja.querySelector('[data-luego]').addEventListener('click', () => caja.remove());
+  document.body.appendChild(caja);
+}
+
 async function start() {
   window.__arrancando = true; // los módulos se han cargado bien (el vigilante de arranque.js ya no espera)
+  pintarVersion();
   initLogin();
   initMenu();
   initAyuda();
@@ -168,6 +195,7 @@ async function start() {
   let yo = null;
   if (srv === 'si') {
     yo = await servidor.usuario();
+    comprobarVersion(yo.version);
     // Verificación en dos pasos obligatoria y aún sin configurar: primero hay que configurarla.
     if (yo.mfaObligatorio && !yo.mfa) { configurarMfa({ obligatoria: true, alTerminar: () => location.reload() }); return; }
     // Contraseña provisional puesta por un administrador: primero hay que cambiarla.
@@ -199,7 +227,11 @@ async function start() {
     // Al volver a la pestaña, traer lo que hayan guardado otros ordenadores.
     let ultima = Date.now();
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && Date.now() - ultima > 60000) { ultima = Date.now(); recargar().catch(() => {}); }
+      if (document.visibilityState === 'visible' && Date.now() - ultima > 60000) {
+        ultima = Date.now();
+        recargar().catch(() => {});
+        servidor.usuario().then((u) => comprobarVersion(u.version)).catch(() => {});
+      }
     });
     document.body.classList.add('modo-servidor');
   } else {

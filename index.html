@@ -55,6 +55,7 @@
           <button class="enlace-usuario" id="menuUsuario" title="Mi cuenta y usuarios"></button>
           <button class="btn ghost" id="menuSalir">Salir</button>
         </div>
+        <p class="muted small menu-version">Versión <span class="version-app"></span></p>
       </div>
     </div>
     <div id="aviso" class="banner hidden no-print"></div>
@@ -379,6 +380,7 @@
         <button class="chip solo-servidor solo-admin" data-ir="usuarios">👥 Usuarios</button>
         <button class="chip solo-servidor solo-admin" data-ir="ajCorreo">✉ Correo y firmas</button>
         <button class="chip" data-ir="ajSinonimos">Sinónimos</button>
+        <button class="chip" data-ir="ajNovedades">Novedades</button>
       </nav>
       <section class="pane" id="ajEmpresa">
         <h2>Datos de la empresa</h2>
@@ -470,6 +472,10 @@
         <p class="muted small">Una línea por concepto: <code>Nombre [Categoría] = sinónimo, sinónimo, …</code>. Todas las palabras de una línea se consideran lo mismo al buscar.</p>
         <textarea id="ajSin" rows="16" spellcheck="false" class="mono"></textarea>
         <div class="btns"><button class="btn" id="ajSinGuardar">Guardar sinónimos</button><span id="ajMsg" class="muted"></span></div>
+      </section>
+      <section class="pane" id="ajNovedades">
+        <h2>Novedades · versión <span class="version-app"></span></h2>
+        <div id="novedades"></div>
       </section>
     </main>
 

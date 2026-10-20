@@ -10,6 +10,7 @@ import * as DB from './db.js';
 import * as MFA from './mfa.js';
 import * as Correo from './correo.js';
 import * as Firmas from './firmas.js';
+import { VERSION } from '../js/version.js';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const RUTA_DB = process.env.PRESUPUESTOS_DB || join(RAIZ, 'datos', 'datos.db');
@@ -251,7 +252,7 @@ async function api(req, res, ruta) {
   }
 
   if (ruta === 'yo' && req.method === 'GET') {
-    return json(res, 200, { usuario, nombre: yo.nombre || '', rol: yo.rol, permisos, mfa: mfaActivo, mfaObligatorio: obligatorio, cambiarClave: yo.cambiar_clave });
+    return json(res, 200, { version: VERSION, usuario, nombre: yo.nombre || '', rol: yo.rol, permisos, mfa: mfaActivo, mfaObligatorio: obligatorio, cambiarClave: yo.cambiar_clave });
   }
 
   // Cambiar la propia contraseña (pide la actual). Cierra las demás sesiones y abre una nueva.
@@ -586,7 +587,7 @@ const servidor = http.createServer(async (req, res) => {
 });
 
 servidor.listen(PORT, HOST, () => {
-  console.log(`Albaranes en http://${HOST}:${PORT} · base de datos ${RUTA_DB}`);
+  console.log(`Albaranes ${VERSION} en http://${HOST}:${PORT} · base de datos ${RUTA_DB}`);
   if (!DB.listaUsuarios(db).length) console.log('Aún no hay usuarios. Crea uno con:  node server/usuarios.js nuevo <usuario>');
 });
 

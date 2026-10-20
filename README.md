@@ -78,6 +78,7 @@ js/store.js      datos en memoria, guardado (en bloque para importaciones) y cop
 js/backend.js    dónde se guarda: API del servidor o IndexedDB del navegador
 js/columnas.js   lector a medida de los PDF del programa de gestión
 js/tarifa.js     tarifa de precios: agrupación de artículos y precio sugerido
+js/version.js    número de versión y novedades (el mismo número va en package.json)
 js/catalogo.js   lector de la tarifa oficial (PDF o Excel por secciones)
 server/          servidor Node.js (sin dependencias): API, usuarios, verificación en dos pasos (mfa.js), SQLite
 deploy/          instalación en el VPS (instalar.sh) y guía
