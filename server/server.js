@@ -94,13 +94,8 @@ function verificarCodigo(usuario, cod) {
   return { recuperacion: true, restantes: resto.length };
 }
 
-// Nombre que sale en la app del móvil: «Albaranes (empresa)».
-function emisor() {
-  try {
-    const nombre = JSON.parse(db.prepare("SELECT valor FROM ajustes WHERE id = 'ajustes'").get()?.valor || '{}').nombre;
-    return nombre ? `Albaranes ${nombre}`.slice(0, 60) : 'Albaranes';
-  } catch { return 'Albaranes'; }
-}
+// Nombre que sale en la app del móvil (Google Authenticator…). Las cuentas ya configuradas siguen funcionando.
+const emisor = () => 'Omega Gestión';
 
 // ---------- Correo ----------
 
@@ -417,7 +412,7 @@ async function api(req, res, ruta) {
     if (ruta === 'correo/prueba' && req.method === 'POST') {
       if (!Correo.emailValido(datos.para)) return json(res, 400, { error: 'Escribe un email válido.' });
       try {
-        await mandarCorreo({ para: datos.para, asunto: 'Prueba de correo · Albaranes', texto: 'Si recibes este mensaje, el correo de la aplicación funciona.', html: '<p>Si recibes este mensaje, el correo de la aplicación <strong>funciona</strong>.</p>' });
+        await mandarCorreo({ para: datos.para, asunto: 'Prueba de correo · Omega Gestión', texto: 'Si recibes este mensaje, el correo de la aplicación funciona.', html: '<p>Si recibes este mensaje, el correo de la aplicación <strong>funciona</strong>.</p>' });
         return json(res, 200, { ok: true });
       } catch (err) { return json(res, 400, { error: err.message }); }
     }
@@ -587,7 +582,7 @@ const servidor = http.createServer(async (req, res) => {
 });
 
 servidor.listen(PORT, HOST, () => {
-  console.log(`Albaranes ${VERSION} en http://${HOST}:${PORT} · base de datos ${RUTA_DB}`);
+  console.log(`Omega Gestión ${VERSION} en http://${HOST}:${PORT} · base de datos ${RUTA_DB}`);
   if (!DB.listaUsuarios(db).length) console.log('Aún no hay usuarios. Crea uno con:  node server/usuarios.js nuevo <usuario>');
 });
 

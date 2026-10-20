@@ -160,7 +160,7 @@ function parte(nombre, fn) {
 // Número de versión y novedades (Ajustes → Novedades y menú del móvil).
 function pintarVersion() {
   document.querySelectorAll('.version-app').forEach((e) => { e.textContent = VERSION; });
-  document.querySelector('.brand')?.setAttribute('title', `Albaranes · versión ${VERSION}`);
+  document.querySelector('.brand')?.setAttribute('title', `Omega Gestión · versión ${VERSION}`);
   const fecha = (f) => f.split('-').reverse().join('/');
   $('#novedades').innerHTML = NOVEDADES.map((n) => `<h3>${esc(n.version)} <span class="muted small">· ${fecha(n.fecha)}</span></h3>
     <ul>${n.cambios.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>`).join('');

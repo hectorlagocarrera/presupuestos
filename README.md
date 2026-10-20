@@ -1,6 +1,6 @@
-# Presupuestos
+# Omega Gestión
 
-Aplicación para hacer presupuestos nuevos usando como referencia los presupuestos históricos de la empresa.
+Aplicación para hacer albaranes, presupuestos y facturas usando como referencia los presupuestos históricos de la empresa.
 Busca por **artículo, trabajo, material, medidas o descripción** (el cliente es secundario), reconoce sinónimos
 (Alupanel = Dibond = panel composite…), compara precios entre años y reutiliza partidas con un clic.
 

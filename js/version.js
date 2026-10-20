@@ -3,6 +3,11 @@
 // y el mismo número en package.json (lo comprueban los tests).
 export const NOVEDADES = [
   {
+    version: '1.0.1', fecha: '2026-10-20', cambios: [
+      'La aplicación pasa a llamarse «Omega Gestión».',
+    ],
+  },
+  {
     version: '1.0.0', fecha: '2026-10-20', cambios: [
       'Primera versión numerada. Se ve en Ajustes → Novedades, y la aplicación avisa cuando hay una versión nueva en el servidor.',
       'Albaranes, presupuestos y facturas con su numeración; importación de los PDF del programa de gestión sin duplicados.',
