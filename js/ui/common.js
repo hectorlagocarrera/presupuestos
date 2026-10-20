@@ -114,6 +114,7 @@ export function statsHtml(s, n) {
 // Filtros de categoría, año y precio. Devuelve una función que lee los valores.
 export function mountFiltros(el, onChange) {
   el.innerHTML = `
+    <input data-f="cliente" list="dlClientes" autocomplete="off" placeholder="Cliente" title="Solo lo que se le ha hecho a este cliente">
     <select data-f="categoria"></select>
     <select data-f="anio"></select>
     <input data-f="min" inputmode="decimal" placeholder="Precio desde">
@@ -141,6 +142,7 @@ export function mountFiltros(el, onChange) {
   el.addEventListener('input', onChange);
   el.addEventListener('change', onChange);
   const read = () => ({
+    cliente: el.querySelector('[data-f=cliente]').value.trim(),
     categoria: el.querySelector('[data-f=categoria]').value,
     anio: el.querySelector('[data-f=anio]').value,
     min: numOrNull(el.querySelector('[data-f=min]').value),

@@ -244,10 +244,12 @@ export function search(query, docs, filtros = {}) {
   const hasWords = q.tokens.length > 0;
   const hasDims = !!q.dims;
   const newest = Math.max(0, ...docs.map((d) => d.year || 0));
+  const cliente = filtros.cliente ? normalize(filtros.cliente) : '';
   const out = [];
   for (const d of docs) {
     const p = d.p;
     if (years.length && !years.includes(d.year)) continue;
+    if (cliente && !normalize(p.cliente || '').includes(cliente)) continue;
     if (filtros.categoria && p.categoria !== filtros.categoria) continue;
     // «facturado»: solo facturas · «presupuestado»: presupuestos y albaranes.
     if (filtros.tipo === 'facturado' && p.tipo !== 'factura') continue;

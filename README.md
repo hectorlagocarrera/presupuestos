@@ -33,7 +33,9 @@ los datos en el navegador.
    ancho y alto). A la derecha
    salen los trabajos parecidos con último precio, medio, mínimo, máximo, €/m² habitual y evolución por año.
    Pulsa **Usar como referencia** o arrastra el resultado a la izquierda, ajusta y guarda. Lo guardado pasa al
-   histórico. Al imprimir sale solo el documento, sin la fecha, el título ni la dirección web del navegador
+   histórico. Con el cliente puesto aparece **«Ver lo que se le ha hecho a …»**: filtra las referencias por ese
+   cliente (todo, de lo más reciente a lo más antiguo, o solo lo que coincide con lo que escribes). El filtro
+   «Cliente» también está en el buscador histórico. Al imprimir sale solo el documento, sin la fecha, el título ni la dirección web del navegador
    (en Chrome y Edge; en Firefox desmarca «Encabezados y pies» en el diálogo de impresión).
 3. **Tarifa**: tarifa de precios sacada de todos los presupuestos (precio sugerido por artículo, en €/m² o por
    unidad). Fija tus precios, aplica un % general, quita lo que no quieras y descárgala en Excel o imprímela.

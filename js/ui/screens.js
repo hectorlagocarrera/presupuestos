@@ -17,7 +17,7 @@ export function initBuscador() {
   const run = () => {
     const q = $('#bQ').value.trim();
     const f = readF();
-    const filtrado = q || f.categoria || f.anio || f.min != null || f.max != null;
+    const filtrado = q || f.cliente || f.categoria || f.anio || f.min != null || f.max != null;
     if (!filtrado) {
       $('#bStats').innerHTML = '';
       $('#bInfo').textContent = data.partidas.length
@@ -27,7 +27,8 @@ export function initBuscador() {
       return;
     }
     const res = search(q, searchDocs(), f);
-    const stats = priceStats(q ? similares(res) : res, parseQuery(q).dims);
+    // Solo con el cliente, los precios mezclan trabajos distintos: sin comparación.
+    const stats = !q && f.cliente && !f.categoria ? null : priceStats(q ? similares(res) : res, parseQuery(q).dims);
     $('#bStats').innerHTML = statsHtml(stats, res.length);
     $('#bInfo').textContent = res.length ? `${res.length} resultados${res.length > 100 ? ' (se muestran los 100 primeros)' : ''}` : 'Sin resultados. Prueba con menos palabras o con otro sinónimo.';
     $('#bTabla').classList.toggle('sin-parecido', !q);

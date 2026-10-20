@@ -244,18 +244,38 @@ function runRefs() {
   const q = $('#refQ').value.trim();
   const docs = searchDocs().filter((d) => !draft.id || d.p.presupuestoId !== draft.id);
   pintarCatalogo(q);
-  if (!q) {
+  pintarDelCliente();
+  const f = readFiltros();
+  if (!q && !f.cliente) {
     $('#refStats').innerHTML = '';
     $('#refList').innerHTML = data.partidas.length ? '' : '<p class="muted">Todavía no hay histórico. Impórtalo en la pestaña «Importar».</p>';
     $('#refAyuda').classList.remove('hidden');
     return;
   }
   $('#refAyuda').classList.add('hidden');
-  const f = readFiltros();
   const res = search(q, docs, f);
-  const stats = priceStats(similares(res), parseQuery(q).dims);
+  // Solo con el cliente (sin buscar nada) se ve todo lo que se le ha hecho, sin comparar precios.
+  const stats = q ? priceStats(similares(res), parseQuery(q).dims) : null;
   $('#refStats').innerHTML = statsHtml(stats, res.length);
-  $('#refList').innerHTML = ordenarResultados(res, f.orden).slice(0, 40).map((r) => resultCard(r)).join('') || '<p class="muted">Sin trabajos parecidos.</p>';
+  $('#refList').innerHTML = ordenarResultados(res, f.orden).slice(0, q ? 40 : 100).map((r) => resultCard(r, { score: !!q })).join('') || `<p class="muted">${q ? 'Sin trabajos parecidos' : 'No hay trabajos'}${f.cliente ? ` para «${esc(f.cliente)}»` : ''}.</p>`;
+}
+
+// Botón «Lo hecho para <cliente>»: filtra las referencias por el cliente del albarán.
+const delCliente = (nombre) => { const n = normalize(nombre); return n ? data.partidas.filter((p) => normalize(p.cliente || '') === n).length : 0; };
+function pintarDelCliente() {
+  const b = $('#refDelCliente');
+  const nombre = (draft.clienteNombre || '').trim();
+  const filtro = $('#refFiltros [data-f=cliente]').value.trim();
+  if (filtro) {
+    b.textContent = `✕ Quitar el filtro de cliente («${filtro}»)`;
+    b.dataset.accion = 'quitar';
+    b.classList.remove('hidden');
+    return;
+  }
+  const n = delCliente(nombre);
+  b.classList.toggle('hidden', !n);
+  b.textContent = `Ver lo que se le ha hecho a ${nombre} (${n})`;
+  b.dataset.accion = 'poner';
 }
 // Lo que dice la tarifa oficial para lo que se busca (los 3 artículos más parecidos), encima del histórico.
 function pintarCatalogo(q) {
@@ -366,7 +386,7 @@ export function initEditor() {
     $(`#edLineas .line[data-i="${active}"] [data-f=articulo]`).focus();
   });
 
-  $('#edCliente').addEventListener('input', (e) => { draft.clienteNombre = e.target.value; dirty = true; clienteInfo(); });
+  $('#edCliente').addEventListener('input', (e) => { draft.clienteNombre = e.target.value; dirty = true; clienteInfo(); pintarDelCliente(); });
   $('#edNumero').addEventListener('input', (e) => { draft.numero = e.target.value; draft.autoNumero = false; dirty = true; });
   $('#edFecha').addEventListener('input', (e) => { draft.fecha = e.target.value; dirty = true; numeroAuto(); });
   $('#edTipo').addEventListener('change', (e) => {
@@ -410,6 +430,11 @@ export function initEditor() {
 
   // Referencias: escribir, usar, ver y arrastrar.
   $('#refQ').addEventListener('input', runRefsSoon);
+  $('#refDelCliente').addEventListener('click', (e) => {
+    const campo = $('#refFiltros [data-f=cliente]');
+    campo.value = e.currentTarget.dataset.accion === 'quitar' ? '' : (draft.clienteNombre || '').trim();
+    runRefs();
+  });
   $('#refCatalogo').addEventListener('click', (e) => {
     const b = e.target.closest('[data-cat-usar]');
     const a = b && data.catalogo.find((x) => x.id === b.dataset.catUsar);
