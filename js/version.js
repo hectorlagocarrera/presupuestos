@@ -3,6 +3,12 @@
 // y el mismo número en package.json (lo comprueban los tests).
 export const NOVEDADES = [
   {
+    version: '1.0.2', fecha: '2026-10-20', cambios: [
+      'Partes de trabajo: más espacio entre el buscador y los botones de estado.',
+      'El aviso de versión nueva solo sale cuando la del servidor es más reciente.',
+    ],
+  },
+  {
     version: '1.0.1', fecha: '2026-10-20', cambios: [
       'La aplicación pasa a llamarse «Omega Gestión».',
     ],

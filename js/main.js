@@ -169,8 +169,9 @@ function pintarVersion() {
 // Si el servidor ya tiene otra versión (se ha actualizado mientras la página estaba abierta, o el navegador
 // guarda la anterior en su caché), se avisa para recargar.
 let avisoVersion = false;
+const masNueva = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); return false; };
 function comprobarVersion(enServidor) {
-  if (!enServidor || enServidor === VERSION || avisoVersion) return;
+  if (!enServidor || !masNueva(String(enServidor), VERSION) || avisoVersion) return;
   avisoVersion = true;
   const caja = document.createElement('div');
   caja.className = 'aviso-version no-print';

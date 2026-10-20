@@ -238,6 +238,8 @@ table.edit td.wide { min-width: 300px; }
 table.edit input.sub { margin-top: 3px; font-size: 0.8rem; color: var(--muted); }
 table.edit td[data-o] { white-space: nowrap; padding-top: 9px; }
 .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.search + .chips { margin-top: 12px; }
+#ptInfo { margin-top: 4px; }
 .chip { font: inherit; border: 1px solid var(--border); background: var(--card); color: var(--text); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
 .chip.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 .chip small { opacity: 0.7; }
